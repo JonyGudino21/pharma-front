@@ -36,17 +36,23 @@ export const useAuthStore = defineStore('auth', () => {
     // Guardamos tokens
     accCookie.value = res.data.accessToken
     refCookie.value = res.data.refreshToken
+
+    // Actualizar el estado reactivo del store inmediatamente
+    accessToken.value = res.data.accessToken
+    refreshToken.value = res.data.refreshToken
     
     // Obtenemos el perfil completo (incluye permisos)
-    await fetchProfile()
+    await fetchProfile(res.data.accessToken)
     
     return res
   }
 
-  async function fetchProfile() {
+  async function fetchProfile(freshToken?: string) {
     const { $api } = useNuxtApp()
     try {
-      const res = await $api<ApiResponse<MeData>>('/auth/me')
+      const res = await $api<ApiResponse<MeData>>('/auth/me', {
+        headers: freshToken ? { Authorization: `Bearer ${freshToken}` } : undefined
+      })
       user.value = res.data.user
       permissions.value = res.data.permissions
     } catch (error) {
