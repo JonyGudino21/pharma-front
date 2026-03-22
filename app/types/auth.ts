@@ -51,8 +51,17 @@ export interface User {
   id: number;
   email: string;
   userName: string;
-  role: string;
+  firstName: string; // Nuevo
+  lastName: string;  // Nuevo
+  role: UserRole;
   isActive: boolean;
+}
+
+export enum UserRole {
+  CASHIER = 'CASHIER',
+  PHARMACIST = 'PHARMACIST',
+  MANAGER = 'MANAGER',
+  ADMIN = 'ADMIN'
 }
 
 // Así nos responde el backend de NestJS
@@ -60,6 +69,17 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
+}
+
+export interface PaginatedData<T> {
+  users?: T[]; // El backend puede devolver 'users' o 'data' según el caso
+  data?: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }
 }
 
 export interface LoginData {
