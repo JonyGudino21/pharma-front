@@ -1,6 +1,8 @@
 import { defineNuxtPlugin, useRuntimeConfig, useCookie, navigateTo } from '#app'
 import { useToast } from '~/composables/useToast'
 
+let isRedirectingToLogin = false
+
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const toast = useToast()
@@ -10,17 +12,12 @@ export default defineNuxtPlugin((nuxtApp) => {
     
     // 1. ANTES de enviar la petición (Inyectar Token)
     onRequest({ options }) {
-      // Usamos cookies para que funcione en SSR (Server-Side Rendering)
       const accessToken = useCookie('access_token').value
-      
       if (accessToken) {
-        // Usar la clase nativa Headers
         const headers = new Headers(options.headers)
-        headers.set('Authorization', `Bearer ${accessToken}`)
         if (!headers.has('Authorization')) {
           headers.set('Authorization', `Bearer ${accessToken}`)
         }
-        
         options.headers = headers
       }
     },
@@ -42,8 +39,16 @@ export default defineNuxtPlugin((nuxtApp) => {
           toast.error(backendMessage)
         } else {
           // Si el 401 ocurre en cualquier otra pantalla, la sesión caducó
-          toast.warning('Tu sesión ha expirado por seguridad. Vuelve a iniciar sesión.')
-          navigateTo('/login')
+          if (!isRedirectingToLogin) {
+            isRedirectingToLogin = true
+            toast.warning('Tu sesión ha expirado por seguridad. Vuelve a iniciar sesión.')
+            
+            // Usamos un pequeño delay para que el usuario lea el mensaje
+            setTimeout(() => {
+              // Redirección dura: Limpia toda la memoria de JS y fuerza recarga
+              window.location.href = '/login'
+            }, 3000)
+          }
         }
         return
       }
