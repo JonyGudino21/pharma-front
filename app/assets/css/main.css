@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colores Corporativos */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+
+  --color-warning-500: #f59e0b;
+  
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+
+  /* Fuente tipográfica (Opcional, usar la del sistema si no se carga Google Fonts) */
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+/* Configuración Enterprise para Modo Oscuro en Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer components {
+  /* Inputs de formulario estándar */
+  .input-base {
+    @apply block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
+           bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 
+           placeholder-gray-400 focus:outline-none focus:ring-2 
+           focus:ring-primary-500 focus:border-transparent transition-colors duration-200;
+  }
+
+  /* Labels estándar */
+  .label-base {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+  }
+
+  /* Botones corporativos */
+  .btn-primary {
+    @apply flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 
+           text-white rounded-lg font-medium transition-colors duration-200 
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply flex items-center justify-center px-4 py-2 bg-gray-200 dark:bg-gray-700 
+           hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 
+           rounded-lg font-medium transition-colors duration-200 focus:outline-none;
+  }
+}
+
+/* Scrollbar elegante para toda la app */
+@layer utilities {
+  /* Fondo general de la app */
+  body {
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 antialiased;
+  }
+  
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-gray-300);
+    border-radius: 9999px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: var(--color-gray-600);
+  }
+}
