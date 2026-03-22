@@ -84,17 +84,19 @@
 
       <h2 class="text-lg font-bold text-gray-900 dark:text-white mt-8 mb-4">Liquidez Actual</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-gradient-to-br from-warning-400 to-warning-600 rounded-2xl p-6 text-white shadow-lg">
+        <div class="bg-linear-to-br from-warning-0 to-warning-600 rounded-2xl p-6 text-white shadow-lg">
           <p class="text-sm font-medium opacity-90 mb-1">Cuentas por Cobrar</p>
           <p class="text-3xl font-black mb-4">{{ formatCurrency(analyticsStore.data.liquidity.accountsReceivable) }}</p>
-          <div class="flex items-center text-sm opacity-80"><Icon name="ph:users-bold" class="mr-2"/> Deuda de Clientes</div>
+          <div class="flex items-center text-sm opacity-80">
+            <Icon name="ph:warning-bold" class="mr-2" /> Deuda de Clientes
+          </div>
         </div>
-        <div class="bg-gradient-to-br from-error-400 to-error-600 rounded-2xl p-6 text-white shadow-lg">
+        <div class="bg-linear-to-br from-error-0 to-error-600 rounded-2xl p-6 text-white shadow-lg">
           <p class="text-sm font-medium opacity-90 mb-1">Cuentas por Pagar</p>
           <p class="text-3xl font-black mb-4">{{ formatCurrency(analyticsStore.data.liquidity.accountsPayable) }}</p>
           <div class="flex items-center text-sm opacity-80"><Icon name="ph:truck-bold" class="mr-2"/> Deuda a Proveedores</div>
         </div>
-        <div class="bg-gradient-to-br from-success-400 to-success-600 rounded-2xl p-6 text-white shadow-lg">
+        <div class="bg-linear-to-br from-success-0 to-success-600 rounded-2xl p-6 text-white shadow-lg">
           <p class="text-sm font-medium opacity-90 mb-1">Valor Inventario</p>
           <p class="text-3xl font-black mb-4">{{ formatCurrency(analyticsStore.data.liquidity.inventoryValue) }}</p>
           <div class="flex items-center text-sm opacity-80"><Icon name="ph:archive-box-bold" class="mr-2"/> Stock Disponible</div>
