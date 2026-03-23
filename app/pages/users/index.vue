@@ -20,7 +20,7 @@
           v-model="searchInput" 
           @input="handleSearch"
           type="text" 
-          placeholder="Buscar por nombre, usuario o email..." 
+          placeholder="Buscar por usuario o email..." 
           class="input-base pl-10"
         />
       </div>
@@ -175,7 +175,7 @@ const handleSearch = () => {
     store.filters.query = searchInput.value
     store.filters.page = 1 // Reset a página 1 al buscar
     store.fetchUsers()
-  }, 500) // Espera medio segundo tras dejar de tecribir
+  }, 1000) // Espera un segundo tras dejar de tecribir
 }
 
 const changePage = (newPage: number) => {

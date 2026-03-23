@@ -25,7 +25,7 @@ export const useUserManagementStore = defineStore('userManagement', () => {
       params.append('limit', pagination.value.limit.toString())
       
       if (filters.value.isActive !== '') {
-        params.append('isActive', filters.value.isActive)
+        params.append('active', filters.value.isActive)
       }
 
       let endpoint = '/users'
