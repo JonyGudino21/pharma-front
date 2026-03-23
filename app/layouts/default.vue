@@ -90,10 +90,12 @@
                 </div>
                 <button
                   @click="handleLogout"
-                  class="flex items-center w-full px-4 py-3 text-sm text-error-600 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors"
+                  :disabled="isLoggingOut"
+                  class="flex items-center w-full px-4 py-3 text-sm text-error-600 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors disabled:opacity-50"
                 >
-                  <Icon name="ph:sign-out-bold" class="w-4 h-4 mr-3" />
-                  Cerrar Sesión
+                  <Icon v-if="isLoggingOut" name="ph:spinner-gap-bold" class="w-4 h-4 mr-3 animate-spin" />
+                  <Icon v-else name="ph:sign-out-bold" class="w-4 h-4 mr-3" />
+                  {{ isLoggingOut ? 'Cerrando sesión...' : 'Cerrar Sesión' }}
                 </button>
               </div>
             </div>
@@ -128,6 +130,7 @@ const colorMode = useColorMode()
 const route = useRoute()
 
 const showUserMenu = ref(false)
+const isLoggingOut = ref(false)
 
 // Obtenemos el nombre de la ruta para el Header (ej. de '/pos' saca 'pos')
 const currentRouteName = computed(() => {
@@ -141,7 +144,16 @@ const toggleColorMode = () => {
 }
 
 const handleLogout = async () => {
+  if (isLoggingOut.value) return
+  isLoggingOut.value = true
+
+  // Usamos el Store para desloguear y luego el router para redirigir
   await authStore.logout()
+  setTimeout(() => {
+    isLoggingOut.value = false
+    // Importante: No usamos useRouter aquí, usamos navigateTo nativo
+    navigateTo('/login')
+  }, 300)
 }
 
 // Menú dinámico protegido. El v-if real con authStore.can() lo aplicaremos más adelante
