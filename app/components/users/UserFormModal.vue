@@ -134,7 +134,8 @@ async function handleSubmit() {
       await store.updateUser(props.userToEdit.id, form)
       toast.success('Usuario actualizado exitosamente.')
     } else {
-      await store.createUser(form)
+      const { isActive, ...userData } = form
+      await store.createUser(userData)
       toast.success('Usuario creado exitosamente.')
     }
     emit('close') // Solo cerramos si el backend responde 200/201

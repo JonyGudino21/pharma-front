@@ -124,6 +124,18 @@
       :user-to-edit="selectedUser" 
       @close="closeModal" 
     />
+
+    <ConfirmModal
+      v-if="userToDeactivate"
+      title="Desactivar Usuario"
+      :message="`¿Estás seguro que deseas desactivar a ${userToDeactivate.firstName}? Perderá inmediatamente el acceso al sistema.`"
+      confirmText="Sí, Desactivar"
+      cancelText="Cancelar"
+      type="danger"
+      :isLoading="isDeactivating"
+      @confirm="executeDeactivate"
+      @cancel="userToDeactivate = null"
+    />
   </div>
 </template>
 
@@ -133,6 +145,8 @@ import { useUserManagementStore } from '~/stores/userManagement'
 import { useAuthStore } from '~/stores/auth'
 import UserFormModal from '~/components/users/UserFormModal.vue'
 import type { User } from '~/types/auth'
+import ConfirmModal from '~/components/shared/ConfirmModal.vue'
+import { useToast } from '~/composables/useToast'
 
 definePageMeta({
   requiredPermission: 'canManageUsers'
@@ -140,11 +154,14 @@ definePageMeta({
 
 const store = useUserManagementStore()
 const authStore = useAuthStore()
+const toast = useToast()
 
 // Estado local UI
 const showModal = ref(false)
 const selectedUser = ref<User | null>(null)
 const searchInput = ref('')
+const userToDeactivate = ref<User | null>(null)
+const isDeactivating = ref(false)
 let searchTimeout: any = null
 
 onMounted(() => {
@@ -183,8 +200,21 @@ const closeModal = () => {
 }
 
 const confirmDeactivate = async (user: User) => {
-  if (confirm(`¿Estás seguro que deseas desactivar a ${user.firstName}? Ya no podrá iniciar sesión.`)) {
-    await store.deactivateUser(user.id)
+  userToDeactivate.value = user
+}
+
+const executeDeactivate = async () => {
+  if (!userToDeactivate.value || isDeactivating.value) return
+  isDeactivating.value = true
+
+  try {
+    await store.deactivateUser(userToDeactivate.value.id)
+    toast.success('Usuario desactivado correctamente.')
+    userToDeactivate.value = null // Cerramos el modal
+  } catch (error) {
+    console.error("Error al desactivar", error)
+  } finally {
+    isDeactivating.value = false
   }
 }
 
@@ -205,7 +235,7 @@ const getRoleBadgeClass = (role: string) => {
     case 'ADMIN': return `${base} bg-error-50 text-error-700 border-error-200 dark:bg-error-900/30 dark:text-error-400 dark:border-error-800/30`
     case 'MANAGER': return `${base} bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-900/30 dark:text-primary-400 dark:border-primary-800/30`
     case 'PHARMACIST': return `${base} bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/30`
-    case 'CASHIER': return `${base} bg-success-50 text-success-700 border-success-200 dark:bg-success-900/30 dark:text-success-400 dark:border-success-800/30`
+    case 'CASHIER': return `${base} bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/30`
     default: return `${base} bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700`
   }
 }
