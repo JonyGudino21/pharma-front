@@ -1,22 +1,42 @@
-import { defineNuxtRouteMiddleware, navigateTo } from '#app'
+import { defineNuxtRouteMiddleware, navigateTo, useCookie } from '#app'
 import { useAuthStore } from '~/stores/auth'
+import { useToast } from '~/composables/useToast'
 
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore()
+  const toast = useToast()
+  const accessToken = useCookie('access_token').value
 
-  // 1. Evitar loops infinitos: Si vamos al login, no hacemos nada más
+  // --- 1. RESTAURACIÓN DE SESIÓN (El FIX para el F5) ---
+  // Si hay cookie pero Pinia está vacío (porque dimos F5), detenemos todo y recuperamos el usuario
+  if (accessToken && !authStore.user) {
+    try {
+      await authStore.fetchProfile(accessToken)
+    } catch (error) {
+      // Si el token ya no sirve, limpiamos y dejamos que el flujo siga (lo mandará al login)
+      authStore.clearSession()
+    }
+  }
+
+  // --- 2. EVITAR LOOPS EN EL LOGIN ---
   if (to.path === '/login') {
-    // Si ya estamos logueados y queremos entrar al login, nos manda al inicio
     if (authStore.isAuthenticated) {
       return navigateTo('/')
     }
     return
   }
 
-  // 2. Regla de Oro: Si la ruta NO es /login y NO estamos logueados, para afuera.
+  // --- 3. REGLA DE ORO: SIN TOKEN, PARA AFUERA ---
   if (!authStore.isAuthenticated) {
     return navigateTo('/login')
   }
 
-  // (Aquí en el futuro validaremos los permisos canSell, canManageUsers, etc.)
+  // --- 4. MAGIA ENTERPRISE: Validación de Permisos (RBAC) ---
+  const requiredPerm = to.meta.requiredPermission as string | undefined
+  if (requiredPerm && !authStore.can(requiredPerm)) {
+    if (process.client) {
+      toast.error('Acceso denegado: No tienes los permisos necesarios.')
+    }
+    return navigateTo('/')
+  }
 })
