@@ -74,6 +74,7 @@ export interface ApiResponse<T> {
 export interface PaginatedData<T> {
   users?: T[]; // El backend puede devolver 'users' o 'data' según el caso
   categories?: T[];
+  products?: T[];
   data?: T[];
   pagination: {
     total: number;
