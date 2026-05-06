@@ -3,9 +3,23 @@ import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
 
-export interface ProductCategory {
+export interface Category {
   id: number
   name: string
+  description: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProductCategory {
+  id: number
+  productId: number
+  isPrimary: boolean
+  order: number | null
+  createdAt: string
+  updatedAt: string
+  category: Category
 }
 
 export interface Product {

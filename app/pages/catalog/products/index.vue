@@ -86,7 +86,7 @@
               <td class="px-6 py-4">
                 <div class="flex flex-wrap gap-1 max-w-[200px]">
                   <span v-for="cat in product.categories" :key="cat.id" class="text-[10px] font-medium px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded border border-blue-100 dark:border-blue-800">
-                    {{ cat.name }}
+                    {{ cat.category.name }}
                   </span>
                   <span v-if="product.categories.length === 0" class="text-xs text-gray-400 italic">Sin categoría</span>
                 </div>
