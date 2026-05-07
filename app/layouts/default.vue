@@ -24,21 +24,57 @@
       </div>
 
       <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
-        <NuxtLink
-          v-for="item in menuItems"
-          :key="item.path"
-          :to="item.path"
-          class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
-          active-class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-          :class="$route.path === item.path ? '' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
-        >
-          <Icon :name="item.icon" class="w-5 h-5 shrink-0" />
-          <span v-if="!uiStore.sidebarCollapsed" class="ml-3 truncate">{{ item.name }}</span>
+        <template v-for="item in menuItems" :key="item.name">
           
-          <div v-if="uiStore.sidebarCollapsed" class="absolute left-14 bg-gray-900 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-            {{ item.name }}
+          <NuxtLink
+            v-if="!item.children"
+            :to="item.path"
+            class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
+            active-class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
+            :class="$route.path === item.path ? '' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+          >
+            <Icon :name="item.icon" class="w-5 h-5 shrink-0" />
+            <span v-if="!uiStore.sidebarCollapsed" class="ml-3 truncate">{{ item.name }}</span>
+            <div v-if="uiStore.sidebarCollapsed" class="absolute left-14 bg-gray-900 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              {{ item.name }}
+            </div>
+          </NuxtLink>
+
+          <div v-else>
+            <button
+              @click="toggleSubMenu(item.name)"
+              class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              :class="{ 'bg-gray-100 dark:bg-gray-700': $route.path.startsWith('/catalog') }"
+            >
+              <div class="flex items-center">
+                <Icon :name="item.icon" class="w-5 h-5 shrink-0" />
+                <span v-if="!uiStore.sidebarCollapsed" class="ml-3 truncate">{{ item.name }}</span>
+              </div>
+              <Icon 
+                v-if="!uiStore.sidebarCollapsed" 
+                name="ph:caret-down-bold" 
+                class="w-4 h-4 transition-transform" 
+                :class="{ 'rotate-180': openMenus[item.name] }"
+              />
+            </button>
+
+            <div 
+              v-if="openMenus[item.name] && !uiStore.sidebarCollapsed" 
+              class="mt-1 ml-4 pl-4 border-l border-gray-200 dark:border-gray-700 space-y-1"
+            >
+              <NuxtLink
+                v-for="child in item.children"
+                :key="child.path"
+                :to="child.path"
+                class="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                active-class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
+                :class="$route.path === child.path ? '' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'"
+              >
+                {{ child.name }}
+              </NuxtLink>
+            </div>
           </div>
-        </NuxtLink>
+        </template>
       </nav>
     </aside>
 
@@ -157,14 +193,33 @@ const handleLogout = async () => {
 }
 
 // Menú dinámico protegido. El v-if real con authStore.can() lo aplicaremos más adelante
-const menuItems = [
-  { name: 'Dashboard', path: '/', icon: 'ph:chart-line-up-bold' },
-  { name: 'Punto de Venta', path: '/pos', icon: 'ph:shopping-cart-bold' },
-  { name: 'Caja', path: '/cash-shifts', icon: 'ph:cash-register-bold' },
-  { name: 'Catálogo', path: '/products', icon: 'ph:pill-bold' },
-  { name: 'Inventario', path: '/inventory', icon: 'ph:archive-box-bold' },
-  { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold' },
-  { name: 'Clientes', path: '/clients', icon: 'ph:users-bold' },
-  { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold' }
-]
+const menuItems = computed(() => {
+  return [
+    { name: 'Dashboard', path: '/', icon: 'ph:chart-line-up-bold', show: true }, // Siempre visible si estás logueado
+    { name: 'Punto de Venta', path: '/pos', icon: 'ph:shopping-cart-bold', show: authStore.can('canSell') },
+    { name: 'Caja', path: '/cash-shifts', icon: 'ph:cash-register-bold', show: authStore.can('canViewAllShifts') },
+    
+    // Menú agrupado para Catálogo
+    {
+      name: 'Catálogo',
+      icon: 'ph:books-bold',
+      show: true, // Cualquier autenticado puede ver el catálogo según tus reglas
+      children: [
+        { name: 'Productos', path: '/catalog/products' },
+        { name: 'Categorías', path: '/catalog/categories' }
+      ]
+    },
+    
+    { name: 'Inventario', path: '/inventory', icon: 'ph:archive-box-bold', show: authStore.can('canViewKardex') },
+    { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') || authStore.can('canViewPurchases') },
+    { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
+    { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') }
+  ].filter(item => item.show) // Filtramos lo que no tiene permiso
+})
+// Estado para controlar qué menús anidados están abiertos
+const openMenus = ref<Record<string, boolean>>({})
+const toggleSubMenu = (menuName: string) => {
+  openMenus.value[menuName] = !openMenus.value[menuName]
+}
+
 </script>
