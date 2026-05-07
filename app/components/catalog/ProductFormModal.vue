@@ -46,7 +46,7 @@
               </div>
             </div>
             <p class="text-xs text-primary-600 dark:text-primary-400 mt-3 flex items-center gap-1">
-              <Icon name="ph:magic-wand-bold" /> El backend generará un SKU único basado en estos datos al guardar.
+              <Icon name="ph:magic-wand-bold" /> El sistema generará un SKU único basado en estos datos al guardar.
             </p>
           </div>
 
@@ -193,7 +193,8 @@ onMounted(async () => {
     form.price = Number(p.price)
     form.cost = Number(p.cost)
     form.isActive = p.isActive
-    form.categories = p.categories.map(c => c.id)
+
+    form.categories = p.categories.map(c => c.category.id)
   }
 })
 
@@ -208,33 +209,39 @@ async function handleSubmit() {
     
     if (priceNum <= 0 || costNum <= 0) {
       toast.warning("El precio y el costo deben ser mayores a 0")
+      isSubmitting.value = false
       return
     }
 
     const payload = {
-      ...form,
+      name: form.name.trim(),
+      // Si están vacíos, enviamos string vacío para que el backend regenere el SKU correctamente si se borraron
+      strength: form.strength.trim() || '',
+      format: form.format.trim() || '',
+      presentation: form.presentation.trim() || '',
+      description: form.description.trim() || undefined,
+      barcode: form.barcode.trim() || undefined,
+      controlled: form.controlled,
+      minStock: form.minStock,
       price: priceNum,
       cost: costNum,
-      // Limpiamos strings vacíos para que no viajen como "" sino como undefined
-      barcode: form.barcode.trim() || undefined,
-      description: form.description.trim() || undefined,
-      strength: form.strength.trim() || undefined,
-      format: form.format.trim() || undefined,
-      presentation: form.presentation.trim() || undefined,
+      categories: form.categories,
+      isActive: form.isActive 
     }
 
     if (isEditing.value && props.productToEdit) {
       // En PATCH no mandamos stock (es regla del negocio)
-      const { stock, ...patchPayload } = payload
-      await store.updateProduct(props.productToEdit.id, patchPayload)
+      await store.updateProduct(props.productToEdit.id, payload)
       toast.success('Producto actualizado exitosamente.')
     } else {
-      await store.createProduct(payload as any)
+      // Regla de Negocio: En POST sí mandamos stock inicial si existe
+      const createPayload = { ...payload, stock: form.stock }
+      await store.createProduct(createPayload as any)
       toast.success('Producto registrado exitosamente. SKU generado.')
     }
     emit('close')
   } catch (error: any) {
-    console.error("Error al guardar producto")
+    console.error("Validación de backend fallida (SKU, Barcode o Categoría)")
   } finally {
     isSubmitting.value = false
   }

@@ -53,6 +53,7 @@ export interface CreateProductPayload {
   minStock: number
   price: number
   cost: number
+  isActive?: boolean
 }
 
 export const useProductStore = defineStore('product', () => {
