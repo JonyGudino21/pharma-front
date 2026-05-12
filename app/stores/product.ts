@@ -56,6 +56,13 @@ export interface CreateProductPayload {
   isActive?: boolean
 }
 
+export interface SearchProductPayload {
+  name?: string;
+  letters?: string[];
+  page?: number;
+  limit?: number;
+}
+
 export const useProductStore = defineStore('product', () => {
   const products = ref<Product[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
@@ -138,6 +145,26 @@ export const useProductStore = defineStore('product', () => {
     }
   }
 
+  // --- BÚSQUEDA INDEPENDIENTE (Para Inventario y POS) ---
+  async function searchProductsLocally(payload: SearchProductPayload): Promise<Product[]> {
+    const { $api } = useNuxtApp()
+    try {
+      const res = await $api<ApiResponse<PaginatedData<Product>>>('/products/search', {
+        method: 'POST',
+        body: {
+          name: payload.name,
+          letters: payload.letters,
+          page: payload.page || 1,
+          limit: payload.limit || 10
+        }
+      })
+      return res.data.products || res.data.data || []
+    } catch (error) {
+      console.error('Error buscando productos:', error)
+      return []
+    }
+  }
+
   return {
     products,
     pagination,
@@ -147,6 +174,7 @@ export const useProductStore = defineStore('product', () => {
     createProduct,
     updateProduct,
     deactivateProduct,
-    fetchByBarcode
+    fetchByBarcode,
+    searchProductsLocally
   }
 })
