@@ -30,7 +30,7 @@
               <label class="label-base">Teléfono <span class="text-xs text-gray-400">(Opcional)</span></label>
               <div class="relative">
                 <Icon name="ph:phone-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input v-model="form.phone" type="tel" class="input-base pl-10" placeholder="+52 55 1234 5678" />
+                <input v-model="form.phone" type="tel" class="input-base pl-10" placeholder="353 100 99 88" />
               </div>
             </div>
 
@@ -78,7 +78,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useSupplierStore } from '~/stores/supplier'
 import { useToast } from '~/composables/useToast'
-import type { Supplier } from '~/stores/supplier'
+import type { Supplier, CreateSupplierPayload } from '~/stores/supplier'
 
 const props = defineProps<{ supplierToEdit?: Supplier | null }>()
 const emit = defineEmits(['close'])
@@ -128,7 +128,8 @@ async function handleSubmit() {
       await store.updateSupplier(props.supplierToEdit.id, payload)
       toast.success('Proveedor actualizado exitosamente.')
     } else {
-      await store.createSupplier(payload as any)
+      const { isActive, ...payloadData } = payload
+      await store.createSupplier(payloadData as CreateSupplierPayload)
       toast.success('Proveedor registrado exitosamente.')
     }
     emit('close')

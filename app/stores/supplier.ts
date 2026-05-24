@@ -64,12 +64,13 @@ export const useSupplierStore = defineStore('supplier', () => {
     try {
       const params = new URLSearchParams()
       // El backend de NestJS espera el objeto anidado o los params mapeados
-      params.append('pagination[page]', page.toString())
-      params.append('pagination[limit]', pagination.value.limit.toString())
+      params.append('page', page.toString())
+      params.append('limit', pagination.value.limit.toString())
       
       if (filters.value.isActive !== 'all') {
-        params.append('isActive', filters.value.isActive)
+        params.append('active', filters.value.isActive)
       }
+      console.log(filters.value.isActive)
 
       const res = await $api<ApiResponse<PaginatedData<Supplier>>>(`/suppliers?${params.toString()}`)
       suppliers.value = res.data.suppliers || res.data.data || []
@@ -88,8 +89,8 @@ export const useSupplierStore = defineStore('supplier', () => {
     isLoading.value = true
     try {
       const params = new URLSearchParams()
-      params.append('pagination[page]', page.toString())
-      params.append('pagination[limit]', pagination.value.limit.toString())
+      params.append('page', page.toString())
+      params.append('limit', pagination.value.limit.toString())
       
       // Enviamos el query a los 3 campos, el backend aplica OR
       params.append('name', filters.value.query)

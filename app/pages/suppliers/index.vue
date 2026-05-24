@@ -51,8 +51,10 @@
             </tr>
             <tr v-else-if="store.suppliers.length === 0">
               <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                <Icon name="ph:buildings-duotone" class="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                No se encontraron proveedores.
+                <span class="flex flex-row gap-2 items-center justify-center w-full">
+                  <Icon name="ph:buildings-duotone" class="w-8 h-8 text-gray-400" />
+                  <span>No se encontraron proveedores.</span>
+                </span>
               </td>
             </tr>
             <tr v-else v-for="sup in store.suppliers" :key="sup.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
