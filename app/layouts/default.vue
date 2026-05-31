@@ -211,6 +211,7 @@ const menuItems = computed(() => {
     },
     
     { name: 'Inventario', path: '/inventory', icon: 'ph:archive-box-bold', show: authStore.can('canViewKardex') },
+    { name: 'Compras', path: '/purchases', icon: 'ph:shopping-cart-bold', show: authStore.can('canViewPurchases') },
     { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') || authStore.can('canViewPurchases') },
     { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
     { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') }
