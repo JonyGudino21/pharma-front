@@ -137,6 +137,21 @@ export const useCashShiftStore = defineStore('cashShift', () => {
     }
   }
 
+  // 6. Obtener detalle de un turno (AUDITORÍA)
+  async function fetchShiftById(id: number) {
+    const { $api } = useNuxtApp()
+    isLoading.value = true
+    try {
+      const res = await $api<ApiResponse<CashShift>>(`/cash-shift/${id}`)
+      return res.data
+    } catch (error) {
+      console.error('Error fetching shift details:', error)
+      return null
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     currentShift,
     shifts,
@@ -148,6 +163,7 @@ export const useCashShiftStore = defineStore('cashShift', () => {
     openShift,
     closeShift,
     registerOperation,
-    fetchShifts
+    fetchShifts,
+    fetchShiftById
   }
 })

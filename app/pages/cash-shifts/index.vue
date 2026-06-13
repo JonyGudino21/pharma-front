@@ -45,30 +45,22 @@
     </div>
 
     <div v-else class="space-y-6">
-      <div class="relative rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden px-6 py-8">
-        <!-- Sutil decorativo fondo -->
-        <Icon 
-          name="ph:cash-register-duotone" 
-          class="absolute -bottom-4 -right-4 w-40 h-40 opacity-10 text-primary-300 dark:text-primary-800 pointer-events-none"
-        />
-        <div class="flex flex-col sm:flex-row justify-between items-center relative z-10">
-          <div class="mb-6 sm:mb-0">
-            <span class="px-4 py-1.5 bg-primary-50 dark:bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-full text-xs font-bold tracking-widest mb-6 inline-block shadow-sm border border-primary-200 dark:border-primary-800 text-primary-800 dark:text-primary-300 transition-colors">
+      <div class="bg-linear-to-br from-primary-600 to-primary-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+        <Icon name="ph:cash-register-duotone" class="absolute -bottom-4 -right-4 w-32 h-32 opacity-10" />
+        
+        <div class="relative z-10 flex justify-between items-start">
+          <div>
+            <span class="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold tracking-widest mb-3 inline-block">
               Turno Abierto
             </span>
-            <p class="text-3xl sm:text-4xl font-extrabold mb-2 text-gray-900 dark:text-white drop-shadow mt-3">
-              Caja Activa
-            </p>
-            <p class="text-primary-700 dark:text-primary-200 flex items-center gap-2 text-base font-medium">
-              <Icon name="ph:clock-bold" class="text-primary-500 dark:text-primary-200" />
-              Abierta desde: <span class="font-semibold">{{ formatDateTime(store.currentShift.openedAt) }}</span>
+            <p class="text-3xl font-black mb-1">Caja Activa</p>
+            <p class="text-primary-100 flex items-center gap-2 text-sm">
+              <Icon name="ph:clock-bold" /> Abierta desde: {{ formatDateTime(store.currentShift.openedAt) }}
             </p>
           </div>
-          <div class="text-right bg-primary-50 dark:bg-gray-900 rounded-xl px-6 py-4 shadow-sm border border-primary-100 dark:border-gray-600">
-            <p class="text-primary-600 dark:text-primary-300 text-xs font-bold uppercase tracking-wider mb-1">Monto Inicial</p>
-            <p class="text-3xl font-black text-gray-900 dark:text-white drop-shadow-sm">
-              {{ formatCurrency(Number(store.currentShift.initialAmount)) }}
-            </p>
+          <div class="text-right">
+            <p class="text-primary-200 text-sm font-bold uppercase tracking-wider mb-1">Monto Inicial</p>
+            <p class="text-2xl font-bold">{{ formatCurrency(Number(store.currentShift.initialAmount)) }}</p>
           </div>
         </div>
       </div>
@@ -186,6 +178,18 @@
     </div>
 
   </div>
+
+  <ConfirmModal
+      v-if="showConfirmClose"
+      title="Corte de Caja"
+      message="¿Estás 100% seguro de realizar el corte? Asegúrate de haber contado bien las monedas y billetes."
+      confirmText="Sí, Realizar Corte"
+      cancelText="Revisar de nuevo"
+      type="warning"
+      :isLoading="store.isActionLoading"
+      @confirm="executeCloseShift"
+      @cancel="showConfirmClose = false"
+    />
 </template>
 
 <script setup lang="ts">
@@ -195,6 +199,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
 import { useToast } from '~/composables/useToast'
+import ConfirmModal from '~/components/shared/ConfirmModal.vue'
 
 definePageMeta({ requiredPermission: 'canOpenShift' })
 
@@ -203,6 +208,7 @@ const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const { formatDateTime } = useDate()
 const toast = useToast()
+const showConfirmClose = ref(false)
 
 const openForm = reactive({ initialAmount: '', notes: '' })
 const closeForm = reactive({ realAmount: '', notes: '' })
@@ -237,20 +243,22 @@ const handleRegisterOperation = async () => {
   operationForm.reason = ''
 }
 
-const handleCloseShift = async () => {
+const handleCloseShift = () => {
   if (closeForm.realAmount === '' || Number(closeForm.realAmount) < 0) return
+  showConfirmClose.value = true
+}
+
+const executeCloseShift = async () => {
+  const summary = await store.closeShift({
+    realAmount: Number(closeForm.realAmount),
+    notes: closeForm.notes.trim() || undefined
+  })
   
-  if (confirm("¿Estás 100% seguro de realizar el corte? Asegúrate de haber contado bien las monedas y billetes.")) {
-    const summary = await store.closeShift({
-      realAmount: Number(closeForm.realAmount),
-      notes: closeForm.notes.trim() || undefined
-    })
-    
-    if (summary) {
-      closureSummary.value = summary
-      closeForm.realAmount = ''
-      closeForm.notes = ''
-    }
+  if (summary) {
+    closureSummary.value = summary
+    closeForm.realAmount = ''
+    closeForm.notes = ''
+    showConfirmClose.value = false
   }
 }
 
