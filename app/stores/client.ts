@@ -31,11 +31,29 @@ export interface CreateClientPayload {
   curp?: string
 }
 
+export interface Debtor {
+  id: number
+  name: string
+  phone: string | null
+  currentDebt: string | number
+  creditLimit: string | number
+  sales: Array<{ id: number, total: string | number, createdAt: string }>
+}
+
+export interface ClientPaymentPayload {
+  method: 'CASH' | 'TRANSFER' | 'CARD'
+  amount: number
+  reference?: string
+  notes?: string
+}
+
 export const useClientStore = defineStore('client', () => {
   const clients = ref<Client[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
   const isActionLoading = ref(false)
+  const debtors = ref<Debtor[]>([])
+  const totalCompanyDebt = ref<string | number>(0)
 
   const filters = ref({
     query: '',
@@ -128,6 +146,42 @@ export const useClientStore = defineStore('client', () => {
     }
   }
 
+  // 6. Obtener Deudores (Solo MANAGER)
+  async function fetchDebtors(page = 1) {
+    const { $api } = useNuxtApp()
+    isLoading.value = true
+
+    try {
+      const params = new URLSearchParams()
+      params.append('page', page.toString())
+      params.append('limit', pagination.value.limit.toString())
+
+      const res = await $api<ApiResponse<any>>(`/client/debtors?${params.toString()}`)
+      debtors.value = res.data.debtors || []
+      totalCompanyDebt.value = res.data.totalCompanyDebt || 0
+      if (res.data.pagination) pagination.value = res.data.pagination
+    } catch (error) {
+      console.error('Error fetching debtors:', error)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // 7. Registrar Abono (FIFO)
+  async function registerPayment(id: number, payload: ClientPaymentPayload) {
+    const { $api } = useNuxtApp()
+    isActionLoading.value = true
+    try {
+      // Retornamos la respuesta completa porque el backend manda info valiosa (ej. si sobró dinero)
+      const res = await $api<ApiResponse<any>>(`/client/${id}/payment`, { 
+        method: 'POST', body: payload 
+      })
+      return res
+    } finally {
+      isActionLoading.value = false
+    }
+  }
+
   // --- MÉTODOS FINANCIEROS (Se usarán en Fase B y C) ---
   // Los dejamos preparados
   async function updateCreditConfig(id: number, payload: { hasCredit: boolean, creditLimit: number }) {
@@ -152,6 +206,10 @@ export const useClientStore = defineStore('client', () => {
     createClient,
     updateClient,
     deactivateClient,
-    updateCreditConfig
+    updateCreditConfig,
+    fetchDebtors,
+    registerPayment,
+    debtors,
+    totalCompanyDebt
   }
 })
