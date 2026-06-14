@@ -37,6 +37,7 @@ export interface CashShift {
 export interface CloseShiftSummary {
   initial: string | number
   salesCash: string | number
+  manualIngress: string | number
   withdrawals: string | number
   expected: string | number
   real: string | number
@@ -128,7 +129,8 @@ export const useCashShiftStore = defineStore('cashShift', () => {
       if (filters.value.endDate) params.append('endDate', filters.value.endDate)
 
       const res = await $api<ApiResponse<PaginatedData<CashShift>>>(`/cash-shift?${params.toString()}`)
-      shifts.value = res.data.cashShifts || res.data.data || []
+      
+      shifts.value = res.data.shifts || res.data.data || [] 
       if (res.data.pagination) pagination.value = res.data.pagination
     } catch (error) {
       console.error('Error fetching shifts:', error)

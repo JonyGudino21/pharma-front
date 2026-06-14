@@ -141,8 +141,12 @@
             <span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(Number(closureSummary.initial)) }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-500">Ingresos en Efectivo</span>
+            <span class="text-gray-500">Ventas en Efectivo</span>
             <span class="font-bold text-success-600">+ {{ formatCurrency(Number(closureSummary.salesCash)) }}</span>
+          </div>
+          <div v-if="Number(closureSummary.manualIngress) > 0" class="flex justify-between">
+            <span class="text-gray-500">Ingresos Manuales</span>
+            <span class="font-bold text-success-600">+ {{ formatCurrency(Number(closureSummary.manualIngress)) }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500">Salidas / Sangrías</span>
