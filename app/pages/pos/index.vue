@@ -62,7 +62,7 @@ function openPayment() {
 function openSearch() { showSearch.value = true }
 function openClient() {
   if (!canChangeClient.value) {
-    toast.warning('Para cambiar de cliente, primero descarta o cierra la venta actual.')
+    toast.warning('La venta ya no es editable.')
     return
   }
   showClient.value = true
@@ -74,9 +74,10 @@ async function onProductSelected(product: Product) {
   focusScanner()
 }
 
-function onClientSelected(client: Client | null) {
-  sales.setClient(client)
+async function onClientSelected(client: Client | null) {
   showClient.value = false
+  // Si ya hay venta viva, el backend re-precia los items con los precios del cliente
+  await sales.setClient(client)
   focusScanner()
 }
 
@@ -208,7 +209,7 @@ onMounted(focusScanner)
                 {{ selectedClient?.name ?? 'Público General' }}
               </p>
               <p class="text-xs text-gray-400">
-                {{ selectedClient ? 'Cliente asignado' : 'Toca para asignar cliente (F4)' }}
+                {{ selectedClient ? 'Cliente asignado · toca para cambiar' : 'Toca para asignar cliente (F4)' }}
               </p>
             </div>
             <Icon v-if="canChangeClient" name="ph:caret-right-bold" class="w-4 h-4 text-gray-400" />
