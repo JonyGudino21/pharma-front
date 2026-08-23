@@ -72,11 +72,14 @@ export interface ApiResponse<T> {
 }
 
 export interface PaginatedData<T> {
+  shifts: T[];
   users?: T[]; // El backend puede devolver 'users' o 'data' según el caso
   suppliers?: T[];
   categories?: T[];
   products?: T[];
   purchases?: T[];
+  cashShifts?: T[];
+  clients?: T[];
   data?: T[];
   pagination: {
     total: number;
