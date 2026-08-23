@@ -128,7 +128,7 @@ async function handleSubmit() {
       rfc: form.rfc.trim().toUpperCase() || undefined,
       curp: form.curp.trim().toUpperCase() || undefined,
       address: form.address.trim() || undefined,
-      isActive: form.isActive
+      // isActive: form.isActive
     }
 
     if (isEditing.value && props.clientToEdit) {
