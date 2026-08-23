@@ -79,6 +79,7 @@ export interface PaginatedData<T> {
   products?: T[];
   purchases?: T[];
   cashShifts?: T[];
+  clients?: T[];
   data?: T[];
   pagination: {
     total: number;
