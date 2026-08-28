@@ -72,8 +72,9 @@ export const useSalesStore = defineStore('sales', () => {
   const paidAmount = computed(() => n(sale.value?.paidAmount))
   const isEmpty = computed(() => !sale.value || items.value.length === 0)
   const hasDraft = computed(() => !!sale.value && sale.value.flowStatus === 'DRAFT')
-  // El cliente se puede cambiar solo mientras no exista una venta viva (limitación del contrato actual del backend).
-  const canChangeClient = computed(() => !sale.value)
+  // El cliente se puede cambiar en cualquier momento mientras la venta siga en borrador:
+  // el backend re-precia los items con los precios especiales del cliente (PATCH set-client).
+  const canChangeClient = computed(() => !sale.value || sale.value.flowStatus === 'DRAFT')
 
   // --- Helpers de API ---
   async function refreshSale() {
@@ -83,13 +84,38 @@ export const useSalesStore = defineStore('sales', () => {
     sale.value = res.data
   }
 
-  // Selección de cliente (solo si aún no hay venta viva)
-  function setClient(client: Client | null) {
+  /**
+   * Asigna el cliente. Si ya existe una venta viva, lo persiste en el backend
+   * (PATCH set-client), que RE-PRECIA los items con los precios especiales del cliente.
+   */
+  async function setClient(client: Client | null) {
     if (!canChangeClient.value) {
-      toast.warning('Para cambiar de cliente, primero descarta o cierra la venta actual.')
+      toast.warning('La venta ya no es editable.')
       return
     }
-    selectedClient.value = client
+
+    // Sin venta viva: solo memorizamos la elección; se enviará al crear la venta.
+    if (!sale.value) {
+      selectedClient.value = client
+      return
+    }
+
+    const { $api } = useNuxtApp()
+    const previous = selectedClient.value
+    isMutating.value = true
+    try {
+      await $api(`/sales/${sale.value.id}/set-client`, {
+        method: 'PATCH',
+        body: { clientId: client?.id ?? null },
+      })
+      selectedClient.value = client
+      await refreshSale() // trae los items ya re-preciados y el nuevo total
+      toast.info(client ? `Precios actualizados para ${client.name}` : 'Precios de público general aplicados')
+    } catch {
+      selectedClient.value = previous // el interceptor ya notificó el error
+    } finally {
+      isMutating.value = false
+    }
   }
 
   /**
@@ -158,40 +184,26 @@ export const useSalesStore = defineStore('sales', () => {
     }
   }
 
-  async function incrementItem(item: SaleItem) {
-    const productStore = useProductStore()
-    // Reutilizamos add-product (+1) que ya valida stock en el backend
-    if (!sale.value) return
-    const { $api } = useNuxtApp()
-    isMutating.value = true
-    try {
-      await $api(`/sales/${sale.value.id}/add-product`, {
-        method: 'POST',
-        body: { productId: item.productId, quantity: 1 },
-      })
-      await refreshSale()
-    } finally {
-      isMutating.value = false
-    }
+  function incrementItem(item: SaleItem) {
+    return setQuantity(item, item.quantity + 1)
   }
 
   /**
-   * Fija la cantidad exacta de una línea.
-   * El backend de ventas no expone "update-item", así que reconstruimos la línea:
-   * eliminar + volver a agregar con la cantidad deseada (atómico por endpoint).
+   * Fija la cantidad exacta de una línea (PATCH update-item).
+   * Conserva el precio ya aplicado en la línea (no re-precia) y valida stock en el backend.
+   * Si la cantidad llega a 0, se elimina la línea.
    */
   async function setQuantity(item: SaleItem, quantity: number) {
     if (!sale.value) return
+    if (quantity <= 0) return removeItem(item.id)
+
     const { $api } = useNuxtApp()
     isMutating.value = true
     try {
-      await $api(`/sales/${sale.value.id}/remove-product/${item.id}`, { method: 'POST' })
-      if (quantity > 0) {
-        await $api(`/sales/${sale.value.id}/add-product`, {
-          method: 'POST',
-          body: { productId: item.productId, quantity },
-        })
-      }
+      await $api(`/sales/${sale.value.id}/update-item/${item.id}`, {
+        method: 'PATCH',
+        body: { quantity },
+      })
       await refreshSale()
     } finally {
       isMutating.value = false
