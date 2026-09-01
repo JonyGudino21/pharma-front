@@ -78,6 +78,7 @@ export interface PaginatedData<T> {
   categories?: T[];
   products?: T[];
   purchases?: T[];
+  sales?: T[];
   cashShifts?: T[];
   clients?: T[];
   data?: T[];
