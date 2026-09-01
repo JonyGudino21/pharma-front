@@ -44,7 +44,7 @@
             <button
               @click="toggleSubMenu(item.name)"
               class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              :class="{ 'bg-gray-100 dark:bg-gray-700': $route.path.startsWith('/catalog') }"
+            :class="{ 'bg-gray-100 dark:bg-gray-700': item.children?.some((c) => $route.path === c.path || $route.path.startsWith(`${c.path}/`)) }"
             >
               <div class="flex items-center">
                 <Icon :name="item.icon" class="w-5 h-5 shrink-0" />
@@ -170,8 +170,16 @@ const isLoggingOut = ref(false)
 
 // Obtenemos el nombre de la ruta para el Header (ej. de '/pos' saca 'pos')
 const currentRouteName = computed(() => {
-  const path = route.path.replace('/', '')
-  return path === '' ? 'Dashboard' : path
+  const path = route.path.replace(/^\//, '')
+  if (path === '' || path === 'index') return 'Dashboard'
+  if (path === 'pos') return 'Punto de venta'
+  if (path === 'sales' || path.startsWith('sales/')) return 'Ventas'
+  if (path.startsWith('cash-shifts')) return 'Caja'
+  if (path.startsWith('catalog')) return 'Catálogo'
+  if (path.startsWith('settings/ticket')) return 'Ticket'
+  if (path.startsWith('purchases')) return 'Compras'
+  if (path.startsWith('clients')) return 'Clientes'
+  return path.split('/')[0] ?? 'Dashboard'
 })
 
 // Alternar Claro/Oscuro nativo de Nuxt
@@ -197,6 +205,7 @@ const menuItems = computed(() => {
   return [
     { name: 'Dashboard', path: '/', icon: 'ph:chart-line-up-bold', show: true }, // Siempre visible si estás logueado
     { name: 'Punto de Venta', path: '/pos', icon: 'ph:shopping-cart-bold', show: authStore.can('canSell') },
+    { name: 'Ventas', path: '/sales', icon: 'ph:receipt-bold', show: authStore.can('canViewSalesSummary') },
     { name: 'Caja', path: '/cash-shifts', icon: 'ph:cash-register-bold', show: authStore.can('canViewAllShifts') },
     
     // Menú agrupado para Catálogo
@@ -214,7 +223,15 @@ const menuItems = computed(() => {
     { name: 'Compras', path: '/purchases', icon: 'ph:shopping-cart-bold', show: authStore.can('canViewPurchases') },
     { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') || authStore.can('canViewPurchases') },
     { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
-    { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') }
+    { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') },
+    {
+      name: 'Configuración',
+      icon: 'ph:sliders-horizontal-bold',
+      show: authStore.can('canManageCompany'),
+      children: [
+        { name: 'Ticket', path: '/settings/ticket' },
+      ],
+    },
   ].filter(item => item.show) // Filtramos lo que no tiene permiso
 })
 // Estado para controlar qué menús anidados están abiertos

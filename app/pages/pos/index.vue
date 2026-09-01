@@ -11,12 +11,20 @@ import PosCart from '~/components/pos/PosCart.vue'
 import PosSearchModal from '~/components/pos/PosSearchModal.vue'
 import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
+import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
+import { useCompanyStore } from '~/stores/company'
+import { useAuthStore } from '~/stores/auth'
+import { useReceiptPrint } from '~/composables/useReceiptPrint'
+import { cartToReceiptView, saleToReceiptView } from '~/utils/receipt-view'
 
 definePageMeta({ requiredPermission: 'canSell' })
 
 const sales = useSalesStore()
+const companyStore = useCompanyStore()
+const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
+const { printSale, isPrinting } = useReceiptPrint()
 const { items, total, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient } = storeToRefs(sales)
 
 const scannerRef = ref<HTMLInputElement | null>(null)
@@ -27,6 +35,28 @@ const showClient = ref(false)
 const showPayment = ref(false)
 const showReceipt = ref(false)
 const completedSale = ref<Sale | null>(null)
+const ticketCopy = ref(0)
+const ticketEl = ref<HTMLElement | null>(null)
+
+const liveTicket = computed(() =>
+  cartToReceiptView({
+    sale: sales.sale,
+    items: items.value,
+    subtotal: Number(sales.sale?.subtotal ?? total.value),
+    total: total.value,
+    client: selectedClient.value,
+    cashier: authStore.user,
+  }),
+)
+
+const completedTicket = computed(() => {
+  if (!completedSale.value) return null
+  return saleToReceiptView(completedSale.value, {
+    copyNumber: ticketCopy.value,
+    fallbackClient: selectedClient.value,
+    fallbackCashier: authStore.user,
+  })
+})
 
 const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
@@ -62,7 +92,7 @@ function openPayment() {
 function openSearch() { showSearch.value = true }
 function openClient() {
   if (!canChangeClient.value) {
-    toast.warning('Para cambiar de cliente, primero descarta o cierra la venta actual.')
+    toast.warning('La venta ya no es editable.')
     return
   }
   showClient.value = true
@@ -74,21 +104,24 @@ async function onProductSelected(product: Product) {
   focusScanner()
 }
 
-function onClientSelected(client: Client | null) {
-  sales.setClient(client)
+async function onClientSelected(client: Client | null) {
   showClient.value = false
+  // Si ya hay venta viva, el backend re-precia los items con los precios del cliente
+  await sales.setClient(client)
   focusScanner()
 }
 
 function onCompleted(sale: Sale) {
   showPayment.value = false
   completedSale.value = sale
+  ticketCopy.value = 0
   showReceipt.value = true
 }
 
 function newSale() {
   showReceipt.value = false
   completedSale.value = null
+  ticketCopy.value = 0
   focusScanner()
 }
 
@@ -106,29 +139,15 @@ function handleEscape() {
   focusScanner()
 }
 
-function printReceipt() {
+async function printReceipt() {
   const s = completedSale.value
   if (!s) return
-  const rows = s.items.map(i =>
-    `<tr><td>${i.quantity}x ${i.product?.name ?? ''}</td><td style="text-align:right">${formatCurrency(Number(i.subtotal))}</td></tr>`
-  ).join('')
-  const win = window.open('', '_blank', 'width=320,height=600')
-  if (!win) return
-  win.document.write(`
-    <html><head><title>Ticket ${s.invoiceNumber ?? s.id}</title>
-    <style>body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:8px}
-    h3{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse}
-    hr{border:none;border-top:1px dashed #000;margin:6px 0}.tot{font-weight:bold;font-size:14px}</style>
-    </head><body>
-    <h3>PharmaPOS</h3>
-    <p style="text-align:center">Ticket ${s.invoiceNumber ?? '#' + s.id}<br>${new Date(s.createdAt).toLocaleString('es-MX')}</p>
-    <hr><table>${rows}</table><hr>
-    <table><tr class="tot"><td>TOTAL</td><td style="text-align:right">${formatCurrency(Number(s.total))}</td></tr></table>
-    <hr><p style="text-align:center">¡Gracias por su compra!</p>
-    </body></html>`)
-  win.document.close()
-  win.focus()
-  win.print()
+  await printSale(s, {
+    previewEl: ticketEl.value,
+    onRegistered: (copyNumber) => {
+      ticketCopy.value = copyNumber
+    },
+  })
 }
 
 useKeyboardShortcuts({
@@ -139,7 +158,10 @@ useKeyboardShortcuts({
   Escape: handleEscape,
 })
 
-onMounted(focusScanner)
+onMounted(() => {
+  focusScanner()
+  companyStore.ensureProfile()
+})
 </script>
 
 <template>
@@ -208,7 +230,7 @@ onMounted(focusScanner)
                 {{ selectedClient?.name ?? 'Público General' }}
               </p>
               <p class="text-xs text-gray-400">
-                {{ selectedClient ? 'Cliente asignado' : 'Toca para asignar cliente (F4)' }}
+                {{ selectedClient ? 'Cliente asignado · toca para cambiar' : 'Toca para asignar cliente (F4)' }}
               </p>
             </div>
             <Icon v-if="canChangeClient" name="ph:caret-right-bold" class="w-4 h-4 text-gray-400" />
@@ -217,7 +239,15 @@ onMounted(focusScanner)
         </div>
 
         <!-- Totales -->
-        <div class="flex-1 flex flex-col justify-end p-5 space-y-3">
+        <div class="flex-1 flex flex-col justify-end p-5 space-y-3 min-h-0">
+          <div class="hidden xl:flex justify-center overflow-y-auto max-h-56 mb-2">
+            <ReceiptPreview
+              :sale="liveTicket"
+              :company="companyStore.company"
+              :template="companyStore.defaultTemplate"
+              compact
+            />
+          </div>
           <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400">
             <span>Artículos</span>
             <span class="tabular-nums">{{ itemCount }}</span>
@@ -255,25 +285,31 @@ onMounted(focusScanner)
     <PosPaymentModal v-if="showPayment" :client="selectedClient" @close="handleEscape" @completed="onCompleted" />
 
     <!-- Comprobante -->
-    <div v-if="showReceipt && completedSale" class="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" @click="newSale"></div>
-      <div class="relative w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden text-center p-6">
-        <div class="w-16 h-16 rounded-full bg-success-100 dark:bg-success-900/30 flex items-center justify-center mx-auto mb-4">
-          <Icon name="ph:check-circle-bold" class="w-9 h-9 text-success-600 dark:text-success-400" />
-        </div>
-        <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">¡Venta completada!</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {{ completedSale.invoiceNumber ?? '#' + completedSale.id }} · {{ formatCurrency(Number(completedSale.total)) }}
+    <div v-if="showReceipt && completedSale && completedTicket" class="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div class="fixed inset-0 bg-[#12261e]/70 backdrop-blur-sm" @click="newSale"></div>
+      <div class="relative w-full max-w-md bg-[#12261e] rounded-2xl shadow-2xl overflow-hidden p-5 text-center">
+        <p class="font-[Literata] text-[#f3e6c4] text-xl mb-1">Venta cobrada</p>
+        <p class="text-[#c4a35a] text-xs tracking-[0.2em] uppercase font-mono mb-4">
+          {{ completedSale.invoiceNumber ?? '#' + completedSale.id }}
         </p>
-        <div class="flex gap-3 mt-6">
+        <div ref="ticketEl" class="flex justify-center max-h-[55vh] overflow-y-auto">
+          <ReceiptPreview
+            :sale="completedTicket"
+            :company="companyStore.company"
+            :template="companyStore.defaultTemplate"
+          />
+        </div>
+        <div class="flex gap-3 mt-5">
           <button
-            class="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+            class="flex-1 py-3 rounded-xl border border-[#c4a35a]/50 text-[#f3e6c4] font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            :disabled="isPrinting"
             @click="printReceipt"
           >
-            <Icon name="ph:printer-bold" class="w-5 h-5" /> Imprimir
+            <Icon name="ph:printer-bold" class="w-5 h-5" />
+            {{ isPrinting ? 'Imprimiendo…' : 'Imprimir' }}
           </button>
           <button
-            class="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors"
+            class="flex-1 py-3 rounded-xl bg-[#c4a35a] text-[#12261e] font-semibold hover:bg-[#d4b56a] transition-colors"
             @click="newSale"
           >
             Nueva venta

@@ -5,6 +5,10 @@ export interface UserPermissions {
   canGiveDiscounts: boolean;
   canReturnSales: boolean;
   canViewSalesSummary: boolean;
+  canPrintReceipt: boolean;
+
+  // ---- Empresa / ticket ----
+  canManageCompany: boolean;
 
   // ---- Clientes (client) ----
   canViewClients: boolean;
@@ -78,6 +82,7 @@ export interface PaginatedData<T> {
   categories?: T[];
   products?: T[];
   purchases?: T[];
+  sales?: T[];
   cashShifts?: T[];
   clients?: T[];
   data?: T[];

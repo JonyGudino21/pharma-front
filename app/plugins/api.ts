@@ -64,6 +64,20 @@ export default defineNuxtPlugin((nuxtApp) => {
         // Leemos el mensaje exacto que manda tu backend
         const backendMessage = response._data?.message || 'Verifica los datos ingresados.'
         toast.error(backendMessage)
+        return
+      }
+
+      // Caso D: Sin permiso (403). P1-2 lo vuelve visible: un cajero que intenta
+      // anular una venta cerrada, o devolver sin rol de gerencia, recibía un
+      // silencio. El store tragaba el error y el botón parecía no hacer nada.
+      if (response.status === 403) {
+        const backendMessage = response._data?.message || 'No tienes permiso para esta operación.'
+        toast.error(backendMessage)
+        return
+      }
+
+      if (response.status === 429) {
+        toast.error('Demasiados intentos. Espera un momento e inténtalo de nuevo.')
       }
     }
   })
