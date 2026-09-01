@@ -170,8 +170,15 @@ const isLoggingOut = ref(false)
 
 // Obtenemos el nombre de la ruta para el Header (ej. de '/pos' saca 'pos')
 const currentRouteName = computed(() => {
-  const path = route.path.replace('/', '')
-  return path === '' ? 'Dashboard' : path
+  const path = route.path.replace(/^\//, '')
+  if (path === '' || path === 'index') return 'Dashboard'
+  if (path === 'pos') return 'Punto de venta'
+  if (path === 'sales' || path.startsWith('sales/')) return 'Ventas'
+  if (path.startsWith('cash-shifts')) return 'Caja'
+  if (path.startsWith('catalog')) return 'Catálogo'
+  if (path.startsWith('purchases')) return 'Compras'
+  if (path.startsWith('clients')) return 'Clientes'
+  return path.split('/')[0] ?? 'Dashboard'
 })
 
 // Alternar Claro/Oscuro nativo de Nuxt
@@ -197,6 +204,7 @@ const menuItems = computed(() => {
   return [
     { name: 'Dashboard', path: '/', icon: 'ph:chart-line-up-bold', show: true }, // Siempre visible si estás logueado
     { name: 'Punto de Venta', path: '/pos', icon: 'ph:shopping-cart-bold', show: authStore.can('canSell') },
+    { name: 'Ventas', path: '/sales', icon: 'ph:receipt-bold', show: authStore.can('canViewSalesSummary') },
     { name: 'Caja', path: '/cash-shifts', icon: 'ph:cash-register-bold', show: authStore.can('canViewAllShifts') },
     
     // Menú agrupado para Catálogo
