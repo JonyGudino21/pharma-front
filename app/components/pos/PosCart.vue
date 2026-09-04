@@ -47,6 +47,12 @@ const { formatCurrency } = useCurrency()
           <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ item.product?.name ?? 'Producto #' + item.productId }}</p>
           <p class="text-xs text-gray-400 dark:text-gray-500">
             {{ item.product?.sku }} · {{ formatCurrency(Number(item.price)) }} c/u
+            <span
+              v-if="item.product?.controlled"
+              class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-error-100 text-error-700 dark:bg-error-900/40 dark:text-error-300"
+            >
+              Controlado
+            </span>
           </p>
         </div>
 

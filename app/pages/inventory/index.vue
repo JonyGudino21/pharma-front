@@ -29,6 +29,35 @@
 
     </div>
 
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <NuxtLink
+        v-if="authStore.can('canViewExpiringBatches')"
+        to="/inventory/expiring"
+        class="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors flex items-center gap-4"
+      >
+        <div class="w-12 h-12 rounded-xl bg-warning-50 dark:bg-warning-900/30 flex items-center justify-center">
+          <Icon name="ph:hourglass-bold" class="w-6 h-6 text-warning-600" />
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 dark:text-white">Caducidades FEFO</p>
+          <p class="text-sm text-gray-500">Lotes por vencer y merma de caducados</p>
+        </div>
+      </NuxtLink>
+      <NuxtLink
+        v-if="authStore.can('canViewControlledLog')"
+        to="/inventory/controlled"
+        class="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700 transition-colors flex items-center gap-4"
+      >
+        <div class="w-12 h-12 rounded-xl bg-error-50 dark:bg-error-900/30 flex items-center justify-center">
+          <Icon name="ph:notebook-bold" class="w-6 h-6 text-error-600" />
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 dark:text-white">Libro de controlados</p>
+          <p class="text-sm text-gray-500">Bitácora regulatoria COFEPRIS</p>
+        </div>
+      </NuxtLink>
+    </div>
+
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
       <div class="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
         <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Operaciones por Producto</h2>

@@ -90,7 +90,9 @@ const getTypeStyles = (type: MovementType) => {
     SALE: { icon: 'ph:shopping-cart-bold', bg: 'bg-primary-50 dark:bg-primary-900/30', text: 'text-primary-600 dark:text-primary-400' },
     ADJUSTMENT: { icon: 'ph:sliders-horizontal-bold', bg: 'bg-warning-50 dark:bg-warning-900/30', text: 'text-warning-600 dark:text-warning-400' },
     LOSS: { icon: 'ph:warning-circle-bold', bg: 'bg-error-50 dark:bg-error-900/30', text: 'text-error-600 dark:text-error-400' },
-    RETURN: { icon: 'ph:arrow-u-up-left-bold', bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' }
+    RETURN: { icon: 'ph:arrow-u-up-left-bold', bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+    RETURN_IN: { icon: 'ph:arrow-u-up-left-bold', bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+    RETURN_OUT: { icon: 'ph:arrow-u-up-right-bold', bg: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400' },
   }
   return styles[type] || styles.ADJUSTMENT
 }

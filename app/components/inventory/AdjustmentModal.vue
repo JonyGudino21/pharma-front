@@ -26,6 +26,10 @@
             <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Stock en sistema:</span>
             <span class="font-black text-lg text-gray-900 dark:text-white">{{ product.stock }} uds.</span>
           </div>
+          <p class="text-xs text-gray-500 mt-2">
+            Si el producto tiene lotes, da de baja el lote en
+            <span class="font-semibold">Inventario → Caducidades</span>. El ajuste a ciegas está bloqueado.
+          </p>
         </div>
 
         <div>

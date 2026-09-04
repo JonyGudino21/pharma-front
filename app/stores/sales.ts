@@ -4,6 +4,7 @@ import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
 import type { Client } from '~/stores/client'
 import { useProductStore, type Product } from '~/stores/product'
+import { useInventoryStore } from '~/stores/inventory'
 import { useToast } from '~/composables/useToast'
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER'
@@ -18,7 +19,7 @@ export interface SaleItem {
   discount: string | number
   subtotal: string | number
   costAtSale: string | number
-  product?: { id: number; name: string; sku: string }
+  product?: { id: number; name: string; sku: string; controlled?: boolean }
 }
 
 export interface SalePayment {
@@ -49,6 +50,13 @@ export interface Sale {
   user?: { firstName: string; lastName: string }
 }
 
+export interface ControlledPrescription {
+  prescriptionNo: string
+  doctorName: string
+  doctorLicense: string
+  patientName: string
+}
+
 const n = (v: string | number | null | undefined): number => Number(v ?? 0)
 
 export const useSalesStore = defineStore('sales', () => {
@@ -56,6 +64,7 @@ export const useSalesStore = defineStore('sales', () => {
   const sale = ref<Sale | null>(null)          // Venta DRAFT viva en el servidor (fuente de verdad)
   const selectedClient = ref<Client | null>(null)
   const lastCompletedSale = ref<Sale | null>(null) // Para el ticket tras cerrar
+  const prescription = ref<ControlledPrescription | null>(null)
 
   // --- Banderas ---
   const isBootstrapping = ref(false)  // creando/refrescando la venta
@@ -75,6 +84,9 @@ export const useSalesStore = defineStore('sales', () => {
   // El cliente se puede cambiar en cualquier momento mientras la venta siga en borrador:
   // el backend re-precia los items con los precios especiales del cliente (PATCH set-client).
   const canChangeClient = computed(() => !sale.value || sale.value.flowStatus === 'DRAFT')
+  const hasControlledItems = computed(() =>
+    items.value.some((i) => i.product?.controlled === true),
+  )
 
   // --- Helpers de API ---
   async function refreshSale() {
@@ -139,8 +151,15 @@ export const useSalesStore = defineStore('sales', () => {
    */
   async function addProduct(product: Product, quantity = 1): Promise<boolean> {
     const { $api } = useNuxtApp()
-    if (product.stock <= 0) {
-      toast.warning(`"${product.name}" no tiene existencias disponibles.`)
+    const inventoryStore = useInventoryStore()
+    const live = await inventoryStore.fetchStock(product.id)
+    const available = live?.sellable ?? product.stock
+    if (available <= 0) {
+      toast.warning(
+        live && live.expired > 0
+          ? `"${product.name}" no tiene lotes vigentes (${live.expired} uds. caducadas).`
+          : `"${product.name}" no tiene existencias disponibles.`,
+      )
       return false
     }
     try {
@@ -239,7 +258,10 @@ export const useSalesStore = defineStore('sales', () => {
     const { $api } = useNuxtApp()
     isCompleting.value = true
     try {
-      await $api(`/sales/${sale.value.id}/complete`, { method: 'POST' })
+      await $api(`/sales/${sale.value.id}/complete`, {
+        method: 'POST',
+        body: prescription.value ? { prescription: prescription.value } : {},
+      })
       // Reconsultamos la venta enriquecida para el ticket antes de limpiar
       const res = await $api<ApiResponse<Sale>>(`/sales/${sale.value.id}`)
       lastCompletedSale.value = res.data
@@ -268,20 +290,25 @@ export const useSalesStore = defineStore('sales', () => {
     reset()
   }
 
+  function setPrescription(data: ControlledPrescription | null) {
+    prescription.value = data
+  }
+
   function reset() {
     sale.value = null
     selectedClient.value = null
+    prescription.value = null
   }
 
   return {
     // estado
-    sale, selectedClient, lastCompletedSale,
+    sale, selectedClient, lastCompletedSale, prescription,
     isBootstrapping, isMutating, isCompleting,
     // getters
-    items, itemCount, total, balance, paidAmount, isEmpty, hasDraft, canChangeClient,
+    items, itemCount, total, balance, paidAmount, isEmpty, hasDraft, canChangeClient, hasControlledItems,
     // acciones
     refreshSale, setClient, scanBarcode, addProduct, removeItem,
     incrementItem, decrementItem, setQuantity, registerPayment,
-    completeSale, discardSale, reset,
+    completeSale, discardSale, reset, setPrescription,
   }
 })

@@ -11,6 +11,7 @@ import PosCart from '~/components/pos/PosCart.vue'
 import PosSearchModal from '~/components/pos/PosSearchModal.vue'
 import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
+import PosPrescriptionModal from '~/components/pos/PosPrescriptionModal.vue'
 import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
 import { useCompanyStore } from '~/stores/company'
 import { useAuthStore } from '~/stores/auth'
@@ -25,7 +26,7 @@ const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 const { printSale, isPrinting } = useReceiptPrint()
-const { items, total, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient } = storeToRefs(sales)
+const { items, total, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
 
 const scannerRef = ref<HTMLInputElement | null>(null)
 const scannerValue = ref('')
@@ -33,6 +34,7 @@ const scannerValue = ref('')
 const showSearch = ref(false)
 const showClient = ref(false)
 const showPayment = ref(false)
+const showPrescription = ref(false)
 const showReceipt = ref(false)
 const completedSale = ref<Sale | null>(null)
 const ticketCopy = ref(0)
@@ -58,7 +60,7 @@ const completedTicket = computed(() => {
   })
 })
 
-const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value)
+const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value || showPrescription.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
 
 function focusScanner() {
@@ -86,6 +88,15 @@ function openPayment() {
     toast.warning('Agrega al menos un producto antes de cobrar.')
     return
   }
+  if (hasControlledItems.value && !sales.prescription) {
+    showPrescription.value = true
+    return
+  }
+  showPayment.value = true
+}
+
+function onPrescriptionConfirmed() {
+  showPrescription.value = false
   showPayment.value = true
 }
 
@@ -135,6 +146,7 @@ async function discard() {
 function handleEscape() {
   if (showSearch.value) { showSearch.value = false; focusScanner(); return }
   if (showClient.value) { showClient.value = false; focusScanner(); return }
+  if (showPrescription.value) { showPrescription.value = false; focusScanner(); return }
   if (showPayment.value) { showPayment.value = false; focusScanner(); return }
   focusScanner()
 }
@@ -282,6 +294,11 @@ onMounted(() => {
     <!-- Modales -->
     <PosSearchModal v-if="showSearch" @close="handleEscape" @select="onProductSelected" />
     <PosClientModal v-if="showClient" @close="handleEscape" @select="onClientSelected" />
+    <PosPrescriptionModal
+      v-if="showPrescription"
+      @close="handleEscape"
+      @confirmed="onPrescriptionConfirmed"
+    />
     <PosPaymentModal v-if="showPayment" :client="selectedClient" @close="handleEscape" @completed="onCompleted" />
 
     <!-- Comprobante -->

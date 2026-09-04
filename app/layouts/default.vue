@@ -67,8 +67,9 @@
                 :key="child.path"
                 :to="child.path"
                 class="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                active-class="bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-                :class="$route.path === child.path ? '' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'"
+                :class="$route.path === child.path
+                  ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'"
               >
                 {{ child.name }}
               </NuxtLink>
@@ -177,6 +178,9 @@ const currentRouteName = computed(() => {
   if (path.startsWith('cash-shifts')) return 'Caja'
   if (path.startsWith('catalog')) return 'Catálogo'
   if (path.startsWith('settings/ticket')) return 'Ticket'
+  if (path === 'inventory/expiring') return 'Caducidades'
+  if (path === 'inventory/controlled') return 'Libro de controlados'
+  if (path.startsWith('inventory')) return 'Inventario'
   if (path.startsWith('purchases')) return 'Compras'
   if (path.startsWith('clients')) return 'Clientes'
   return path.split('/')[0] ?? 'Dashboard'
@@ -219,7 +223,20 @@ const menuItems = computed(() => {
       ]
     },
     
-    { name: 'Inventario', path: '/inventory', icon: 'ph:archive-box-bold', show: authStore.can('canViewKardex') },
+    {
+      name: 'Inventario',
+      icon: 'ph:archive-box-bold',
+      show: authStore.can('canViewKardex'),
+      children: [
+        { name: 'Control', path: '/inventory' },
+        ...(authStore.can('canViewExpiringBatches')
+          ? [{ name: 'Caducidades', path: '/inventory/expiring' }]
+          : []),
+        ...(authStore.can('canViewControlledLog')
+          ? [{ name: 'Libro de controlados', path: '/inventory/controlled' }]
+          : []),
+      ],
+    },
     { name: 'Compras', path: '/purchases', icon: 'ph:shopping-cart-bold', show: authStore.can('canViewPurchases') },
     { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') || authStore.can('canViewPurchases') },
     { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },

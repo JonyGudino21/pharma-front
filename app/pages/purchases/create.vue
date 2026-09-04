@@ -91,6 +91,8 @@
               <thead class="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Producto</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Lote</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Caducidad</th>
                   <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-24">Cant.</th>
                   <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-32">Costo Unit.</th>
                   <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Subtotal</th>
@@ -99,14 +101,21 @@
               </thead>
               <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 <tr v-if="form.items.length === 0">
-                  <td colspan="5" class="px-4 py-8 text-center text-gray-400 text-sm">
+                  <td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">
                     Aún no has agregado productos a esta compra.
                   </td>
                 </tr>
-                <tr v-else v-for="(item, index) in form.items" :key="item.product.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <tr v-else v-for="(item, index) in form.items" :key="item.product.id + '-' + index" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                   <td class="px-4 py-3">
                     <p class="font-bold text-sm text-gray-900 dark:text-white truncate max-w-[200px]">{{ item.product.name }}</p>
                     <p class="text-xs text-gray-500">{{ item.product.sku }}</p>
+                    <p v-if="item.product.controlled" class="text-[10px] font-bold uppercase text-error-600 mt-0.5">Controlado</p>
+                  </td>
+                  <td class="px-4 py-3">
+                    <input v-model="item.lotNumber" type="text" maxlength="40" class="input-base p-1.5 text-xs font-mono uppercase w-28" :required="item.product.controlled" />
+                  </td>
+                  <td class="px-4 py-3">
+                    <input v-model="item.expiryDate" type="date" class="input-base p-1.5 text-xs w-36" :required="item.product.controlled" />
                   </td>
                   <td class="px-4 py-3 w-28">
                     <input
@@ -242,7 +251,7 @@ const isSubmitting = ref(false)
 const form = reactive({
   supplierId: null as number | null,
   invoiceNumber: '',
-  items: [] as Array<{ product: Product, quantity: number, cost: number }>,
+  items: [] as Array<{ product: Product, quantity: number, cost: number, lotNumber: string, expiryDate: string }>,
   payments: [] as Array<{ method: PaymentMethod, amount: number, references: string }>
 })
 
@@ -278,18 +287,22 @@ const handleSearch = () => {
 }
 
 const addProductToCart = (product: Product) => {
-  // Evitar duplicados en la lista (Si existe, le sumamos 1 a la cantidad)
-  const existingItem = form.items.find(i => i.product.id === product.id)
-  if (existingItem) {
-    existingItem.quantity += 1
-  } else {
-    form.items.unshift({
-      product,
-      quantity: 1,
-      cost: Number(product.cost) // Sugerimos el último costo conocido
-    })
+  if (!product.controlled) {
+    const existingItem = form.items.find(i => i.product.id === product.id && !i.lotNumber)
+    if (existingItem) {
+      existingItem.quantity += 1
+      searchQuery.value = ''
+      searchResults.value = []
+      return
+    }
   }
-  // Limpiamos buscador
+  form.items.unshift({
+    product,
+    quantity: 1,
+    cost: Number(product.cost),
+    lotNumber: '',
+    expiryDate: '',
+  })
   searchQuery.value = ''
   searchResults.value = []
 }
@@ -321,6 +334,7 @@ const isFormValid = computed(() => {
       && form.invoiceNumber.trim() !== '' 
       && form.items.length > 0 
       && form.items.every(i => i.quantity > 0 && i.cost >= 0)
+      && form.items.every(i => !i.product.controlled || (i.lotNumber.trim() !== '' && i.expiryDate !== ''))
       && form.payments.every(p => p.amount > 0)
 })
 
@@ -337,7 +351,9 @@ const handleSubmit = async () => {
       items: form.items.map(i => ({
         productId: i.product.id,
         quantity: i.quantity,
-        cost: i.cost
+        cost: i.cost,
+        lotNumber: i.lotNumber.trim() || undefined,
+        expiryDate: i.expiryDate || undefined,
       })),
       // Solo enviamos array de pagos si realmente hay alguno configurado
       payments: form.payments.length > 0 ? form.payments.map(p => ({

@@ -28,6 +28,8 @@ export interface UserPermissions {
   canAdjustInventory: boolean;
   canViewLowStockAlerts: boolean;
   canViewInventoryValuation: boolean;
+  canViewExpiringBatches: boolean;
+  canViewControlledLog: boolean;
 
   // ---- Caja (cash-shift) ----
   canOpenShift: boolean;
