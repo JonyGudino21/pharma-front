@@ -12,14 +12,15 @@ export default defineNuxtPlugin((nuxtApp) => {
     
     // 1. ANTES de enviar la petición (Inyectar Token)
     onRequest({ options }) {
-      const accessToken = useCookie('access_token').value
-      if (accessToken) {
-        const headers = new Headers(options.headers)
-        if (!headers.has('Authorization')) {
-          headers.set('Authorization', `Bearer ${accessToken}`)
-        }
-        options.headers = headers
+      const headers = new Headers(options.headers)
+      if (!headers.has('x-request-id')) {
+        headers.set('x-request-id', crypto.randomUUID())
       }
+      const accessToken = useCookie('access_token').value
+      if (accessToken && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${accessToken}`)
+      }
+      options.headers = headers
     },
     
     onRequestError({ error }) {
@@ -55,7 +56,15 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       // Caso B: Error interno del servidor (500+)
       if (response.status >= 500) {
-        toast.error('El servidor está experimentando problemas. Intenta más tarde.')
+        const requestId =
+          response._data?.error?.requestId ||
+          response.headers.get('x-request-id')
+        const codigo = typeof requestId === 'string' ? requestId.slice(0, 8) : null
+        toast.error(
+          codigo
+            ? `El servidor está experimentando problemas. Código ${codigo}`
+            : 'El servidor está experimentando problemas. Intenta más tarde.',
+        )
         return
       }
 
