@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
 import type { Sale, PaymentMethod } from '~/stores/sales'
+import type { SaleReceiptPrint } from '~/types/receipt'
 import { useToast } from '~/composables/useToast'
 
 /**
@@ -68,6 +69,7 @@ export interface SaleListRow {
 export interface SaleDetail extends Sale {
   paymentStatus: 'PENDING' | 'PARTIAL' | 'PAID'
   saleReturn: SaleReturn[]
+  receiptPrints?: SaleReceiptPrint[]
 }
 
 export interface ReturnLinePayload {

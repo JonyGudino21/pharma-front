@@ -5,6 +5,10 @@ export interface UserPermissions {
   canGiveDiscounts: boolean;
   canReturnSales: boolean;
   canViewSalesSummary: boolean;
+  canPrintReceipt: boolean;
+
+  // ---- Empresa / ticket ----
+  canManageCompany: boolean;
 
   // ---- Clientes (client) ----
   canViewClients: boolean;

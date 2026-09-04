@@ -37,6 +37,8 @@
 
   /* Fuente tipográfica (Opcional, usar la del sistema si no se carga Google Fonts) */
   --font-sans: 'Inter', system-ui, sans-serif;
+  --font-ticket: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --font-studio: 'Literata', Georgia, serif;
 }
 
 /* Configuración Enterprise para Modo Oscuro en Tailwind v4 */

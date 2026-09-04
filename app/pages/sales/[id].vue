@@ -60,8 +60,14 @@
           </div>
 
             <div class="flex flex-wrap gap-2 shrink-0 print:hidden">
-            <button class="btn-secondary" @click="imprimir">
-              <Icon name="ph:printer-bold" class="mr-2" /> Imprimir
+            <button
+              v-if="puedeImprimir"
+              class="btn-secondary"
+              :disabled="isPrinting"
+              @click="imprimir"
+            >
+              <Icon name="ph:printer-bold" class="mr-2" />
+              {{ isPrinting ? 'Imprimiendo…' : 'Imprimir ticket' }}
             </button>
 
             <button
@@ -215,6 +221,44 @@
           </ul>
         </div>
       </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-6 items-start">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <h3 class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+            Copias impresas
+          </h3>
+          <div v-if="!impresiones.length" class="px-6 py-8 text-center text-sm text-gray-500">
+            Aún no se ha impreso este ticket.
+          </div>
+          <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700">
+            <li v-for="copia in impresiones" :key="copia.id" class="px-6 py-4 flex items-center justify-between gap-4">
+              <div>
+                <p class="font-medium text-gray-900 dark:text-white">
+                  {{ copia.copyNumber === 1 ? 'Original' : `Copia ${copia.copyNumber}` }}
+                </p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  {{ formatDateTime(copia.printedAt) }}
+                  <span v-if="copia.printedBy">
+                    · {{ copia.printedBy.firstName }} {{ copia.printedBy.lastName }}
+                  </span>
+                  · {{ copia.channel === 'THERMAL' ? 'Térmica USB' : 'Navegador' }}
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="ticketView && puedeImprimir" class="flex justify-center xl:justify-end print:block">
+          <div ref="ticketEl">
+            <ReceiptPreview
+              :sale="ticketView"
+              :company="companyStore.company"
+              :template="companyStore.defaultTemplate"
+              compact
+            />
+          </div>
+        </div>
+      </div>
     </template>
 
     <ReturnModal
@@ -246,22 +290,33 @@ import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
 import ConfirmModal from '~/components/shared/ConfirmModal.vue'
 import ReturnModal from '~/components/sales/ReturnModal.vue'
+import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
+import { useCompanyStore } from '~/stores/company'
+import { useReceiptPrint } from '~/composables/useReceiptPrint'
+import { saleToReceiptView } from '~/utils/receipt-view'
 
 definePageMeta({ requiredPermission: 'canViewSalesSummary' })
 
 const route = useRoute()
 const store = useSalesHistoryStore()
 const authStore = useAuthStore()
+const companyStore = useCompanyStore()
 const { formatCurrency } = useCurrency()
 const { formatDateTime } = useDate()
+const { printSale, isPrinting } = useReceiptPrint()
 
 const mostrarDevolucion = ref(false)
 const mostrarAnulacion = ref(false)
+const ticketEl = ref<HTMLElement | null>(null)
+const ticketCopy = ref(0)
 
 const saleId = computed(() => Number(route.params.id))
 const venta = computed(() => store.currentSale)
 
-onMounted(() => cargar())
+onMounted(() => {
+  cargar()
+  companyStore.ensureProfile()
+})
 watch(saleId, () => cargar())
 
 async function cargar() {
@@ -329,7 +384,30 @@ const etiquetaMetodo = (method: PaymentMethod | null) => {
   }
 }
 
-const imprimir = () => window.print()
+const puedeImprimir = computed(
+  () => !!venta.value && venta.value.flowStatus !== 'DRAFT',
+)
+
+const impresiones = computed(() => venta.value?.receiptPrints ?? [])
+
+const ticketView = computed(() => {
+  if (!venta.value) return null
+  const last = impresiones.value[impresiones.value.length - 1]
+  return saleToReceiptView(venta.value, {
+    copyNumber: ticketCopy.value || last?.copyNumber || 0,
+  })
+})
+
+async function imprimir() {
+  if (!venta.value) return
+  await printSale(venta.value, {
+    previewEl: ticketEl.value,
+    onRegistered: (copyNumber) => {
+      ticketCopy.value = copyNumber
+    },
+  })
+  await store.fetchSaleById(venta.value.id)
+}
 
 const badgeEstado = (status: Sale['status']) => {
   const base = 'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider'
