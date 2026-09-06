@@ -9,21 +9,47 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   const api = $fetch.create({
     baseURL: config.public.apiBaseUrl as string,
-    
+
+    // TIMEOUT EXPLÍCITO: sin él, una petición que nunca responde dejaba el POS
+    // congelado con `busy` en true — Cobrar y Descartar deshabilitados y sin
+    // mensaje. La única salida era F5, que además destruía la venta en curso.
+    timeout: 15_000,
+
     // 1. ANTES de enviar la petición (Inyectar Token)
     onRequest({ options }) {
       const headers = new Headers(options.headers)
       if (!headers.has('x-request-id')) {
         headers.set('x-request-id', crypto.randomUUID())
       }
+
+      // IDEMPOTENCIA: un timeout de red es indistinguible de un fallo real.
+      // Si el cajero reintenta, la MISMA clave viaja de nuevo y el backend
+      // devuelve el cobro original en lugar de cobrar dos veces.
+      // ofetch reintenta internamente, así que la clave debe generarse una sola
+      // vez por operación lógica: si ya viene puesta, se respeta.
+      const method = (options.method ?? 'GET').toUpperCase()
+      if (method === 'POST' || method === 'PATCH') {
+        if (!headers.has('Idempotency-Key')) {
+          headers.set('Idempotency-Key', crypto.randomUUID())
+        }
+      }
+
       const accessToken = useCookie('access_token').value
       if (accessToken && !headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${accessToken}`)
       }
       options.headers = headers
     },
-    
+
     onRequestError({ error }) {
+      // Distinguimos el timeout del corte de red: son acciones distintas para
+      // el cajero (reintentar vs. revisar la conexión).
+      if (error?.name === 'AbortError' || /timeout/i.test(error?.message ?? '')) {
+        toast.error(
+          'El servidor tardó demasiado en responder. Verifica la venta antes de reintentar.',
+        )
+        return
+      }
       toast.error('Error de red: No se pudo conectar al servidor')
     },
     
