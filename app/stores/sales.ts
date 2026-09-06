@@ -67,9 +67,38 @@ export const useSalesStore = defineStore('sales', () => {
   const prescription = ref<ControlledPrescription | null>(null)
 
   // --- Banderas ---
+  // CONTADOR, no booleano: con el escáner disparando ráfagas hay varias
+  // operaciones en vuelo a la vez. Con un booleano, la primera que terminaba
+  // ponía `false` y liberaba la UI mientras las demás seguían corriendo.
+  const mutationsInFlight = ref(0)
   const isBootstrapping = ref(false)  // creando/refrescando la venta
-  const isMutating = ref(false)       // agregando/quitando/cambiando cantidad
   const isCompleting = ref(false)     // cerrando la venta
+  const isMutating = computed(() => mutationsInFlight.value > 0)
+
+  /** Envuelve una mutación llevando la cuenta de operaciones en vuelo. */
+  async function withMutation<T>(fn: () => Promise<T>): Promise<T> {
+    mutationsInFlight.value += 1
+    try {
+      return await fn()
+    } finally {
+      mutationsInFlight.value -= 1
+    }
+  }
+
+  // TOKEN DE SECUENCIA: descarta respuestas obsoletas de refreshSale.
+  // Sin esto, la respuesta de un escaneo anterior podía llegar DESPUÉS de la
+  // de uno posterior y sobrescribir el estado con un total viejo: el modal de
+  // cobro tomaba ese total y se cerraba la venta cobrando de menos.
+  let refreshSeq = 0
+
+  // Promesa compartida de creación: 20 escaneos simultáneos con el carrito
+  // vacío creaban hasta 20 ventas DRAFT huérfanas. Ahora todos esperan la misma.
+  let creatingSale: Promise<Sale> | null = null
+
+  // Idempotencia del cobro: la clave sobrevive a los reintentos del mismo
+  // intento (misma venta, método y monto) y se renueva cuando cambia alguno.
+  let paymentAttemptKey = ''
+  let paymentAttemptFingerprint: string | null = null
 
   const toast = useToast()
 
@@ -92,7 +121,14 @@ export const useSalesStore = defineStore('sales', () => {
   async function refreshSale() {
     if (!sale.value) return
     const { $api } = useNuxtApp()
-    const res = await $api<ApiResponse<Sale>>(`/sales/${sale.value.id}`)
+    const seq = ++refreshSeq
+    const saleId = sale.value.id
+    const res = await $api<ApiResponse<Sale>>(`/sales/${saleId}`)
+
+    // Otra recarga se disparó después y ya llegó: esta respuesta está obsoleta.
+    // También descartamos si el carrito cambió de venta mientras esperábamos.
+    if (seq !== refreshSeq || sale.value?.id !== saleId) return
+
     sale.value = res.data
   }
 
@@ -114,20 +150,20 @@ export const useSalesStore = defineStore('sales', () => {
 
     const { $api } = useNuxtApp()
     const previous = selectedClient.value
-    isMutating.value = true
-    try {
-      await $api(`/sales/${sale.value.id}/set-client`, {
-        method: 'PATCH',
-        body: { clientId: client?.id ?? null },
-      })
-      selectedClient.value = client
-      await refreshSale() // trae los items ya re-preciados y el nuevo total
-      toast.info(client ? `Precios actualizados para ${client.name}` : 'Precios de público general aplicados')
-    } catch {
-      selectedClient.value = previous // el interceptor ya notificó el error
-    } finally {
-      isMutating.value = false
-    }
+    const saleId = sale.value.id
+    await withMutation(async () => {
+      try {
+        await $api(`/sales/${saleId}/set-client`, {
+          method: 'PATCH',
+          body: { clientId: client?.id ?? null },
+        })
+        selectedClient.value = client
+        await refreshSale() // trae los items ya re-preciados y el nuevo total
+        toast.info(client ? `Precios actualizados para ${client.name}` : 'Precios de público general aplicados')
+      } catch {
+        selectedClient.value = previous // el interceptor ya notificó el error
+      }
+    })
   }
 
   /**
@@ -151,6 +187,24 @@ export const useSalesStore = defineStore('sales', () => {
    */
   async function addProduct(product: Product, quantity = 1): Promise<boolean> {
     const { $api } = useNuxtApp()
+
+    // GUARDIA DE PRECIO: un producto mal capturado (precio 0 o nulo) se vendía
+    // gratis sin que nadie lo advirtiera. Ninguna capa lo validaba.
+    const price = Number(product.price ?? 0)
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error(
+        `"${product.name}" no tiene un precio de venta válido. Corrígelo en el catálogo antes de venderlo.`,
+      )
+      return false
+    }
+
+    // GUARDIA DE PRODUCTO ACTIVO: el buscador podía listar productos dados de
+    // baja o retirados del mercado.
+    if (product.isActive === false) {
+      toast.error(`"${product.name}" está dado de baja y no puede venderse.`)
+      return false
+    }
+
     const inventoryStore = useInventoryStore()
     const live = await inventoryStore.fetchStock(product.id)
     const available = live?.sellable ?? product.stock
@@ -162,45 +216,66 @@ export const useSalesStore = defineStore('sales', () => {
       )
       return false
     }
-    try {
-      if (!sale.value) {
-        isBootstrapping.value = true
-        const res = await $api<ApiResponse<Sale>>('/sales', {
-          method: 'POST',
-          body: {
-            clientId: selectedClient.value?.id,
-            items: [{ productId: product.id, quantity }],
-          },
-        })
-        sale.value = res.data
-        await refreshSale() // enriquece con producto/cliente
-      } else {
-        isMutating.value = true
+
+    return withMutation(async () => {
+      try {
+        if (!sale.value) {
+          // CREACIÓN COMPARTIDA: si llegan 20 escaneos con el carrito vacío,
+          // todos esperan la MISMA promesa en lugar de crear 20 ventas DRAFT.
+          // El primer producto lo aporta quien gane la carrera; el resto se
+          // agrega después con add-product.
+          isBootstrapping.value = true
+          creatingSale ??= $api<ApiResponse<Sale>>('/sales', {
+            method: 'POST',
+            body: {
+              clientId: selectedClient.value?.id,
+              items: [{ productId: product.id, quantity }],
+            },
+          }).then((res) => res.data)
+
+          const creada = creatingSale
+          try {
+            const nueva = await creada
+            const fuiPrimero = !sale.value
+            if (fuiPrimero) {
+              sale.value = nueva
+              await refreshSale() // enriquece con producto/cliente
+              return true
+            }
+            // Otro escaneo creó la venta con SU producto: el mío falta por agregar.
+            await $api(`/sales/${nueva.id}/add-product`, {
+              method: 'POST',
+              body: { productId: product.id, quantity },
+            })
+            await refreshSale()
+            return true
+          } finally {
+            // Se libera para que un carrito nuevo pueda volver a crear.
+            if (creatingSale === creada) creatingSale = null
+            isBootstrapping.value = false
+          }
+        }
+
         await $api(`/sales/${sale.value.id}/add-product`, {
           method: 'POST',
           body: { productId: product.id, quantity },
         })
         await refreshSale()
+        return true
+      } catch {
+        return false // el interceptor ya muestra el toast del error del backend
       }
-      return true
-    } catch {
-      return false // el interceptor ya muestra el toast del error del backend
-    } finally {
-      isBootstrapping.value = false
-      isMutating.value = false
-    }
+    })
   }
 
   async function removeItem(itemId: number) {
     if (!sale.value) return
     const { $api } = useNuxtApp()
-    isMutating.value = true
-    try {
-      await $api(`/sales/${sale.value.id}/remove-product/${itemId}`, { method: 'POST' })
+    const saleId = sale.value.id
+    await withMutation(async () => {
+      await $api(`/sales/${saleId}/remove-product/${itemId}`, { method: 'POST' })
       await refreshSale()
-    } finally {
-      isMutating.value = false
-    }
+    })
   }
 
   function incrementItem(item: SaleItem) {
@@ -217,16 +292,14 @@ export const useSalesStore = defineStore('sales', () => {
     if (quantity <= 0) return removeItem(item.id)
 
     const { $api } = useNuxtApp()
-    isMutating.value = true
-    try {
-      await $api(`/sales/${sale.value.id}/update-item/${item.id}`, {
+    const saleId = sale.value.id
+    await withMutation(async () => {
+      await $api(`/sales/${saleId}/update-item/${item.id}`, {
         method: 'PATCH',
         body: { quantity },
       })
       await refreshSale()
-    } finally {
-      isMutating.value = false
-    }
+    })
   }
 
   function decrementItem(item: SaleItem) {
@@ -240,11 +313,32 @@ export const useSalesStore = defineStore('sales', () => {
   async function registerPayment(payload: { method: PaymentMethod; amount: number; references?: string }): Promise<boolean> {
     if (!sale.value) return false
     const { $api } = useNuxtApp()
+
+    // CLAVE DE IDEMPOTENCIA ESTABLE POR INTENTO DE COBRO.
+    // Se deriva de la venta, el método y el monto, y se conserva mientras esos
+    // datos no cambien. Así, si la respuesta se pierde y el cajero vuelve a
+    // pulsar Cobrar, viaja la MISMA clave y el backend devuelve el cobro
+    // original en lugar de cobrar dos veces.
+    // Una clave nueva por petición (como haría el plugin por defecto) no
+    // protegería del reintento manual, que es justo el caso peligroso.
+    const huella = `${sale.value.id}:${payload.method}:${payload.amount}`
+    if (paymentAttemptFingerprint !== huella) {
+      paymentAttemptFingerprint = huella
+      paymentAttemptKey = crypto.randomUUID()
+    }
+
     try {
-      await $api(`/sales/${sale.value.id}/add-payment`, { method: 'POST', body: payload })
+      await $api(`/sales/${sale.value.id}/add-payment`, {
+        method: 'POST',
+        body: payload,
+        headers: { 'Idempotency-Key': paymentAttemptKey },
+      })
       await refreshSale()
+      // Cobro confirmado: la siguiente operación de cobro usará una clave nueva.
+      paymentAttemptFingerprint = null
       return true
     } catch {
+      // Se CONSERVA la clave a propósito: el reintento debe reusarla.
       return false
     }
   }
