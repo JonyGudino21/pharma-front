@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSalesStore, type Sale } from '~/stores/sales'
 import type { Product } from '~/stores/product'
@@ -66,6 +66,13 @@ const busy = computed(() => isMutating.value || isBootstrapping.value)
 function focusScanner() {
   nextTick(() => scannerRef.value?.focus())
 }
+
+// Al deshabilitar el input durante una operación se pierde el foco, y el
+// siguiente disparo del escáner se iría al vacío sin que el cajero lo note.
+// En cuanto la operación termina, devolvemos el foco automáticamente.
+watch(busy, (ocupado) => {
+  if (!ocupado && !anyModalOpen.value) focusScanner()
+})
 
 async function onScan() {
   const raw = scannerValue.value.trim()
@@ -198,13 +205,27 @@ onMounted(() => {
         <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex gap-2">
           <div class="relative flex-1">
             <Icon name="ph:barcode-bold" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <!--
+              El input se DESHABILITA mientras haya una operación en vuelo.
+              Antes, una ráfaga del escáner (20 lecturas en menos de un segundo)
+              disparaba decenas de peticiones concurrentes que se pisaban entre
+              sí y perdían unidades del carrito.
+            -->
             <input
               ref="scannerRef"
               v-model="scannerValue"
               type="text"
-              placeholder="Escanea un código de barras o escribe 3* para multiplicar cantidad..."
-              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500"
+              :disabled="busy"
+              :placeholder="busy
+                ? 'Procesando...'
+                : 'Escanea un código de barras o escribe 3* para multiplicar cantidad...'"
+              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-wait"
               @keyup.enter="onScan"
+            />
+            <Icon
+              v-if="busy"
+              name="ph:spinner-gap-bold"
+              class="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500 animate-spin"
             />
           </div>
           <button
