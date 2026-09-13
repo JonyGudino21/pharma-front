@@ -177,9 +177,25 @@ useKeyboardShortcuts({
   Escape: handleEscape,
 })
 
-onMounted(() => {
+onMounted(async () => {
   focusScanner()
   companyStore.ensureProfile()
+
+  // RECUPERACIÓN DEL CARRITO. Antes, un F5 o una sesión caducada dejaban al
+  // cajero con el carrito vacío mientras la venta DRAFT seguía viva en el
+  // backend con todo lo capturado.
+  //
+  // No se espera antes de dar el foco al escáner: si el cajero ya está pasando
+  // productos, no debe notar esta llamada. `resumeDraft` no sobreescribe un
+  // carrito que ya empezó.
+  const recuperado = await sales.resumeDraft()
+
+  // Al adoptar un carrito el foco puede haberse perdido con el re-render de la
+  // lista de productos. Sin esto el siguiente escaneo se iba al vacío.
+  if (recuperado) {
+    await nextTick()
+    focusScanner()
+  }
 })
 </script>
 

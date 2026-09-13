@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
-import type { Client } from '~/stores/client'
+import { useClientStore, type Client } from '~/stores/client'
 import { useProductStore, type Product } from '~/stores/product'
 import { useInventoryStore } from '~/stores/inventory'
 import { useToast } from '~/composables/useToast'
@@ -130,6 +130,89 @@ export const useSalesStore = defineStore('sales', () => {
     if (seq !== refreshSeq || sale.value?.id !== saleId) return
 
     sale.value = res.data
+  }
+
+  /**
+   * Recupera del backend el carrito DRAFT que el cajero dejó abierto.
+   *
+   * ─── EL PROBLEMA QUE CIERRA ───
+   * `sale` sólo vivía en la memoria de Pinia. Todo lo que recarga la página la
+   * vaciaba: un F5, un corte de luz en la terminal, o la propia redirección
+   * dura al login cuando caducaba la sesión (`window.location.href`).
+   *
+   * Mientras tanto la venta DRAFT seguía en la base con sus líneas capturadas.
+   * El cajero volvía a un carrito vacío, empezaba de nuevo, y el DRAFT anterior
+   * quedaba huérfano: invisible, imposible de cobrar y acumulándose. Con un
+   * carrito de 30 medicamentos eso son diez minutos de captura perdidos y una
+   * fila basura en la tabla de ventas por cada incidente.
+   *
+   * ─── DECISIONES ───
+   * - No sobreescribe un carrito ya vivo. Si el cajero ya empezó a capturar
+   *   antes de que responda esta llamada, lo suyo manda.
+   * - Errores en silencio: no poder recuperar el carrito no debe impedir
+   *   trabajar. El POS arranca vacío, que es el comportamiento anterior.
+   * - Avisa sólo cuando SÍ recupera algo, porque es un cambio de estado que el
+   *   cajero necesita entender ("¿por qué hay cosas en mi carrito?").
+   *
+   * @returns true si se adoptó un carrito
+   */
+  async function resumeDraft(): Promise<boolean> {
+    if (sale.value) return false
+
+    const { $api } = useNuxtApp()
+    isBootstrapping.value = true
+    try {
+      const res = await $api<ApiResponse<Sale | null>>('/sales/draft')
+      const recuperada = res.data
+
+      // El backend devuelve null cuando no hay nada abierto: es el caso normal.
+      if (!recuperada) return false
+
+      // Volvemos a comprobarlo: la petición tardó y en ese hueco un escaneo pudo
+      // haber creado una venta nueva. Adoptar la vieja aquí borraría el producto
+      // que el cajero acaba de escanear.
+      if (sale.value) return false
+
+      // Defensa de contrato: si el backend cambiara y nos mandara una venta ya
+      // cerrada, adoptarla dejaría al POS intentando cobrar algo cobrado.
+      if (recuperada.flowStatus !== 'DRAFT') return false
+
+      sale.value = recuperada
+
+      // CLIENTE COMPLETO, no el recortado que trae la venta.
+      //
+      // `sale.client` sólo incluye datos de facturación (nombre, RFC, domicilio).
+      // Le faltan `hasCredit`, `creditLimit` y `currentDebt`, que son justo los
+      // que el modal de cobro necesita: con la versión recortada, un cliente con
+      // crédito aparecía sin él y el crédito disponible se calculaba como NaN.
+      //
+      // Se pide en segundo plano y sin bloquear: si falla, el carrito se
+      // recupera igual y el cajero puede reasignar el cliente con F4.
+      if (recuperada.clientId) {
+        const completo = await useClientStore().fetchClientById(recuperada.clientId)
+        selectedClient.value = completo
+        if (!completo) {
+          toast.warning(
+            'Recuperamos la venta, pero no pudimos cargar los datos del cliente. Vuelve a asignarlo (F4) antes de cobrar a crédito.',
+          )
+        }
+      } else {
+        selectedClient.value = null
+      }
+
+      const cuantos = recuperada.items?.length ?? 0
+      toast.info(
+        cuantos > 0
+          ? `Recuperamos tu venta en curso con ${cuantos} ${cuantos === 1 ? 'producto' : 'productos'}. Revísala antes de cobrar.`
+          : 'Recuperamos tu venta en curso (estaba vacía).',
+      )
+      return true
+    } catch {
+      // Sin carrito recuperado se trabaja igual: no bloqueamos el punto de venta.
+      return false
+    } finally {
+      isBootstrapping.value = false
+    }
   }
 
   /**
@@ -401,7 +484,7 @@ export const useSalesStore = defineStore('sales', () => {
     // getters
     items, itemCount, total, balance, paidAmount, isEmpty, hasDraft, canChangeClient, hasControlledItems,
     // acciones
-    refreshSale, setClient, scanBarcode, addProduct, removeItem,
+    refreshSale, resumeDraft, setClient, scanBarcode, addProduct, removeItem,
     incrementItem, decrementItem, setQuantity, registerPayment,
     completeSale, discardSale, reset, setPrescription,
   }
