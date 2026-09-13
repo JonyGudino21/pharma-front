@@ -100,6 +100,15 @@ export interface LoginData {
   user: User;
   accessToken: string;
   refreshToken: string;
+  /**
+   * Caducidad absoluta del refresh token (ISO). La envía el backend para que la
+   * cookie muera junto con la fila de UserToken: si el front calculara la
+   * duración por su cuenta, cualquier cambio de configuración en el servidor
+   * dejaría cookies vivas apuntando a tokens ya expirados.
+   *
+   * Opcional para tolerar un backend anterior a la Fase 3.
+   */
+  refreshExpiresAt?: string;
 }
 
 export interface MeData {

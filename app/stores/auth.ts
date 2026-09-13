@@ -3,6 +3,27 @@ import { ref, computed } from 'vue'
 import { useCookie, useNuxtApp } from '#app'
 import type { User, UserPermissions, ApiResponse, LoginData, MeData } from '~/types/auth'
 
+/**
+ * Convierte la caducidad absoluta que envía el backend en el `maxAge` que
+ * espera la cookie.
+ *
+ * Con respaldo por si un backend antiguo no devuelve el campo: sin él la cookie
+ * se volvería de sesión y el cajero perdería el "recordarme" al cerrar el
+ * navegador.
+ */
+function maxAgeDesde(refreshExpiresAt?: string, rememberMe?: boolean): number {
+  const porDefecto = rememberMe ? 60 * 60 * 24 * 7 : 60 * 60 * 24
+
+  if (!refreshExpiresAt) return porDefecto
+
+  const restante = Math.floor(
+    (new Date(refreshExpiresAt).getTime() - Date.now()) / 1000,
+  )
+  // Un valor absurdo (reloj del cliente desfasado, fecha inválida) no debe
+  // producir una cookie ya caducada que expulse al usuario al instante.
+  return Number.isFinite(restante) && restante > 60 ? restante : porDefecto
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // === ESTADO (State) ===
   const user = ref<User | null>(null)
@@ -27,12 +48,20 @@ export const useAuthStore = defineStore('auth', () => {
       body: credentials
     })
 
-    // Configuramos duración de cookies (Recordar sesión)
-    const maxAge = credentials.rememberMe ? 60 * 60 * 24 * 7 : 60 * 60 * 24 // 7 días o 1 dia
-    
-    const accCookie = useCookie('access_token', { maxAge, sameSite: 'lax' })
-    const refCookie = useCookie('refresh_token', { maxAge, sameSite: 'lax' })
-    
+    // DURACIÓN DERIVADA DEL BACKEND, no calculada aquí.
+    //
+    // Antes el front replicaba la regla (7 días con "recordarme", 1 día sin
+    // ella). Dos copias de la misma decisión en dos repos distintos: cambiar
+    // JWT_REFRESH_DAYS_DEFAULT en el servidor no movía la cookie, y quedaba una
+    // cookie viva apuntando a un token ya expirado en la base — 401 en bucle sin
+    // explicación. Ahora el backend devuelve `refreshExpiresAt` y la cookie
+    // caduca exactamente con la fila de UserToken.
+    const maxAge = maxAgeDesde(res.data.refreshExpiresAt, credentials.rememberMe)
+
+    const opciones = { maxAge, sameSite: 'lax' as const }
+    const accCookie = useCookie('access_token', opciones)
+    const refCookie = useCookie('refresh_token', opciones)
+
     // Guardamos tokens
     accCookie.value = res.data.accessToken
     refCookie.value = res.data.refreshToken
