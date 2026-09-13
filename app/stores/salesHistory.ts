@@ -5,6 +5,7 @@ import type { ApiResponse } from '~/types/auth'
 import type { Sale, PaymentMethod } from '~/stores/sales'
 import type { SaleReceiptPrint } from '~/types/receipt'
 import { useToast } from '~/composables/useToast'
+import { useRequestState } from '~/composables/useRequestState'
 
 /**
  * Historial de ventas, devoluciones y anulaciones.
@@ -88,11 +89,24 @@ export interface CreateReturnPayload {
 const n = (v: string | number | null | undefined): number => Number(v ?? 0)
 
 export const useSalesHistoryStore = defineStore('salesHistory', () => {
-  const sales = ref<SaleListRow[]>([])
-  const currentSale = ref<SaleDetail | null>(null)
+  // Cada recurso lleva su propio estado (cargando / fallo / vacío). El listado y
+  // el detalle son consultas independientes: compartir un `isLoading` hacía que
+  // abrir el detalle pusiera la tabla en modo carga, y que un fallo en uno se
+  // presentara como falta de datos en el otro.
+  const listado = useRequestState<SaleListRow[]>([])
+  const detalle = useRequestState<SaleDetail | null>(null)
+
+  // Nombres estables para las pantallas ya escritas: `sales` y `currentSale`
+  // siguen siendo los mismos refs que antes, ahora respaldados por el estado
+  // de petición. Así el cambio no obliga a reescribir 6 vistas a la vez.
+  const sales = listado.datos
+  const currentSale = detalle.datos
   const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 1 })
 
-  const isLoading = ref(false)
+  // `isLoading` se mantiene como alias para no romper vistas antiguas, pero lo
+  // nuevo debe leer `listLoading`/`listError` y `detailLoading`/`detailError`,
+  // que sí distinguen "no hay datos" de "no se pudieron cargar".
+  const isLoading = computed(() => listado.cargando.value || detalle.cargando.value)
   const isActionLoading = ref(false)
 
   const toast = useToast()
@@ -118,7 +132,10 @@ export const useSalesHistoryStore = defineStore('salesHistory', () => {
   }
 
   function clearCurrent() {
-    currentSale.value = null
+    // reset() y no `= null`: además del dato limpia el estado y el fallo. Con
+    // sólo poner null, al volver a abrir el detalle la pantalla arrancaba
+    // mostrando el error de la consulta anterior.
+    detalle.reset()
   }
 
   /**
@@ -162,8 +179,13 @@ export const useSalesHistoryStore = defineStore('salesHistory', () => {
 
   async function fetchSales(page = 1) {
     const { $api } = useNuxtApp()
-    isLoading.value = true
-    try {
+
+    // El estado de fallo se lleva aparte de `isLoading` a propósito.
+    // Antes esta función no tenía `catch`: al fallar, `isLoading` bajaba en el
+    // `finally`, la lista se quedaba como estaba y la pantalla pintaba
+    // "No hay ventas registradas". El gerente concluía que no se había vendido
+    // nada ese día cuando lo que pasaba era que el servidor no respondía.
+    return listado.run(async () => {
       const params = new URLSearchParams()
       params.append('page', String(page))
       params.append('limit', String(pagination.value.limit))
@@ -179,26 +201,20 @@ export const useSalesHistoryStore = defineStore('salesHistory', () => {
       const res = await $api<ApiResponse<{ sales: SaleListRow[]; pagination: typeof pagination.value }>>(
         `/sales?${params.toString()}`,
       )
-      sales.value = res.data.sales ?? []
       if (res.data.pagination) pagination.value = res.data.pagination
-    } finally {
-      isLoading.value = false
-    }
+      return res.data.sales ?? []
+    })
   }
 
   async function fetchSaleById(id: number) {
     const { $api } = useNuxtApp()
-    isLoading.value = true
-    try {
+
+    // Igual que arriba: `currentSale = null` ante un fallo hacía que la pantalla
+    // de detalle mostrara "venta no encontrada" para una venta que existe.
+    return detalle.run(async () => {
       const res = await $api<ApiResponse<SaleDetail>>(`/sales/${id}`)
-      currentSale.value = res.data
       return res.data
-    } catch {
-      currentSale.value = null // el interceptor ya notifico el error
-      return null
-    } finally {
-      isLoading.value = false
-    }
+    })
   }
 
   /**
@@ -242,6 +258,27 @@ export const useSalesHistoryStore = defineStore('salesHistory', () => {
     filters,
     isLoading,
     isActionLoading,
+
+    // ─────────────────────────────────────────────────────────────────
+    // Estado por recurso: lo que las pantallas deben consumir para poder
+    // distinguir "no hay ventas" de "no se pudieron cargar las ventas".
+    //
+    // PLANOS Y EN LA RAÍZ, no agrupados en un objeto `listState`. Pinia sólo
+    // desenvuelve los refs que devuelve un setup store en el PRIMER nivel. Un
+    // `listState: { cargando }` entregaría el ComputedRef sin desenvolver, y en
+    // una plantilla `v-if="store.listState.cargando"` evalúa el objeto Ref:
+    // SIEMPRE verdadero. La pantalla se quedaría cargando para siempre y sin
+    // ningún error que lo delate.
+    // ─────────────────────────────────────────────────────────────────
+    listLoading: listado.cargando,
+    listError: listado.fallo,
+    listEmpty: listado.vacio,
+    retryList: listado.reintentar,
+
+    detailLoading: detalle.cargando,
+    detailError: detalle.fallo,
+    detailEmpty: detalle.vacio,
+    retryDetail: detalle.reintentar,
     returnedByItem,
     returnableByItem,
     hasReturnableItems,
