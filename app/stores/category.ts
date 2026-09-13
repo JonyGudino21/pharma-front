@@ -12,10 +12,22 @@ export interface Category {
   updatedAt: string
 }
 
+/** Forma mínima que necesita un selector: ni descripción, ni fechas. */
+export interface CategoryOption {
+  id: number
+  name: string
+}
+
 export const useCategoryStore = defineStore('category', () => {
   const categories = ref<Category[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
+
+  // Estado de las OPCIONES, separado del de la tabla: son dos consultas con
+  // propósitos distintos y mezclarlas fue justo el origen del bug.
+  const options = ref<CategoryOption[]>([])
+  const optionsTruncated = ref(false)
+  const isLoadingOptions = ref(false)
 
   const filters = ref({
     query: '',
@@ -53,6 +65,43 @@ export const useCategoryStore = defineStore('category', () => {
     }
   }
 
+  /**
+   * Opciones para selectores. NO es lo mismo que `fetchCategories`.
+   *
+   * `fetchCategories` sirve la TABLA de administración: paginada de 10 en 10.
+   * El selector de categorías de un producto la estaba usando para pintar sus
+   * casillas, así que sólo ofrecía las diez primeras y las demás quedaban
+   * inasignables. No daba error: faltaban en silencio.
+   *
+   * Este endpoint devuelve sólo `{id, name}` de las activas, con un tope
+   * explícito. `optionsTruncated` avisa si el catálogo excede ese tope, para
+   * que la interfaz pida buscar en lugar de mostrar una lista incompleta como
+   * si fuera completa.
+   */
+  async function fetchCategoryOptions(force = false) {
+    if (!force && options.value.length > 0) return options.value
+
+    const { $api } = useNuxtApp()
+    isLoadingOptions.value = true
+    try {
+      const res = await $api<ApiResponse<{
+        options: CategoryOption[]
+        truncated: boolean
+        total: number
+      }>>('/category/options')
+
+      options.value = res.data.options ?? []
+      optionsTruncated.value = res.data.truncated ?? false
+      return options.value
+    } catch {
+      // El interceptor ya avisó. Devolvemos lo que hubiera para no dejar el
+      // formulario sin nada que mostrar.
+      return options.value
+    } finally {
+      isLoadingOptions.value = false
+    }
+  }
+
   async function createCategory(payload: { name: string, description?: string, isActive: boolean }) {
     const { $api } = useNuxtApp()
     // No usamos try-catch aquí para que el Modal atrape el error 400 y no se cierre
@@ -80,6 +129,12 @@ export const useCategoryStore = defineStore('category', () => {
     fetchCategories,
     createCategory,
     updateCategory,
-    deactivateCategory
+    deactivateCategory,
+
+    // Selectores
+    options,
+    optionsTruncated,
+    isLoadingOptions,
+    fetchCategoryOptions,
   }
 })
