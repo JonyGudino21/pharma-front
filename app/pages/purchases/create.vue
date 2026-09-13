@@ -31,12 +31,22 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="label-base">Proveedor *</label>
+              <!--
+                `options`, NO `suppliers`. `suppliers` es la tabla del directorio,
+                paginada de 10 en 10: con este combo alimentado desde ahí, al
+                proveedor número 11 en adelante no se le podía comprar.
+              -->
               <select v-model="form.supplierId" required class="input-base cursor-pointer">
-                <option :value="null" disabled>Selecciona un proveedor...</option>
-                <option v-for="sup in supplierStore.suppliers" :key="sup.id" :value="sup.id">
+                <option :value="null" disabled>
+                  {{ supplierStore.isLoadingOptions ? 'Cargando proveedores…' : 'Selecciona un proveedor...' }}
+                </option>
+                <option v-for="sup in supplierStore.options" :key="sup.id" :value="sup.id">
                   {{ sup.name }}
                 </option>
               </select>
+              <p v-if="supplierStore.optionsTruncated" class="mt-1 text-xs text-warning-600">
+                La lista está recortada: hay más proveedores de los que caben aquí.
+              </p>
             </div>
             <div>
               <label class="label-base">Folio de Factura / Ticket *</label>
@@ -262,11 +272,10 @@ const isSearching = ref(false)
 let searchTimeout: any = null
 
 onMounted(async () => {
-  // Cargamos proveedores para el select
-  if (supplierStore.suppliers.length === 0) {
-    supplierStore.filters.isActive = 'true'
-    await supplierStore.fetchSuppliers(1)
-  }
+  // Opciones del combo, no la tabla paginada del directorio. Además, la versión
+  // anterior escribía `supplierStore.filters.isActive = 'true'`, lo que dejaba
+  // el filtro cambiado para la pantalla de proveedores al volver a ella.
+  await supplierStore.fetchSupplierOptions()
 })
 
 const handleSearch = () => {

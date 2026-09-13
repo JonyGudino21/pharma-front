@@ -22,7 +22,9 @@
         <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Proveedor</label>
         <select v-model="store.filters.supplierId" @change="store.fetchPurchases(1)" class="input-base cursor-pointer">
           <option value="">Todos los proveedores</option>
-          <option v-for="sup in supplierStore.suppliers" :key="sup.id" :value="sup.id">
+          <!-- `options` y no `suppliers`: filtrar por un proveedor que no cabe
+               en la primera página era imposible. -->
+          <option v-for="sup in supplierStore.options" :key="sup.id" :value="sup.id">
             {{ sup.name }}
           </option>
         </select>
@@ -146,12 +148,12 @@ const { formatCurrency } = useCurrency()
 const { formatDate } = useDate()
 
 onMounted(async () => {
-  // Cargar proveedores para el filtro
-  if (supplierStore.suppliers.length === 0) {
-    supplierStore.filters.isActive = 'true'
-    await supplierStore.fetchSuppliers(1)
-  }
-  await store.fetchPurchases(1)
+  // Opciones del filtro y listado de compras en paralelo: son independientes y
+  // encadenarlos sólo sumaba la latencia de una a la de la otra.
+  await Promise.all([
+    supplierStore.fetchSupplierOptions(),
+    store.fetchPurchases(1),
+  ])
 })
 
 // Helpers visuales para Badges
