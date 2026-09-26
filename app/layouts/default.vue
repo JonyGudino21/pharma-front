@@ -125,6 +125,16 @@
                   <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ authStore.user?.userName }}</p>
                   <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ authStore.user?.role }}</p>
                 </div>
+                <!-- Cambio de la propia contraseña. No existía: el admin creado por la
+                     semilla no tenía cómo cambiar la suya, y un cajero que sospechaba
+                     que alguien la había visto tenía que pedírselo a otra persona. -->
+                <NuxtLink
+                  to="/account/password"
+                  class="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Icon name="ph:key-bold" class="w-4 h-4 mr-3" />
+                  Cambiar contraseña
+                </NuxtLink>
                 <button
                   @click="handleLogout"
                   :disabled="isLoggingOut"
@@ -210,7 +220,10 @@ const menuItems = computed(() => {
     { name: 'Dashboard', path: '/', icon: 'ph:chart-line-up-bold', show: true }, // Siempre visible si estás logueado
     { name: 'Punto de Venta', path: '/pos', icon: 'ph:shopping-cart-bold', show: authStore.can('canSell') },
     { name: 'Ventas', path: '/sales', icon: 'ph:receipt-bold', show: authStore.can('canViewSalesSummary') },
-    { name: 'Caja', path: '/cash-shifts', icon: 'ph:cash-register-bold', show: authStore.can('canViewAllShifts') },
+    // `canOpenShift` y NO sólo `canViewAllShifts`: la pantalla exige
+    // `canOpenShift`, así que un cajero —que tiene ése y no el de ver todos
+    // los turnos— no encontraba en el menú dónde abrir su propia caja.
+    { name: 'Caja', path: '/cash-shifts', icon: 'ph:cash-register-bold', show: authStore.can('canOpenShift') || authStore.can('canViewAllShifts') },
     
     // Menú agrupado para Catálogo
     {
@@ -238,7 +251,10 @@ const menuItems = computed(() => {
       ],
     },
     { name: 'Compras', path: '/purchases', icon: 'ph:shopping-cart-bold', show: authStore.can('canViewPurchases') },
-    { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') || authStore.can('canViewPurchases') },
+    // Sólo con el permiso que la página exige. Antes también se mostraba con
+    // `canViewPurchases`: el farmacéutico veía el enlace, hacía clic y recibía
+    // "Acceso denegado". Un menú que ofrece lo que no deja usar se siente roto.
+    { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') },
     { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
     { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') },
     {
