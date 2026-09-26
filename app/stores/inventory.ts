@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
 export type MovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'LOSS' | 'INITIAL' | 'RETURN' | 'RETURN_IN' | 'RETURN_OUT'
 
@@ -93,6 +94,9 @@ export const useInventoryStore = defineStore('inventory', () => {
   const isLoading = ref(false)
   const isLoadingKardex = ref(false)
   const isLoadingExpiring = ref(false)
+  // Fallo de carga, distinto de "no hay resultados". Ver useRequestState.
+  const expiringError = ref<FalloPeticion | null>(null)
+  const controlledError = ref<FalloPeticion | null>(null)
   const isLoadingControlled = ref(false)
 
   async function fetchValuation() {
@@ -154,6 +158,7 @@ export const useInventoryStore = defineStore('inventory', () => {
   async function fetchExpiring(params: { days?: number; page?: number; limit?: number } = {}) {
     const { $api } = useNuxtApp()
     isLoadingExpiring.value = true
+    expiringError.value = null
     try {
       const query = new URLSearchParams()
       query.set('days', String(params.days ?? 90))
@@ -163,7 +168,9 @@ export const useInventoryStore = defineStore('inventory', () => {
       expiring.value = res.data.data
       expiringPagination.value = res.data.pagination
     } catch (error) {
-      console.error('Error obteniendo caducidades:', error)
+      // Antes sólo se registraba en consola y la pantalla decía 'No hay lotes por
+      // caducar'. Con el servidor caído, eso invita a vender medicamento vencido.
+      expiringError.value = describirFallo(error)
     } finally {
       isLoadingExpiring.value = false
     }
@@ -181,6 +188,7 @@ export const useInventoryStore = defineStore('inventory', () => {
   } = {}) {
     const { $api } = useNuxtApp()
     isLoadingControlled.value = true
+    controlledError.value = null
     try {
       const query = new URLSearchParams()
       query.set('page', String(params.page ?? 1))
@@ -196,7 +204,9 @@ export const useInventoryStore = defineStore('inventory', () => {
       controlledPagination.value = res.data.pagination
       return res.data
     } catch (error) {
-      console.error('Error obteniendo libro de controlados:', error)
+      // Igual que caducidades: un fallo se leía como 'no hay registros' en el
+      // libro que se entrega a COFEPRIS.
+      controlledError.value = describirFallo(error)
       return null
     } finally {
       isLoadingControlled.value = false
@@ -212,6 +222,8 @@ export const useInventoryStore = defineStore('inventory', () => {
   }
 
   return {
+    expiringError,
+    controlledError,
     valuation,
     lowStockAlerts,
     currentKardex,

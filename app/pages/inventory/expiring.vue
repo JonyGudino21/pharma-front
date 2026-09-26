@@ -28,6 +28,23 @@
       <div v-if="inventoryStore.isLoadingExpiring" class="py-16 text-center text-gray-400">
         <Icon name="ph:spinner-gap-bold" class="w-8 h-8 animate-spin mx-auto" />
       </div>
+      <!--
+        Falló la consulta ≠ no hay datos. Antes esta rama no existía y un error
+        del servidor se pintaba con el mensaje de "vacío" de abajo.
+      -->
+      <div v-else-if="inventoryStore.expiringError" class="py-12 px-6 text-center" role="alert">
+        <Icon name="ph:cloud-slash-fill" class="w-10 h-10 mx-auto text-error-500" />
+        <p class="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-100">{{ inventoryStore.expiringError.mensaje }}</p>
+        <p class="mt-1 text-xs text-gray-500">Esto NO significa que no haya lotes por caducar: no pudimos consultarlos. No vendas productos dudosos hasta confirmar.</p>
+        <button
+          v-if="inventoryStore.expiringError.reintentable"
+          type="button"
+          class="mt-3 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+          @click="reload()"
+        >
+          <Icon name="ph:arrow-clockwise-bold" /> Reintentar
+        </button>
+      </div>
       <div v-else-if="inventoryStore.expiring.length === 0" class="py-16 text-center text-gray-400">
         No hay lotes por caducar en este horizonte.
       </div>

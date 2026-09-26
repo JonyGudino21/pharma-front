@@ -23,6 +23,15 @@ const mensajePorEstado = (estado?: number, mensajeBackend?: string): string => {
   return 'No se pudo cargar la información.'
 }
 
+/**
+ * Traduce cualquier error de `$api` a un `FalloPeticion` presentable.
+ *
+ * Exportado para los stores que aún no migran a `useRequestState` pero
+ * necesitan YA distinguir "falló" de "vacío" en pantallas críticas
+ * (caducidades, libro de controlados, turno de caja).
+ */
+export const describirFallo = (error: unknown): FalloPeticion => extraerFallo(error)
+
 const extraerFallo = (error: unknown): FalloPeticion => {
   const e = error as {
     response?: { status?: number; _data?: { message?: string; error?: { requestId?: string } } }

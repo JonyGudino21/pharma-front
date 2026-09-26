@@ -64,6 +64,23 @@
       <div v-if="inventoryStore.isLoadingControlled" class="py-16 text-center text-gray-400">
         <Icon name="ph:spinner-gap-bold" class="w-8 h-8 animate-spin mx-auto" />
       </div>
+      <!--
+        Falló la consulta ≠ no hay datos. Antes esta rama no existía y un error
+        del servidor se pintaba con el mensaje de "vacío" de abajo.
+      -->
+      <div v-else-if="inventoryStore.controlledError" class="py-12 px-6 text-center" role="alert">
+        <Icon name="ph:cloud-slash-fill" class="w-10 h-10 mx-auto text-error-500" />
+        <p class="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-100">{{ inventoryStore.controlledError.mensaje }}</p>
+        <p class="mt-1 text-xs text-gray-500">Esto NO significa que el libro esté vacío: no pudimos consultarlo.</p>
+        <button
+          v-if="inventoryStore.controlledError.reintentable"
+          type="button"
+          class="mt-3 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+          @click="buscar()"
+        >
+          <Icon name="ph:arrow-clockwise-bold" /> Reintentar
+        </button>
+      </div>
       <div v-else-if="inventoryStore.controlledLog.length === 0" class="py-16 text-center text-gray-400">
         No hay registros con esos filtros.
       </div>
