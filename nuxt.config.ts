@@ -30,6 +30,11 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // NOTA OFFLINE: estas fuentes vienen de Google. Sin internet la interfaz
+      // NO se rompe —cae en las fuentes del sistema declaradas en el CSS— pero
+      // se ve distinta. Para la versión instalada en farmacia conviene servirlas
+      // desde el propio front (@fontsource/ibm-plex-mono y @fontsource/literata)
+      // y quitar estos enlaces. La impresión del ticket ya no depende de ellas.
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
