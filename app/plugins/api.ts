@@ -3,37 +3,62 @@ import type { FetchOptions, FetchRequest } from 'ofetch'
 import { useToast } from '~/composables/useToast'
 import { useUIStore } from '~/stores/ui'
 
-/** Respuesta de POST /auth/refresh. */
+/**
+ * Métodos HTTP admitidos, EXACTAMENTE como los declara el `$fetch` de Nuxt.
+ *
+ * `FetchOptions` de ofetch declara `method?: string` —cualquier cadena—, pero el
+ * `$fetch` que Nuxt inyecta es un `NitroFetch` con una unión cerrada. Al hacer
+ * `{ ...options, headers }` y pasárselo, TypeScript veía `string | undefined`
+ * contra esa unión y lo rechazaba:
+ *
+ *   TS2345: Type 'string' is not assignable to type '"GET" | "POST" | ...'
+ *
+ * Estrechar el tipo aquí, en lugar de castear en la llamada, tiene una ventaja
+ * real: un `method: 'PSOT'` mal escrito se detecta al compilar en vez de salir
+ * como un 405 en producción.
+ */
+type MetodoHttp =
+  | 'GET'
+  | 'HEAD'
+  | 'PATCH'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'CONNECT'
+  | 'OPTIONS'
+  | 'TRACE'
+  | 'get'
+  | 'head'
+  | 'patch'
+  | 'post'
+  | 'put'
+  | 'delete'
+  | 'connect'
+  | 'options'
+  | 'trace'
+
+/** Opciones públicas de `$api`: las de ofetch con el método ya estrechado. */
+export type ApiOptions = Omit<FetchOptions, 'method'> & { method?: MetodoHttp }
+
+/**
+ * Respuesta de POST /auth/refresh.
+ *
+ * Desde la Fase 4 NO trae tokens: llegan en cabeceras `Set-Cookie` que el
+ * navegador procesa sin que este código las vea. Sólo se declara la caducidad,
+ * que es informativa.
+ */
 interface RefreshResponse {
   data?: {
-    accessToken?: string
-    refreshToken?: string
-    /** Opcional: un backend anterior a la Fase 3 no lo envía. */
     refreshExpiresAt?: string
   }
 }
 
-/** Respaldo cuando el backend no informa la caducidad: 1 día, el mínimo real. */
-const MAX_AGE_POR_DEFECTO = 60 * 60 * 24
-
 /**
- * Segundos que le quedan de vida a la cookie.
- *
- * Sin esta defensa, un `refreshExpiresAt` ausente o con formato inesperado
- * producía `new Date(undefined).getTime() === NaN`, y ese NaN acababa en
- * `maxAge`. El navegador descarta una cookie con maxAge inválido: la sesión se
- * perdía en el acto, justo en el camino que existe para NO perderla.
+ * Marca legible de "hay sesión". La escribe el backend junto a las cookies
+ * httpOnly. No es una credencial —su valor es `1`— y sirve para evitar pedir
+ * una renovación cuando no hay ninguna sesión que renovar.
  */
-const segundosDeVida = (refreshExpiresAt?: string): number => {
-  if (!refreshExpiresAt) return MAX_AGE_POR_DEFECTO
-
-  const restante = Math.floor(
-    (new Date(refreshExpiresAt).getTime() - Date.now()) / 1000,
-  )
-  return Number.isFinite(restante) && restante > 60
-    ? restante
-    : MAX_AGE_POR_DEFECTO
-}
+const MARCA_DE_SESION = 'session_active'
 
 /**
  * Rutas que NUNCA deben disparar la renovación de sesión.
@@ -44,7 +69,17 @@ const segundosDeVida = (refreshExpiresAt?: string): number => {
  * entra en la lista porque un 401 ahí significa contraseña incorrecta, no
  * sesión caducada.
  */
-const RUTAS_SIN_RENOVACION = ['/auth/refresh', '/auth/login', '/auth/logout']
+//
+// `/auth/change-password` también: ahí un 401 significa "la contraseña actual no
+// es correcta". Si se tratara como sesión caducada, el plugin renovaría, el
+// reintento volvería a dar 401 y el usuario acabaría EXPULSADO por equivocarse
+// al teclear su contraseña actual.
+const RUTAS_SIN_RENOVACION = [
+  '/auth/refresh',
+  '/auth/login',
+  '/auth/logout',
+  '/auth/change-password',
+]
 
 const urlDe = (request: unknown): string => {
   if (typeof request === 'string') return request
@@ -83,7 +118,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Dentro de la factoría del plugin, Nuxt crea una instancia por petición en el
   // servidor y una sola en el cliente: exactamente el alcance que hace falta.
   // ─────────────────────────────────────────────────────────────────────
-  let renovacionEnCurso: Promise<string | null> | null = null
+  let renovacionEnCurso: Promise<boolean> | null = null
   let sesionExpiradaAvisada = false
 
   const raw = $fetch.create({
@@ -93,6 +128,21 @@ export default defineNuxtPlugin((nuxtApp) => {
     // congelado con `busy` en true — Cobrar y Descartar deshabilitados y sin
     // mensaje. La única salida era F5, que además destruía la venta en curso.
     timeout: 15_000,
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CREDENCIALES POR COOKIE (Fase 4).
+    //
+    // `include` es OBLIGATORIO: el API vive en otro origen (puerto distinto en
+    // desarrollo, subdominio en producción) y, sin esto, el navegador NO envía
+    // las cookies en peticiones cross-origin. El síntoma sería un 401 en todo,
+    // con la cookie perfectamente guardada y visible en DevTools — de los
+    // errores más difíciles de diagnosticar si no se conoce la regla.
+    //
+    // Requiere, del lado del backend, CORS con `credentials: true` y una lista
+    // de orígenes explícita (con `*` el navegador rechaza la combinación).
+    // Ya está así en `configure-http.ts`.
+    // ─────────────────────────────────────────────────────────────────────
+    credentials: 'include',
 
     onRequest({ options }) {
       const headers = new Headers(options.headers)
@@ -111,24 +161,10 @@ export default defineNuxtPlugin((nuxtApp) => {
         }
       }
 
-      // La cookie se lee SÓLO si la cabecera no viene ya puesta, y en ese orden.
-      //
-      // Dos razones, ambas importantes:
-      //   1. Se lee en cada intento, no se captura fuera: tras renovar, el
-      //      reintento debe llevar el token nuevo y no el ya caducado.
-      //   2. `useCookie` es un composable de Nuxt y necesita su contexto. El
-      //      reintento se lanza después de un `await`, donde ese contexto puede
-      //      no estar disponible. Como el reintento YA trae el Authorization
-      //      explícito, con esta guarda no llega a invocarse `useCookie`.
-      if (!headers.has('Authorization')) {
-        const accessToken = useCookie('access_token').value
-        if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
-      } else if (headers.get('Authorization') === '') {
-        // La renovación marca "no adjuntes credenciales" con un Authorization
-        // vacío (para que la guarda de arriba no lo rellene). Se retira antes de
-        // salir: enviar la cabecera vacía es una petición malformada.
-        headers.delete('Authorization')
-      }
+      // Aquí ya NO se adjunta ningún `Authorization`. El token está en una
+      // cookie httpOnly que este código no puede leer —ése es justamente el
+      // punto— y que el navegador adjunta por su cuenta gracias a
+      // `credentials: 'include'`.
       options.headers = headers
     },
 
@@ -201,59 +237,36 @@ export default defineNuxtPlugin((nuxtApp) => {
    * recibían "Refresh Token Invalido". El cajero salía expulsado justo cuando
    * la sesión era perfectamente renovable.
    *
-   * @returns el nuevo access token, o null si la sesión ya no es recuperable
+   * @returns true si la sesión se renovó; false si ya no es recuperable
    */
-  function renovarSesion(): Promise<string | null> {
+  function renovarSesion(): Promise<boolean> {
     if (renovacionEnCurso) return renovacionEnCurso
 
     renovacionEnCurso = (async () => {
-      // runWithContext también en la LECTURA: `renovarSesion` se invoca desde
-      // el catch del envoltorio, es decir ya después de un `await`, donde el
-      // contexto de Nuxt no está activo y `useCookie` fallaría.
-      const refreshToken = nuxtApp.runWithContext(
-        () => useCookie<string | null>('refresh_token').value,
+      // Si ni siquiera hay marca de sesión, no hay nada que renovar: evitamos
+      // una petición inútil al servidor en cada 401 de un usuario anónimo.
+      const hayMarca = nuxtApp.runWithContext(
+        () => useCookie<string | null>(MARCA_DE_SESION).value,
       ) as string | null | undefined
 
-      if (!refreshToken) return null
+      if (!hayMarca) return false
 
       try {
-        const res = await raw<RefreshResponse>('/auth/refresh', {
+        // SIN CUERPO. El refresh token está en una cookie httpOnly que este
+        // código no puede leer; lo adjunta el navegador gracias a
+        // `credentials: 'include'`, y el backend lo saca de ahí.
+        await raw<RefreshResponse>('/auth/refresh', {
           method: 'POST',
-          body: { refreshToken },
-          // Sin Authorization: el access token está caducado y mandarlo sólo
-          // invita al guard a rechazar la petición antes de leer el cuerpo.
-          headers: { Authorization: '' },
+          body: {},
         })
 
-        const accessToken = res?.data?.accessToken
-        const nuevoRefresh = res?.data?.refreshToken
-
-        // Una respuesta 200 con un cuerpo incompleto es peor que un error: si
-        // guardáramos `undefined` en la cookie, cada petición posterior iría sin
-        // credenciales y el usuario vería 401 sin entender por qué.
-        if (!accessToken || !nuevoRefresh) return null
-
-        // maxAge derivado de la caducidad REAL que devuelve el backend, no de un
-        // número fijo. Así la cookie muere junto con la fila de UserToken: una
-        // cookie que sobrevive a su token produce 401 en bucle, y una que muere
-        // antes tira una sesión todavía válida.
-        const opciones = {
-          maxAge: segundosDeVida(res?.data?.refreshExpiresAt),
-          sameSite: 'lax' as const,
-        }
-
-        // runWithContext es OBLIGATORIO aquí: estamos después de un `await`, y
-        // fuera del contexto de Nuxt `useCookie` no encuentra la instancia. En
-        // el navegador suele funcionar por accidente; en SSR lanza
-        // "nuxt instance unavailable" y la renovación fallaría siempre.
-        nuxtApp.runWithContext(() => {
-          useCookie('access_token', opciones).value = accessToken
-          useCookie('refresh_token', opciones).value = nuevoRefresh
-        })
-
-        return accessToken
+        // Tampoco hay nada que guardar: la respuesta trae `Set-Cookie` y el
+        // navegador ya reemplazó access, refresh y marca. Antes este bloque
+        // escribía las cookies a mano — justo lo que dejaba el token al alcance
+        // de cualquier script.
+        return true
       } catch {
-        return null
+        return false
       }
     })().finally(() => {
       // Se libera para que una caducidad posterior pueda volver a renovar.
@@ -265,11 +278,11 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   /** Sesión irrecuperable: se avisa UNA vez y se manda al login. */
   function manejarSesionExpirada() {
-    // runWithContext: se llama después de esperar a la renovación, fuera del
-    // contexto de Nuxt, y `useCookie` lo necesita.
+    // Sólo se puede borrar la MARCA: access y refresh son httpOnly y este código
+    // no las alcanza. No es un problema — el token que contienen ya no vale, y
+    // caducan solas. Quien las borra de verdad es el backend en /auth/logout.
     nuxtApp.runWithContext(() => {
-      useCookie('access_token').value = null
-      useCookie('refresh_token').value = null
+      useCookie(MARCA_DE_SESION).value = null
     })
 
     if (!import.meta.client || sesionExpiradaAvisada) return
@@ -318,7 +331,7 @@ export default defineNuxtPlugin((nuxtApp) => {
    */
   const api = async <T = unknown>(
     request: FetchRequest,
-    options: FetchOptions = {},
+    options: ApiOptions = {},
   ): Promise<T> => {
     // Las cabeceras de traza e idempotencia se fijan ANTES del primer intento y
     // se REUTILIZAN en el reintento. Es el punto central del arreglo: si el
@@ -345,21 +358,21 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       if (!renovable) throw error
 
-      const nuevoToken = await renovarSesion()
-      if (!nuevoToken) {
+      const renovada = await renovarSesion()
+      if (!renovada) {
         manejarSesionExpirada()
         throw error
       }
 
-      // Authorization explícito: la cookie ya está escrita, pero fijarlo aquí
-      // hace el reintento independiente de cuándo se propague la cookie.
-      const cabecerasReintento = new Headers(headers)
-      cabecerasReintento.set('Authorization', `Bearer ${nuevoToken}`)
-
-      // UN SOLO reintento. Si el segundo intento vuelve a dar 401 con un token
-      // recién emitido, el problema no es la caducidad: insistir sólo produciría
+      // El reintento va con las MISMAS cabeceras: la credencial nueva ya está en
+      // la cookie que el navegador escribió al procesar el `Set-Cookie` de la
+      // renovación, y la adjunta él. Conservar `x-request-id` e
+      // `Idempotency-Key` es lo que evita que un cobro se duplique.
+      //
+      // UN SOLO reintento. Si el segundo vuelve a dar 401 con una credencial
+      // recién emitida, el problema no es la caducidad: insistir sólo produciría
       // un bucle contra el servidor.
-      return await raw<T>(request, { ...options, headers: cabecerasReintento })
+      return await raw<T>(request, { ...options, headers })
     }
   }
 

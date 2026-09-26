@@ -96,17 +96,23 @@ export interface PaginatedData<T> {
   }
 }
 
+/**
+ * Respuesta de POST /auth/login.
+ *
+ * DESDE LA FASE 4 NO CONTIENE TOKENS. Llegan en cabeceras `Set-Cookie` con
+ * `httpOnly`, así que el navegador los guarda y los adjunta él mismo sin que
+ * ningún script pueda leerlos. Si volvieran en el cuerpo, JavaScript podría
+ * copiarlos a `localStorage` o a una cookie legible y un XSS los alcanzaría:
+ * exactamente lo que el cambio vino a impedir.
+ *
+ * Que este tipo ya no declare `accessToken` es deliberado: si alguien intenta
+ * volver a leerlos desde el front, el compilador lo detiene.
+ */
 export interface LoginData {
   user: User;
-  accessToken: string;
-  refreshToken: string;
   /**
-   * Caducidad absoluta del refresh token (ISO). La envía el backend para que la
-   * cookie muera junto con la fila de UserToken: si el front calculara la
-   * duración por su cuenta, cualquier cambio de configuración en el servidor
-   * dejaría cookies vivas apuntando a tokens ya expirados.
-   *
-   * Opcional para tolerar un backend anterior a la Fase 3.
+   * Caducidad absoluta de la sesión (ISO). Informativa: la usa la interfaz para
+   * avisar de que la sesión está por vencer. La cookie la gestiona el backend.
    */
   refreshExpiresAt?: string;
 }
