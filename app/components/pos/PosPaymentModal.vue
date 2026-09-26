@@ -4,6 +4,7 @@ import { useSalesStore, type PaymentMethod, type Sale } from '~/stores/sales'
 import type { Client } from '~/stores/client'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
+import { alcanza, restar } from '~/utils/money'
 
 const props = defineProps<{
   client: Client | null
@@ -26,20 +27,23 @@ const cashInput = ref<HTMLInputElement | null>(null)
 
 const totalDue = computed(() => sales.balance)
 const clientCanCredit = computed(() => !!props.client?.hasCredit)
+// Dinero en CENTAVOS ENTEROS (utils/money.ts). Con `Number` a secas,
+// 1000.10 - 1000.00 daba 0.0999999…: un crédito que alcanzaba justo se
+// rechazaba, y el cambio podía mostrarse un centavo por debajo.
 const creditAvailable = computed(() => {
   if (!props.client) return 0
-  return Number(props.client.creditLimit) - Number(props.client.currentDebt)
+  return Math.max(0, restar(props.client.creditLimit, props.client.currentDebt))
 })
 
 const change = computed(() => {
   if (onCredit.value || method.value !== 'CASH' || received.value == null) return 0
-  return Math.max(0, received.value - totalDue.value)
+  return Math.max(0, restar(received.value, totalDue.value))
 })
 
 const canConfirm = computed(() => {
   if (isProcessing.value) return false
-  if (onCredit.value) return totalDue.value <= creditAvailable.value
-  if (method.value === 'CASH') return (received.value ?? 0) >= totalDue.value
+  if (onCredit.value) return alcanza(creditAvailable.value, totalDue.value)
+  if (method.value === 'CASH') return alcanza(received.value ?? 0, totalDue.value)
   return true // tarjeta/transferencia: se asume monto exacto
 })
 

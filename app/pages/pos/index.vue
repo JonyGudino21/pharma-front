@@ -86,6 +86,16 @@ async function onScan() {
     qty = parseInt(mult[1], 10)
     code = mult[2].trim()
   }
+  // Tope al multiplicador. Un "99999*código" tecleado por error (o un escáner
+  // que repite dígitos) intentaba agregar 99,999 unidades: el backend lo
+  // rechazaba por stock, pero si había existencias suficientes pasaba y el
+  // cajero cobraba una cifra absurda sin notarlo en la lista.
+  const MAX_UNIDADES_POR_ESCANEO = 999
+  if (!Number.isInteger(qty) || qty < 1 || qty > MAX_UNIDADES_POR_ESCANEO) {
+    toast.warning(`La cantidad debe estar entre 1 y ${MAX_UNIDADES_POR_ESCANEO}.`)
+    focusScanner()
+    return
+  }
   await sales.scanBarcode(code, qty)
   focusScanner()
 }
@@ -169,11 +179,25 @@ async function printReceipt() {
   })
 }
 
+/**
+ * Un atajo de acción sólo corre si NO hay un modal abierto ni una operación en
+ * curso.
+ *
+ * Antes los atajos se disparaban siempre: F9 descartaba la venta aunque el
+ * botón estuviera deshabilitado por `busy` (a mitad de un cobro), y F3/F4
+ * abrían un modal ENCIMA del de cobro, dejando dos capas y el foco perdido.
+ * Escape queda fuera a propósito: su trabajo es precisamente cerrar modales.
+ */
+const soloSiLibre = (accion: () => unknown) => () => {
+  if (anyModalOpen.value || busy.value) return
+  void accion()
+}
+
 useKeyboardShortcuts({
-  F2: openPayment,
-  F3: openSearch,
-  F4: openClient,
-  F9: discard,
+  F2: soloSiLibre(openPayment),
+  F3: soloSiLibre(openSearch),
+  F4: soloSiLibre(openClient),
+  F9: soloSiLibre(discard),
   Escape: handleEscape,
 })
 
