@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSalesStore, type Sale } from '~/stores/sales'
 import type { Product } from '~/stores/product'
@@ -11,6 +11,7 @@ import PosCart from '~/components/pos/PosCart.vue'
 import PosSearchModal from '~/components/pos/PosSearchModal.vue'
 import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
+import PosPrescriptionModal from '~/components/pos/PosPrescriptionModal.vue'
 import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
 import { useCompanyStore } from '~/stores/company'
 import { useAuthStore } from '~/stores/auth'
@@ -25,7 +26,7 @@ const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 const { printSale, isPrinting } = useReceiptPrint()
-const { items, total, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient } = storeToRefs(sales)
+const { items, total, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
 
 const scannerRef = ref<HTMLInputElement | null>(null)
 const scannerValue = ref('')
@@ -33,6 +34,7 @@ const scannerValue = ref('')
 const showSearch = ref(false)
 const showClient = ref(false)
 const showPayment = ref(false)
+const showPrescription = ref(false)
 const showReceipt = ref(false)
 const completedSale = ref<Sale | null>(null)
 const ticketCopy = ref(0)
@@ -58,12 +60,19 @@ const completedTicket = computed(() => {
   })
 })
 
-const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value)
+const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value || showPrescription.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
 
 function focusScanner() {
   nextTick(() => scannerRef.value?.focus())
 }
+
+// Al deshabilitar el input durante una operación se pierde el foco, y el
+// siguiente disparo del escáner se iría al vacío sin que el cajero lo note.
+// En cuanto la operación termina, devolvemos el foco automáticamente.
+watch(busy, (ocupado) => {
+  if (!ocupado && !anyModalOpen.value) focusScanner()
+})
 
 async function onScan() {
   const raw = scannerValue.value.trim()
@@ -77,6 +86,16 @@ async function onScan() {
     qty = parseInt(mult[1], 10)
     code = mult[2].trim()
   }
+  // Tope al multiplicador. Un "99999*código" tecleado por error (o un escáner
+  // que repite dígitos) intentaba agregar 99,999 unidades: el backend lo
+  // rechazaba por stock, pero si había existencias suficientes pasaba y el
+  // cajero cobraba una cifra absurda sin notarlo en la lista.
+  const MAX_UNIDADES_POR_ESCANEO = 999
+  if (!Number.isInteger(qty) || qty < 1 || qty > MAX_UNIDADES_POR_ESCANEO) {
+    toast.warning(`La cantidad debe estar entre 1 y ${MAX_UNIDADES_POR_ESCANEO}.`)
+    focusScanner()
+    return
+  }
   await sales.scanBarcode(code, qty)
   focusScanner()
 }
@@ -86,6 +105,15 @@ function openPayment() {
     toast.warning('Agrega al menos un producto antes de cobrar.')
     return
   }
+  if (hasControlledItems.value && !sales.prescription) {
+    showPrescription.value = true
+    return
+  }
+  showPayment.value = true
+}
+
+function onPrescriptionConfirmed() {
+  showPrescription.value = false
   showPayment.value = true
 }
 
@@ -135,6 +163,7 @@ async function discard() {
 function handleEscape() {
   if (showSearch.value) { showSearch.value = false; focusScanner(); return }
   if (showClient.value) { showClient.value = false; focusScanner(); return }
+  if (showPrescription.value) { showPrescription.value = false; focusScanner(); return }
   if (showPayment.value) { showPayment.value = false; focusScanner(); return }
   focusScanner()
 }
@@ -150,17 +179,47 @@ async function printReceipt() {
   })
 }
 
+/**
+ * Un atajo de acción sólo corre si NO hay un modal abierto ni una operación en
+ * curso.
+ *
+ * Antes los atajos se disparaban siempre: F9 descartaba la venta aunque el
+ * botón estuviera deshabilitado por `busy` (a mitad de un cobro), y F3/F4
+ * abrían un modal ENCIMA del de cobro, dejando dos capas y el foco perdido.
+ * Escape queda fuera a propósito: su trabajo es precisamente cerrar modales.
+ */
+const soloSiLibre = (accion: () => unknown) => () => {
+  if (anyModalOpen.value || busy.value) return
+  void accion()
+}
+
 useKeyboardShortcuts({
-  F2: openPayment,
-  F3: openSearch,
-  F4: openClient,
-  F9: discard,
+  F2: soloSiLibre(openPayment),
+  F3: soloSiLibre(openSearch),
+  F4: soloSiLibre(openClient),
+  F9: soloSiLibre(discard),
   Escape: handleEscape,
 })
 
-onMounted(() => {
+onMounted(async () => {
   focusScanner()
   companyStore.ensureProfile()
+
+  // RECUPERACIÓN DEL CARRITO. Antes, un F5 o una sesión caducada dejaban al
+  // cajero con el carrito vacío mientras la venta DRAFT seguía viva en el
+  // backend con todo lo capturado.
+  //
+  // No se espera antes de dar el foco al escáner: si el cajero ya está pasando
+  // productos, no debe notar esta llamada. `resumeDraft` no sobreescribe un
+  // carrito que ya empezó.
+  const recuperado = await sales.resumeDraft()
+
+  // Al adoptar un carrito el foco puede haberse perdido con el re-render de la
+  // lista de productos. Sin esto el siguiente escaneo se iba al vacío.
+  if (recuperado) {
+    await nextTick()
+    focusScanner()
+  }
 })
 </script>
 
@@ -186,13 +245,27 @@ onMounted(() => {
         <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex gap-2">
           <div class="relative flex-1">
             <Icon name="ph:barcode-bold" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <!--
+              El input se DESHABILITA mientras haya una operación en vuelo.
+              Antes, una ráfaga del escáner (20 lecturas en menos de un segundo)
+              disparaba decenas de peticiones concurrentes que se pisaban entre
+              sí y perdían unidades del carrito.
+            -->
             <input
               ref="scannerRef"
               v-model="scannerValue"
               type="text"
-              placeholder="Escanea un código de barras o escribe 3* para multiplicar cantidad..."
-              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500"
+              :disabled="busy"
+              :placeholder="busy
+                ? 'Procesando...'
+                : 'Escanea un código de barras o escribe 3* para multiplicar cantidad...'"
+              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-wait"
               @keyup.enter="onScan"
+            />
+            <Icon
+              v-if="busy"
+              name="ph:spinner-gap-bold"
+              class="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500 animate-spin"
             />
           </div>
           <button
@@ -282,6 +355,11 @@ onMounted(() => {
     <!-- Modales -->
     <PosSearchModal v-if="showSearch" @close="handleEscape" @select="onProductSelected" />
     <PosClientModal v-if="showClient" @close="handleEscape" @select="onClientSelected" />
+    <PosPrescriptionModal
+      v-if="showPrescription"
+      @close="handleEscape"
+      @confirmed="onPrescriptionConfirmed"
+    />
     <PosPaymentModal v-if="showPayment" :client="selectedClient" @close="handleEscape" @completed="onCompleted" />
 
     <!-- Comprobante -->

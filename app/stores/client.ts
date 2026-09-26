@@ -134,6 +134,31 @@ export const useClientStore = defineStore('client', () => {
     }
   }
 
+  /**
+   * Obtiene UN cliente completo por su ID.
+   *
+   * Hace falta porque la venta incluye sólo una versión recortada del cliente
+   * (id, nombre, rfc, dirección, correo, teléfono) y le faltan justo los tres
+   * campos de los que depende el cobro a crédito: `hasCredit`, `creditLimit` y
+   * `currentDebt`. Usar esa versión recortada donde se espera un Client hacía
+   * que `creditLimit - currentDebt` diera NaN y que un cliente con crédito
+   * apareciera como si no lo tuviera.
+   *
+   * No toca `isLoading`: se llama en segundo plano al recuperar un carrito y no
+   * debe poner la pantalla de clientes en modo carga.
+   *
+   * @returns el cliente, o null si no se pudo obtener
+   */
+  async function fetchClientById(id: number): Promise<Client | null> {
+    const { $api } = useNuxtApp()
+    try {
+      const res = await $api<ApiResponse<Client>>(`/client/${id}`)
+      return res.data ?? null
+    } catch {
+      return null
+    }
+  }
+
   // 5. Desactivar Cliente
   async function deactivateClient(id: number) {
     const { $api } = useNuxtApp()
@@ -202,6 +227,7 @@ export const useClientStore = defineStore('client', () => {
     isActionLoading,
     filters,
     fetchClients,
+    fetchClientById,
     searchClients,
     createClient,
     updateClient,

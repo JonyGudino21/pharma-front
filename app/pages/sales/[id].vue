@@ -11,9 +11,40 @@
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Detalle de venta</h1>
     </div>
 
-    <div v-if="store.isLoading && !venta" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-700">
+    <div v-if="store.detailLoading && !venta" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-700">
       <Icon name="ph:spinner-gap-bold" class="w-10 h-10 animate-spin mx-auto mb-3 text-primary-500" />
       <p class="text-gray-500">Cargando la venta...</p>
+    </div>
+
+    <!--
+      "No se pudo consultar" ≠ "no existe". Antes, un 500 o un corte de red
+      dejaba `currentSale` en null y esta pantalla afirmaba "No se encontró esta
+      venta" sobre una venta que existe perfectamente. Para un ticket que el
+      cliente tiene en la mano, eso es una acusación, no un mensaje de error.
+    -->
+    <div v-else-if="store.detailError" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-error-500/40">
+      <Icon name="ph:cloud-slash-fill" class="w-12 h-12 mx-auto mb-3 text-error-500" />
+      <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+        {{ store.detailError.mensaje }}
+      </p>
+      <p class="mt-1 text-xs text-gray-500">
+        No pudimos consultar la venta. No significa que no exista.
+      </p>
+      <button
+        v-if="store.detailError.reintentable"
+        type="button"
+        class="mt-3 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+        @click="store.retryDetail()"
+      >
+        <Icon name="ph:arrow-clockwise-bold" />
+        Reintentar
+      </button>
+      <code
+        v-if="store.detailError.requestId"
+        class="mt-3 block wrap-break-word font-mono text-[11px] text-gray-500 select-all"
+      >
+        {{ store.detailError.requestId }}
+      </code>
     </div>
 
     <div v-else-if="!venta" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-700">

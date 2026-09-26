@@ -2,8 +2,9 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
-export type MovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'LOSS' | 'INITIAL' | 'RETURN'
+export type MovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'LOSS' | 'INITIAL' | 'RETURN' | 'RETURN_IN' | 'RETURN_OUT'
 
 export interface InventoryMovement {
   id: number
@@ -13,7 +14,8 @@ export interface InventoryMovement {
   unitCost: string | number
   totalCost: string | number
   reason: string | null
-  balanceAfter: number // Muy importante para el Kardex
+  balanceAfter?: number
+  batchId?: number | null
   createdAt: string
 }
 
@@ -30,13 +32,72 @@ export interface ValuationData {
   productCount: number
 }
 
+export interface ProductStockSnapshot {
+  stock: number
+  sellable: number
+  expired: number
+  name: string
+}
+
+export type ExpiryStatus = 'EXPIRED' | 'CRITICAL' | 'WARNING' | 'OK'
+
+export interface ExpiringBatch {
+  id: number
+  lotNumber: string
+  expiryDate: string
+  quantity: number
+  cost: string | number
+  daysLeft: number
+  status: ExpiryStatus
+  product: { id: number; name: string; sku: string; controlled: boolean }
+}
+
+export type ControlledLogEntryType = 'DISPENSE' | 'RETURN' | 'DESTRUCTION'
+
+export interface ControlledLogEntry {
+  id: number
+  entryType: ControlledLogEntryType
+  saleId: number | null
+  productId: number
+  batchId: number | null
+  quantity: number
+  prescriptionNo: string | null
+  doctorName: string | null
+  doctorLicense: string | null
+  patientName: string | null
+  createdAt: string
+  product: { id: number; name: string; sku: string }
+  batch: { id: number; lotNumber: string; expiryDate: string } | null
+  soldBy: { id: number; firstName: string; lastName: string }
+  sale: { id: number; invoiceNumber: string | null } | null
+}
+
+export interface InventoryPage<T> {
+  data: T[]
+  pagination: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+}
+
 export const useInventoryStore = defineStore('inventory', () => {
   const valuation = ref<ValuationData | null>(null)
   const lowStockAlerts = ref<LowStockAlert[]>([])
   const currentKardex = ref<InventoryMovement[]>([])
-  
+  const expiring = ref<ExpiringBatch[]>([])
+  const expiringPagination = ref({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const controlledLog = ref<ControlledLogEntry[]>([])
+  const controlledPagination = ref({ page: 1, limit: 20, total: 0, totalPages: 1 })
+
   const isLoading = ref(false)
   const isLoadingKardex = ref(false)
+  const isLoadingExpiring = ref(false)
+  // Fallo de carga, distinto de "no hay resultados". Ver useRequestState.
+  const expiringError = ref<FalloPeticion | null>(null)
+  const controlledError = ref<FalloPeticion | null>(null)
+  const isLoadingControlled = ref(false)
 
   async function fetchValuation() {
     const { $api } = useNuxtApp()
@@ -73,7 +134,6 @@ export const useInventoryStore = defineStore('inventory', () => {
 
   async function registerAdjustment(payload: { productId: number, realQuantity: number, reason: string }) {
     const { $api } = useNuxtApp()
-    // El Interceptor atrapará el 400 si realQuantity == stock o si intenta dejarlo negativo
     await $api('/inventory/adjustment', {
       method: 'POST',
       body: payload
@@ -84,11 +144,10 @@ export const useInventoryStore = defineStore('inventory', () => {
     currentKardex.value = []
   }
 
-  async function fetchStock(productId: number) {
+  async function fetchStock(productId: number): Promise<ProductStockSnapshot | null> {
     const { $api } = useNuxtApp()
     try {
-      // Retorna: { id, stock, minStock, name }
-      const res = await $api<ApiResponse<{ id: number, stock: number, minStock: number, name: string }>>(`/inventory/stock/${productId}`)
+      const res = await $api<ApiResponse<ProductStockSnapshot>>(`/inventory/stock/${productId}`)
       return res.data
     } catch (error) {
       console.error('Error consultando stock actual:', error)
@@ -96,17 +155,94 @@ export const useInventoryStore = defineStore('inventory', () => {
     }
   }
 
+  async function fetchExpiring(params: { days?: number; page?: number; limit?: number } = {}) {
+    const { $api } = useNuxtApp()
+    isLoadingExpiring.value = true
+    expiringError.value = null
+    try {
+      const query = new URLSearchParams()
+      query.set('days', String(params.days ?? 90))
+      query.set('page', String(params.page ?? 1))
+      query.set('limit', String(params.limit ?? 20))
+      const res = await $api<ApiResponse<InventoryPage<ExpiringBatch>>>(`/inventory/batches/expiring?${query}`)
+      expiring.value = res.data.data
+      expiringPagination.value = res.data.pagination
+    } catch (error) {
+      // Antes sólo se registraba en consola y la pantalla decía 'No hay lotes por
+      // caducar'. Con el servidor caído, eso invita a vender medicamento vencido.
+      expiringError.value = describirFallo(error)
+    } finally {
+      isLoadingExpiring.value = false
+    }
+  }
+
+  async function fetchControlledLog(params: {
+    page?: number
+    limit?: number
+    startDate?: string
+    endDate?: string
+    prescriptionNo?: string
+    doctorLicense?: string
+    patientName?: string
+    entryType?: ControlledLogEntryType | ''
+  } = {}) {
+    const { $api } = useNuxtApp()
+    isLoadingControlled.value = true
+    controlledError.value = null
+    try {
+      const query = new URLSearchParams()
+      query.set('page', String(params.page ?? 1))
+      query.set('limit', String(params.limit ?? 20))
+      if (params.startDate) query.set('startDate', params.startDate)
+      if (params.endDate) query.set('endDate', params.endDate)
+      if (params.prescriptionNo?.trim()) query.set('prescriptionNo', params.prescriptionNo.trim())
+      if (params.doctorLicense?.trim()) query.set('doctorLicense', params.doctorLicense.trim())
+      if (params.patientName?.trim()) query.set('patientName', params.patientName.trim())
+      if (params.entryType) query.set('entryType', params.entryType)
+      const res = await $api<ApiResponse<InventoryPage<ControlledLogEntry>>>(`/inventory/controlled-log?${query}`)
+      controlledLog.value = res.data.data
+      controlledPagination.value = res.data.pagination
+      return res.data
+    } catch (error) {
+      // Igual que caducidades: un fallo se leía como 'no hay registros' en el
+      // libro que se entrega a COFEPRIS.
+      controlledError.value = describirFallo(error)
+      return null
+    } finally {
+      isLoadingControlled.value = false
+    }
+  }
+
+  async function destroyBatch(payload: { batchId: number; quantity: number; reason: string }) {
+    const { $api } = useNuxtApp()
+    await $api('/inventory/batches/adjustment', {
+      method: 'POST',
+      body: payload,
+    })
+  }
+
   return {
+    expiringError,
+    controlledError,
     valuation,
     lowStockAlerts,
     currentKardex,
+    expiring,
+    expiringPagination,
+    controlledLog,
+    controlledPagination,
     isLoading,
     isLoadingKardex,
+    isLoadingExpiring,
+    isLoadingControlled,
     fetchValuation,
     fetchLowStockAlerts,
     fetchKardex,
     registerAdjustment,
     clearKardex,
     fetchStock,
+    fetchExpiring,
+    fetchControlledLog,
+    destroyBatch,
   }
 })

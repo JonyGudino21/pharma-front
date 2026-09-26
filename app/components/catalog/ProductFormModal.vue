@@ -103,17 +103,31 @@
 
             <div>
               <label class="label-base">Clasificación (Categorías)</label>
+              <!--
+                Se pinta desde `categoryStore.options`, NO desde `categories`.
+                `categories` es la tabla de administración, paginada de 10 en 10:
+                usándola aquí, a partir de la categoría 11 no había forma de
+                asignarla a un producto y la lista no daba ninguna señal.
+              -->
               <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 h-40 overflow-y-auto bg-white dark:bg-gray-800">
-                <div v-if="categoryStore.categories.length === 0" class="text-sm text-gray-500 text-center py-4">
+                <div v-if="categoryStore.isLoadingOptions" class="text-sm text-gray-500 text-center py-4">
+                  Cargando categorías…
+                </div>
+                <div v-else-if="categoryStore.options.length === 0" class="text-sm text-gray-500 text-center py-4">
                   No hay categorías activas. Crea una primero.
                 </div>
                 <div v-else class="space-y-2">
-                  <label v-for="cat in categoryStore.categories" :key="cat.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors">
+                  <label v-for="cat in categoryStore.options" :key="cat.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors">
                     <input v-model="form.categories" :value="cat.id" type="checkbox" class="w-4 h-4 text-primary-600 rounded border-gray-300" />
                     <span class="text-sm text-gray-700 dark:text-gray-200">{{ cat.name }}</span>
                   </label>
                 </div>
               </div>
+              <!-- Si el catálogo excede el tope, se dice. Nunca se oculta. -->
+              <p v-if="categoryStore.optionsTruncated" class="mt-1 text-xs text-warning-600">
+                La lista está recortada: hay más categorías de las que caben aquí.
+                Contacta a soporte para habilitar la búsqueda.
+              </p>
             </div>
           </div>
 
@@ -173,11 +187,12 @@ const form = reactive({
 })
 
 onMounted(async () => {
-  // Cargamos categorías activas para el selector
-  if (categoryStore.categories.length === 0) {
-    categoryStore.filters.isActive = 'true'
-    await categoryStore.fetchCategories(1)
-  }
+  // Opciones del selector, no la tabla paginada. Antes esto llamaba a
+  // `fetchCategories(1)`, que trae 10 registros y además PISABA los filtros de
+  // la pantalla de categorías que hubiera detrás del modal.
+  // `fetchCategoryOptions` cachea: abrir el modal diez veces no son diez
+  // peticiones.
+  await categoryStore.fetchCategoryOptions()
 
   if (props.productToEdit) {
     isEditing.value = true

@@ -16,6 +16,8 @@ export interface PurchaseItem {
   quantity: number
   cost: string | number
   subtotal: string | number
+  lotNumber?: string | null
+  expiryDate?: string | null
   product: Product
 }
 
@@ -50,6 +52,8 @@ export interface CreatePurchaseItemPayload {
   productId: number
   quantity: number
   cost: number
+  lotNumber?: string
+  expiryDate?: string
 }
 
 export interface CreatePaymentPayload {
@@ -176,7 +180,7 @@ export const usePurchaseStore = defineStore('purchase', () => {
     }
   }
 
-  async function updateItem(purchaseId: number, itemId: number, payload: { quantity: number, cost: number }) {
+  async function updateItem(purchaseId: number, itemId: number, payload: { quantity: number, cost: number, lotNumber?: string, expiryDate?: string }) {
     const { $api } = useNuxtApp()
     isActionLoading.value = true
     try {

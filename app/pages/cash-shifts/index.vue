@@ -17,7 +17,20 @@
       </NuxtLink>
     </div>
 
-    <div v-if="!store.currentShift" class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+    <!--
+      No sabemos si hay turno ≠ no hay turno. Antes un error de red caía en la
+      rama "Caja cerrada" y ofrecía abrir OTRA caja.
+    -->
+    <div v-if="store.currentShiftError && !store.currentShift" class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-error-500/40 text-center" role="alert">
+      <Icon name="ph:cloud-slash-fill" class="w-10 h-10 mx-auto text-error-500" />
+      <h2 class="mt-2 text-lg font-bold text-gray-900 dark:text-white">No pudimos consultar tu turno</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ store.currentShiftError.mensaje }} No abras otra caja hasta confirmar si ya tienes una.</p>
+      <button type="button" class="mt-4 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700" @click="store.fetchCurrentShift()">
+        <Icon name="ph:arrow-clockwise-bold" /> Reintentar
+      </button>
+    </div>
+
+    <div v-else-if="!store.currentShift" class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
       <div class="w-20 h-20 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-gray-100 dark:border-gray-700">
         <Icon name="ph:lock-key-bold" class="w-10 h-10 text-gray-400" />
       </div>

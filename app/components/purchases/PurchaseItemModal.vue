@@ -56,6 +56,20 @@
           </div>
         </div>
 
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label-base">{{ isControlled ? 'Lote *' : 'Lote' }}</label>
+            <input v-model="form.lotNumber" type="text" maxlength="40" class="input-base uppercase" :required="isControlled" placeholder="FAB-2026-01" />
+          </div>
+          <div>
+            <label class="label-base">{{ isControlled ? 'Caducidad *' : 'Caducidad' }}</label>
+            <input v-model="form.expiryDate" type="date" class="input-base" :required="isControlled" />
+          </div>
+        </div>
+        <p v-if="isControlled" class="text-xs text-error-600 font-medium">
+          Medicamento controlado: lote y caducidad son obligatorios para recibirlo.
+        </p>
+
         <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg flex justify-between items-center border border-gray-100 dark:border-gray-700">
           <span class="text-sm font-semibold text-gray-600 dark:text-gray-400">Subtotal de Partida</span>
           <span class="text-lg font-black text-gray-900 dark:text-white">{{ formatCurrency(form.quantity * form.cost) }}</span>
@@ -97,19 +111,26 @@ const searchResults = ref<Product[]>([])
 let searchTimeout: any = null
 const selectedProduct = ref<Product | null>(null)
 
-const form = reactive({ quantity: 1, cost: 0 })
+const form = reactive({ quantity: 1, cost: 0, lotNumber: '', expiryDate: '' })
+const isControlled = computed(() =>
+  !!(props.itemToEdit?.product.controlled || selectedProduct.value?.controlled),
+)
 
 watch(() => props.modelValue, (val) => {
   if (val) {
     if (props.itemToEdit) {
       form.quantity = props.itemToEdit.quantity
       form.cost = Number(props.itemToEdit.cost)
+      form.lotNumber = props.itemToEdit.lotNumber ?? ''
+      form.expiryDate = props.itemToEdit.expiryDate ? String(props.itemToEdit.expiryDate).slice(0, 10) : ''
     } else {
       searchQuery.value = ''
       searchResults.value = []
       selectedProduct.value = null
       form.quantity = 1
       form.cost = 0
+      form.lotNumber = ''
+      form.expiryDate = ''
     }
   }
 })
@@ -131,14 +152,22 @@ const selectProduct = (p: Product) => {
 
 const handleSubmit = async () => {
   if (form.quantity <= 0 || form.cost < 0) return
+  if (isControlled.value && (!form.lotNumber.trim() || !form.expiryDate)) {
+    toast.error('El medicamento controlado requiere lote y caducidad.')
+    return
+  }
   isLoading.value = true
+
+  const lotPayload = form.lotNumber.trim() && form.expiryDate
+    ? { lotNumber: form.lotNumber.trim(), expiryDate: form.expiryDate }
+    : { lotNumber: undefined, expiryDate: undefined }
 
   try {
     if (isEditing.value && props.itemToEdit) {
-      await store.updateItem(props.purchaseId, props.itemToEdit.id, { quantity: form.quantity, cost: form.cost })
+      await store.updateItem(props.purchaseId, props.itemToEdit.id, { quantity: form.quantity, cost: form.cost, ...lotPayload })
       toast.success('Ítem actualizado.')
     } else if (selectedProduct.value) {
-      await store.addItem(props.purchaseId, { productId: selectedProduct.value.id, quantity: form.quantity, cost: form.cost })
+      await store.addItem(props.purchaseId, { productId: selectedProduct.value.id, quantity: form.quantity, cost: form.cost, ...lotPayload })
       toast.success('Producto agregado a la compra.')
     }
     close()

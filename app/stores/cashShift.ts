@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
 export type ShiftStatus = 'OPEN' | 'CLOSED' | 'AUDIT_REQUIRED'
 export type CashTransactionType = 'MANUAL_ADD' | 'MANUAL_WITHDRAW' | 'EXPENSE' | 'REFUND_OUT' | 'REFUND_IN' | 'PURCHASE_PAYMENT' | 'SALE_INCOME' | 'CREDIT_PAYMENT'
@@ -51,6 +52,8 @@ export const useCashShiftStore = defineStore('cashShift', () => {
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
   const isActionLoading = ref(false)
+  /** Falló la consulta del turno ≠ "no tengo turno". */
+  const currentShiftError = ref<FalloPeticion | null>(null)
 
   const filters = ref({
     status: '' as ShiftStatus | '',
@@ -61,12 +64,16 @@ export const useCashShiftStore = defineStore('cashShift', () => {
   // 1. Obtener mi turno actual
   async function fetchCurrentShift() {
     const { $api } = useNuxtApp()
+    currentShiftError.value = null
     try {
       const res = await $api<ApiResponse<CashShift | null>>('/cash-shift/current-shift')
       currentShift.value = res.data
       return res.data
     } catch (error) {
-      currentShift.value = null
+      // NO se pone currentShift en null. Antes sí, y la pantalla pintaba
+      // "Caja cerrada" con el formulario para abrir otra: con el servidor
+      // lento, el cajero abría un segundo turno encima del suyo.
+      currentShiftError.value = describirFallo(error)
       return null
     }
   }
@@ -156,6 +163,7 @@ export const useCashShiftStore = defineStore('cashShift', () => {
 
   return {
     currentShift,
+    currentShiftError,
     shifts,
     pagination,
     isLoading,

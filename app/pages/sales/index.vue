@@ -101,10 +101,46 @@
           </thead>
 
           <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-            <tr v-if="store.isLoading" class="animate-pulse">
+            <tr v-if="store.listLoading" class="animate-pulse">
               <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                 <Icon name="ph:spinner-gap-bold" class="w-8 h-8 animate-spin mx-auto mb-2 text-primary-500" />
                 Cargando historial de ventas...
+              </td>
+            </tr>
+
+            <!--
+              NO SE PUDO CARGAR ≠ NO HAY VENTAS.
+              Antes esta fila no existía: si el servidor fallaba, `isLoading`
+              bajaba, la lista quedaba vacía y la tabla anunciaba "Todavía no hay
+              ventas registradas". El gerente daba por hecho que no se había
+              vendido nada. Y sin botón de reintento, la única salida era F5.
+            -->
+            <tr v-else-if="store.listError">
+              <td colspan="6" class="px-6 py-12 text-center">
+                <span class="flex flex-col gap-2 items-center justify-center w-full">
+                  <Icon name="ph:cloud-slash-fill" class="w-10 h-10 text-error-500" />
+                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                    {{ store.listError.mensaje }}
+                  </span>
+                  <span class="text-xs text-gray-500 max-w-md">
+                    Esto no significa que no haya ventas: no pudimos consultarlas.
+                  </span>
+                  <button
+                    v-if="store.listError.reintentable"
+                    type="button"
+                    class="mt-1 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                    @click="store.retryList()"
+                  >
+                    <Icon name="ph:arrow-clockwise-bold" />
+                    Reintentar
+                  </button>
+                  <code
+                    v-if="store.listError.requestId"
+                    class="mt-1 rounded bg-gray-100 px-2 py-1 font-mono text-[11px] text-gray-600 select-all dark:bg-gray-900 dark:text-gray-300"
+                  >
+                    {{ store.listError.requestId }}
+                  </code>
+                </span>
               </td>
             </tr>
 
@@ -117,9 +153,15 @@
               </td>
             </tr>
 
+            <!--
+              El <template v-else> separa la condición del bucle. Antes `v-else`
+              y `v-for` convivían en el mismo <tr>: Vue 3 da prioridad al v-if
+              sobre el v-for en el mismo elemento, así que la combinación es
+              frágil y depende del orden de evaluación.
+            -->
+            <template v-else>
             <tr
               v-for="venta in store.sales"
-              v-else
               :key="venta.id"
               class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
               @click="navigateTo(`/sales/${venta.id}`)"
@@ -194,6 +236,7 @@
                 </NuxtLink>
               </td>
             </tr>
+            </template>
           </tbody>
         </table>
       </div>

@@ -47,10 +47,21 @@ export interface CreateSupplierPayload {
   creditDays?: number
 }
 
+/** Forma mínima que necesita un combo: ni crédito, ni contacto, ni saldo. */
+export interface SupplierOption {
+  id: number
+  name: string
+}
+
 export const useSupplierStore = defineStore('supplier', () => {
   const suppliers = ref<Supplier[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
+
+  // Estado de las OPCIONES, separado del de la tabla.
+  const options = ref<SupplierOption[]>([])
+  const optionsTruncated = ref(false)
+  const isLoadingOptions = ref(false)
 
   const filters = ref({
     query: '',
@@ -70,7 +81,6 @@ export const useSupplierStore = defineStore('supplier', () => {
       if (filters.value.isActive !== 'all') {
         params.append('active', filters.value.isActive)
       }
-      console.log(filters.value.isActive)
 
       const res = await $api<ApiResponse<PaginatedData<Supplier>>>(`/suppliers?${params.toString()}`)
       suppliers.value = res.data.suppliers || res.data.data || []
@@ -107,10 +117,43 @@ export const useSupplierStore = defineStore('supplier', () => {
     }
   }
 
+  /**
+   * Opciones para combos. NO es lo mismo que `fetchSuppliers`.
+   *
+   * La pantalla de "Crear orden de compra" llamaba a `fetchSuppliers(1)`, que
+   * trae 10 registros paginados. Con treinta proveedores dados de alta, al
+   * número 11 en adelante no se le podía comprar desde la aplicación: el combo
+   * se veía lleno y no avisaba de nada. Era un bloqueo operativo, no estético.
+   */
+  async function fetchSupplierOptions(force = false) {
+    if (!force && options.value.length > 0) return options.value
+
+    const { $api } = useNuxtApp()
+    isLoadingOptions.value = true
+    try {
+      const res = await $api<ApiResponse<{
+        options: SupplierOption[]
+        truncated: boolean
+        total: number
+      }>>('/suppliers/options')
+
+      options.value = res.data.options ?? []
+      optionsTruncated.value = res.data.truncated ?? false
+      return options.value
+    } catch {
+      return options.value
+    } finally {
+      isLoadingOptions.value = false
+    }
+  }
+
   async function createSupplier(payload: CreateSupplierPayload) {
     const { $api } = useNuxtApp()
     await $api('/suppliers', { method: 'POST', body: payload })
     await fetchSuppliers(1)
+    // El alta invalida la caché del combo: si no, el proveedor recién creado no
+    // aparecería al crear la orden de compra hasta recargar la página.
+    await fetchSupplierOptions(true)
   }
 
   async function updateSupplier(id: number, payload: Partial<CreateSupplierPayload & { isActive: boolean }>) {
@@ -146,6 +189,12 @@ export const useSupplierStore = defineStore('supplier', () => {
     createSupplier,
     updateSupplier,
     deactivateSupplier,
-    fetchAccountStatement
+    fetchAccountStatement,
+
+    // Selectores
+    options,
+    optionsTruncated,
+    isLoadingOptions,
+    fetchSupplierOptions,
   }
 })

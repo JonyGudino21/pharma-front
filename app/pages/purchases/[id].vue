@@ -71,6 +71,7 @@
             <thead>
               <tr class="bg-gray-50/50 dark:bg-gray-800/50 text-xs text-gray-500 uppercase">
                 <th class="px-4 py-3">Producto</th>
+                <th class="px-4 py-3">Lote / caducidad</th>
                 <th class="px-4 py-3 text-center">Cant.</th>
                 <th class="px-4 py-3 text-right">Costo Unit.</th>
                 <th class="px-4 py-3 text-right">Subtotal</th>
@@ -82,6 +83,10 @@
                 <td class="px-4 py-3">
                   <p class="font-bold text-sm text-gray-900 dark:text-white">{{ item.product?.name }}</p>
                   <p class="text-xs text-gray-500 font-mono">{{ item.product?.sku }}</p>
+                </td>
+                <td class="px-4 py-3 text-xs">
+                  <p class="font-mono">{{ item.lotNumber || '—' }}</p>
+                  <p class="text-gray-500">{{ item.expiryDate ? formatDate(item.expiryDate) : '' }}</p>
                 </td>
                 <td class="px-4 py-3 text-center font-bold">{{ item.quantity }}</td>
                 <td class="px-4 py-3 text-right text-sm">{{ formatCurrency(Number(item.cost)) }}</td>

