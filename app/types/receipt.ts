@@ -8,8 +8,16 @@ export type ReceiptBlock =
   | 'payments'
   | 'footer'
 
+/**
+ * Juego de caracteres de la térmica. `ascii` funciona en cualquier impresora
+ * pero pierde acentos y eñes; `cp850` los imprime en casi todas las térmicas
+ * Epson-compatibles. Se confirma con "Imprimir prueba".
+ */
+export type ReceiptCharset = 'ascii' | 'cp850'
+
 export interface ReceiptLayout {
   blocks: ReceiptBlock[]
+  charset?: ReceiptCharset
 }
 
 export interface Company {
@@ -87,9 +95,13 @@ export interface SaleReceiptPrint {
   template?: { id: number; name: string; paperWidthMm: number } | null
 }
 
-export const DEFAULT_RECEIPT_LAYOUT: ReceiptLayout = {
+export const DEFAULT_RECEIPT_LAYOUT: Required<ReceiptLayout> = {
   blocks: ['header', 'meta', 'items', 'totals', 'payments', 'footer'],
+  charset: 'ascii',
 }
+
+/** Bloques que un ticket no puede omitir (el backend también lo exige). */
+export const REQUIRED_RECEIPT_BLOCKS: readonly ReceiptBlock[] = ['items', 'totals']
 
 export function paymentMethodLabel(method: string): string {
   switch (method) {

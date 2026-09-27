@@ -149,6 +149,8 @@ function normalizeTemplate(t: ReceiptTemplate): ReceiptTemplate {
       blocks: Array.isArray(blocks) && blocks.length > 0
         ? blocks
         : [...DEFAULT_RECEIPT_LAYOUT.blocks],
+      // Las plantillas anteriores a la opción de charset no la traen.
+      charset: t.layout?.charset === 'cp850' ? 'cp850' : 'ascii',
     },
   }
 }
