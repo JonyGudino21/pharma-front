@@ -82,11 +82,19 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
         <p v-if="template?.showTaxId !== false && company?.rfc" class="pharma-ticket__rfc">
           RFC {{ company.rfc }}
         </p>
+        <!-- El régimen y el correo se capturaban en la ficha pero no salían en
+             ningún ticket. Ahora acompañan al RFC y al teléfono. -->
+        <p v-if="template?.showTaxId !== false && company?.fiscalRegime" class="pharma-ticket__muted">
+          {{ company.fiscalRegime }}
+        </p>
         <p v-if="template?.showAddress !== false && company?.address" class="pharma-ticket__muted">
           {{ company.address }}
         </p>
         <p v-if="template?.showPhone !== false && company?.phone" class="pharma-ticket__muted">
           Tel. {{ company.phone }}
+        </p>
+        <p v-if="template?.showPhone !== false && company?.email" class="pharma-ticket__muted">
+          {{ company.email }}
         </p>
       </header>
       <hr class="pharma-ticket__dash" />
