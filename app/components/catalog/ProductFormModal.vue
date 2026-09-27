@@ -87,8 +87,52 @@
             <div class="space-y-4">
               <div v-if="!isEditing">
                 <label class="label-base text-success-600 dark:text-success-400">Stock Inicial Físico <span class="text-xs">(Generará movimiento)</span></label>
-                <input v-model.number="form.stock" type="number" min="0" class="input-base border-success-200 focus:ring-success-500" />
+                <input v-model.number="form.stock" type="number" min="0" step="1" class="input-base border-success-200 focus:ring-success-500" />
               </div>
+
+              <!--
+                Lote y caducidad del inventario inicial. La caducidad es del LOTE,
+                no del producto: sin estos datos las unidades quedaban fuera del
+                FEFO y de la alerta de caducidad. Obligatorio en controlados.
+              -->
+              <fieldset v-if="!isEditing && hasInitialStock" class="rounded-lg border border-success-200 dark:border-success-500/30 p-3 space-y-3">
+                <legend class="px-1 text-xs font-semibold text-success-700 dark:text-success-400">
+                  Lote del inventario inicial
+                  <span v-if="form.controlled" class="text-error-600">(obligatorio en controlados)</span>
+                  <span v-else class="font-normal text-gray-500">(recomendado)</span>
+                </legend>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label for="initialLot" class="label-base">Número de lote{{ form.controlled ? ' *' : '' }}</label>
+                    <input
+                      id="initialLot"
+                      v-model="form.lotNumber"
+                      type="text"
+                      maxlength="40"
+                      autocomplete="off"
+                      class="input-base font-mono uppercase"
+                      :aria-invalid="!!lotError"
+                      aria-describedby="initialLotHelp"
+                      placeholder="Ej. B23K041"
+                    />
+                  </div>
+                  <div>
+                    <label for="initialExpiry" class="label-base">Caducidad{{ form.controlled ? ' *' : '' }}</label>
+                    <input
+                      id="initialExpiry"
+                      v-model="form.expiryDate"
+                      type="date"
+                      :min="today"
+                      class="input-base"
+                      :aria-invalid="!!lotError"
+                      aria-describedby="initialLotHelp"
+                    />
+                  </div>
+                </div>
+                <p id="initialLotHelp" class="text-xs" :class="lotError ? 'text-error-600' : 'text-gray-500'" :role="lotError ? 'alert' : undefined">
+                  {{ lotError || 'Viene impreso en la caja. Las siguientes entradas se registran con su lote desde Compras.' }}
+                </p>
+              </fieldset>
               <div v-else class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <p class="text-xs text-gray-500">Stock Actual en Sistema</p>
                 <p class="text-xl font-bold text-gray-900 dark:text-white">{{ productToEdit?.stock || 0 }} unidades</p>
@@ -154,11 +198,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useProductStore } from '~/stores/product'
 import { useCategoryStore } from '~/stores/category'
 import { useToast } from '~/composables/useToast'
-import type { Product } from '~/stores/product'
+import type { CreateProductPayload, Product } from '~/stores/product'
 
 const props = defineProps<{ productToEdit?: Product | null }>()
 const emit = defineEmits(['close'])
@@ -180,10 +224,35 @@ const form = reactive({
   categories: [] as number[],
   controlled: false,
   stock: 0,
+  lotNumber: '',
+  expiryDate: '',
   minStock: 5,
   price: '' as number | string, // Permite que el input empiece vacío
   cost: '' as number | string,
   isActive: true
+})
+
+/** Hoy en la zona de la farmacia (YYYY-MM-DD): el mismo corte que usa el servidor. */
+const today = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Mexico_City',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date())
+
+const hasInitialStock = computed(() => Number(form.stock) > 0)
+
+/** Mismas reglas que `ProductService.resolveInitialLot` en el backend. */
+const lotError = computed(() => {
+  if (isEditing.value || !hasInitialStock.value) return ''
+  const lot = form.lotNumber.trim()
+  const expiry = form.expiryDate
+  if (!lot && !expiry) {
+    return form.controlled ? 'Un medicamento controlado necesita lote y caducidad para registrar su inventario inicial.' : ''
+  }
+  if (!lot || !expiry) return 'El número de lote y la caducidad van juntos.'
+  if (expiry < today) return 'Esa caducidad ya pasó: no se puede dar de alta inventario caducado.'
+  return ''
 })
 
 onMounted(async () => {
@@ -244,14 +313,26 @@ async function handleSubmit() {
       isActive: form.isActive 
     }
 
+    if (lotError.value) {
+      toast.warning(lotError.value)
+      return
+    }
+
     if (isEditing.value && props.productToEdit) {
       // En PATCH no mandamos stock (es regla del negocio)
       await store.updateProduct(props.productToEdit.id, payload)
       toast.success('Producto actualizado exitosamente.')
     } else {
       // Regla de Negocio: En POST sí mandamos stock inicial si existe
-      const createPayload = { ...payload, stock: form.stock }
-      await store.createProduct(createPayload as any)
+      const stock = Number(form.stock) || 0
+      const lot = form.lotNumber.trim().toUpperCase()
+      const createPayload: CreateProductPayload = {
+        ...payload,
+        stock,
+        // Sin stock el lote no aplica: el servidor lo rechazaría.
+        ...(stock > 0 && lot && form.expiryDate ? { lotNumber: lot, expiryDate: form.expiryDate } : {}),
+      }
+      await store.createProduct(createPayload)
       toast.success('Producto registrado exitosamente. SKU generado.')
     }
     emit('close')

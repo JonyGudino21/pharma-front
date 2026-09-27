@@ -50,6 +50,9 @@ export interface CreateProductPayload {
   categories?: number[] // Array de IDs numéricos
   controlled: boolean
   stock?: number
+  /** Lote y caducidad (YYYY-MM-DD) del inventario inicial. Sólo en el alta. */
+  lotNumber?: string
+  expiryDate?: string
   minStock: number
   price: number
   cost: number
@@ -122,7 +125,9 @@ export const useProductStore = defineStore('product', () => {
     const { $api } = useNuxtApp()
     // Protegemos el stock. La actualización manual de stock no se recomienda aquí.
     const safePayload = { ...payload }
-    delete safePayload.stock 
+    delete safePayload.stock
+    delete safePayload.lotNumber
+    delete safePayload.expiryDate
     
     await $api(`/products/${id}`, { method: 'PATCH', body: safePayload })
     await fetchProducts(pagination.value.page)
