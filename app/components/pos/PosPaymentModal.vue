@@ -40,8 +40,12 @@ const change = computed(() => {
   return Math.max(0, restar(received.value, totalDue.value))
 })
 
+/** Ya se pagó todo en un intento anterior: sólo falta cerrar la venta. */
+const pagoCubierto = computed(() => totalDue.value <= 0 && sales.paidAmount > 0)
+
 const canConfirm = computed(() => {
   if (isProcessing.value) return false
+  if (pagoCubierto.value) return true
   if (onCredit.value) return alcanza(creditAvailable.value, totalDue.value)
   if (method.value === 'CASH') return alcanza(received.value ?? 0, totalDue.value)
   return true // tarjeta/transferencia: se asume monto exacto
@@ -72,6 +76,16 @@ async function confirm() {
   if (!canConfirm.value) return
   isProcessing.value = true
   try {
+    // PAGO YA REGISTRADO EN UN INTENTO ANTERIOR. Si el pago entró pero el
+    // cierre falló, el saldo queda en 0: volver a "pagar" mandaba un pago de $0
+    // que el servidor rechaza, y la venta nunca se cerraba. Con saldo cubierto
+    // se va directo a cerrar.
+    if (pagoCubierto.value) {
+      const completed = await sales.completeSale()
+      if (completed) emit('completed', completed)
+      return
+    }
+
     if (onCredit.value) {
       // Venta a crédito: opcionalmente registramos un abono inicial
       if (received.value && received.value > 0) {
@@ -108,6 +122,20 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
       </div>
 
       <div class="p-6 space-y-5">
+        <!-- Pago ya registrado en un intento anterior: sólo falta cerrar -->
+        <div
+          v-if="pagoCubierto"
+          class="flex gap-3 rounded-xl border border-success-500/40 bg-success-500/10 p-4 text-sm text-success-800 dark:text-success-300"
+          role="status"
+        >
+          <Icon name="ph:check-circle-fill" class="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            El pago de esta venta <strong>ya está registrado</strong> ({{ formatCurrency(sales.paidAmount) }}).
+            Sólo falta cerrarla: no se volverá a cobrar.
+          </p>
+        </div>
+
+        <template v-else>
         <!-- Métodos -->
         <div class="grid grid-cols-3 gap-2">
           <button
@@ -145,6 +173,7 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           <input
             ref="cashInput"
             v-model.number="received"
+            @keydown.enter.prevent="confirm"
             type="number"
             min="0"
             step="0.01"
@@ -180,6 +209,8 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           />
         </div>
 
+        </template>
+
         <!-- Acciones -->
         <div class="flex gap-3 pt-1">
           <button
@@ -195,7 +226,7 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           >
             <Icon v-if="isProcessing" name="ph:spinner-gap-bold" class="w-5 h-5 animate-spin" />
             <Icon v-else name="ph:check-circle-bold" class="w-5 h-5" />
-            {{ isProcessing ? 'Procesando...' : 'Cobrar' }}
+            {{ isProcessing ? 'Procesando...' : pagoCubierto ? 'Cerrar venta' : 'Cobrar' }}
           </button>
         </div>
       </div>

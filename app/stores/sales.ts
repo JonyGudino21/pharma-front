@@ -6,6 +6,7 @@ import { useClientStore, type Client } from '~/stores/client'
 import { useProductStore, type Product } from '~/stores/product'
 import { useInventoryStore } from '~/stores/inventory'
 import { useToast } from '~/composables/useToast'
+import { httpStatusOf } from '~/utils/http-status'
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER'
 export type SaleFlowStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED'
@@ -486,38 +487,82 @@ export const useSalesStore = defineStore('sales', () => {
   async function completeSale(): Promise<Sale | null> {
     if (!sale.value) return null
     const { $api } = useNuxtApp()
+    const saleId = sale.value.id
     isCompleting.value = true
     try {
-      await $api(`/sales/${sale.value.id}/complete`, {
-        method: 'POST',
-        body: prescription.value ? { prescription: prescription.value } : {},
-      })
-      // Reconsultamos la venta enriquecida para el ticket antes de limpiar
-      const res = await $api<ApiResponse<Sale>>(`/sales/${sale.value.id}`)
-      lastCompletedSale.value = res.data
-      toast.success(`Venta ${res.data.invoiceNumber ?? '#' + res.data.id} completada`)
+      // CIERRE IDEMPOTENTE DESDE EL PUNTO DE VISTA DEL CAJERO.
+      //
+      // Si el cierre llegó al servidor pero la respuesta se perdió (o falló la
+      // consulta posterior), el reintento recibe 409 "ya completada". Antes eso
+      // se trataba como fallo y el cajero quedaba atorado con una venta cobrada
+      // y cerrada que su pantalla seguía mostrando abierta. Ahora, ante un 409,
+      // se consulta la venta: si YA está completada, el cierre fue un éxito.
+      try {
+        await $api(`/sales/${saleId}/complete`, {
+          method: 'POST',
+          body: prescription.value ? { prescription: prescription.value } : {},
+        })
+      } catch (error) {
+        if (httpStatusOf(error) !== 409) return null
+        const actual = await fetchSaleSafe(saleId)
+        if (actual?.flowStatus !== 'COMPLETED') return null
+      }
+
+      // La venta YA está cerrada en el servidor: pase lo que pase con la
+      // consulta del ticket, el carrito se libera. Si la consulta falla se usa
+      // lo que hay en pantalla y el ticket se reimprime desde el historial.
+      const cerrada = await fetchSaleSafe(saleId)
+      if (cerrada) {
+        lastCompletedSale.value = cerrada
+        toast.success(`Venta ${cerrada.invoiceNumber ?? '#' + cerrada.id} completada`)
+      } else {
+        lastCompletedSale.value = { ...sale.value!, flowStatus: 'COMPLETED' }
+        toast.warning('Venta completada, pero no pudimos cargar su ticket. Reimprímelo desde el historial de ventas.')
+      }
       reset()
       return lastCompletedSale.value
-    } catch {
-      return null
     } finally {
       isCompleting.value = false
+    }
+  }
+
+  /** GET /sales/:id sin propagar el error (null si no se pudo). */
+  async function fetchSaleSafe(id: number): Promise<Sale | null> {
+    const { $api } = useNuxtApp()
+    try {
+      const res = await $api<ApiResponse<Sale>>(`/sales/${id}`)
+      return res.data
+    } catch {
+      return null
     }
   }
 
   /**
    * Descarta la venta viva (marca CANCELLED en el backend) y limpia el carrito.
    */
-  async function discardSale() {
+  async function discardSale(): Promise<boolean> {
     const { $api } = useNuxtApp()
     if (sale.value) {
       try {
         await $api(`/sales/${sale.value.id}/cancel`, { method: 'POST' })
-      } catch {
-        // si falla la cancelación, igual limpiamos el estado local
+      } catch (error) {
+        // Antes se limpiaba el carrito AUNQUE fallara: la pantalla quedaba
+        // vacía, pero el borrador seguía vivo en el servidor y `resumeDraft`
+        // lo "resucitaba" al volver. Ahora:
+        //  - sin respuesta (red/servidor): se conserva el carrito y se avisa;
+        //  - 4xx: el servidor ya dio su veredicto (la venta no existe, ya no es
+        //    borrador o no se puede descartar): el interceptor muestra el motivo
+        //    y sólo se limpia si ya no es un borrador recuperable.
+        const status = httpStatusOf(error)
+        if (status === undefined || status >= 500) {
+          toast.error('No se pudo descartar la venta. Revisa la conexión e inténtalo de nuevo.')
+          return false
+        }
+        if (status !== 404 && status !== 409) return false
       }
     }
     reset()
+    return true
   }
 
   function setPrescription(data: ControlledPrescription | null) {

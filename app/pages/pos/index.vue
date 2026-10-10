@@ -97,6 +97,8 @@ const canRemission = computed(
   () => authStore.can('canPrintReceipt') && (settingsStore.valuesOf('remission')?.enabled ?? true),
 )
 const completedSale = ref<Sale | null>(null)
+/** Cliente de la venta que se está cobrando (respaldo para ticket y nota). */
+const clientAtCheckout = ref<Client | null>(null)
 const ticketCopy = ref(0)
 const ticketEl = ref<HTMLElement | null>(null)
 
@@ -117,7 +119,7 @@ const completedTicket = computed(() => {
   return saleToReceiptView(completedSale.value, {
     showTaxBreakdown: settingsStore.valuesOf('taxes')?.showBreakdownOnTicket ?? true,
     copyNumber: ticketCopy.value,
-    fallbackClient: selectedClient.value,
+    fallbackClient: clientAtCheckout.value,
     fallbackCashier: authStore.user,
   })
 })
@@ -185,6 +187,9 @@ function openPayment() {
     toast.warning('Agrega al menos un producto antes de cobrar.')
     return
   }
+  // Se fija AQUÍ el cliente del cobro: al cerrar, el store limpia el carrito
+  // (incluido el cliente) antes de que el comprobante lo necesite.
+  clientAtCheckout.value = selectedClient.value
   if (hasControlledItems.value && !sales.prescription) {
     showPrescription.value = true
     return
@@ -236,6 +241,7 @@ function onCompleted(sale: Sale) {
 
 function newSale() {
   showReceipt.value = false
+  clientAtCheckout.value = null
   showRemission.value = false
   remissionCopies.value = 0
   completedSale.value = null
@@ -499,7 +505,7 @@ onMounted(async () => {
       v-if="showRemission && completedSale"
       :sale="completedSale"
       :printed-copies="remissionCopies"
-      :fallback-client="selectedClient"
+      :fallback-client="clientAtCheckout"
       @printed="remissionCopies += 1"
       @close="showRemission = false"
     />
