@@ -92,6 +92,11 @@
                   <NuxtLink v-if="authStore.can('canViewAccountStatement')" :to="`/clients/${client.id}`" class="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg" title="Estado de Cuenta y Perfil">
                     <Icon name="ph:receipt-bold" class="w-5 h-5" />
                   </NuxtLink>
+                  <!-- Crédito desde el listado: antes sólo se configuraba en Deudores, así
+                       que un cliente nuevo (sin deuda) nunca podía recibir crédito. -->
+                  <button v-if="authStore.can('canUpdateCreditConfig')" @click="openCreditModal(client)" class="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg" title="Configurar crédito">
+                    <Icon name="ph:identification-card-bold" class="w-5 h-5" />
+                  </button>
                   <button v-if="authStore.can('canEditClient')" @click="openEditModal(client)" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg" title="Editar">
                     <Icon name="ph:pencil-simple-bold" class="w-5 h-5" />
                   </button>
@@ -111,6 +116,7 @@
     </div>
 
     <ClientFormModal v-model="showModal" :client-to-edit="selectedClient" />
+    <CreditConfigModal v-model="showCreditModal" :client="creditClient" @success="executeFetch(store.pagination.page)" />
     
     <ConfirmModal
       v-if="clientToDeactivate"
@@ -133,6 +139,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import ClientFormModal from '~/components/clients/ClientFormModal.vue'
+import CreditConfigModal from '~/components/clients/CreditConfigModal.vue'
 import Pagination from '~/components/shared/Pagination.vue'
 import ConfirmModal from '~/components/shared/ConfirmModal.vue'
 import type { Client } from '~/stores/client'
@@ -172,6 +179,10 @@ const handlePageChange = (newPage: number) => executeFetch(newPage)
 
 const openCreateModal = () => { selectedClient.value = null; showModal.value = true }
 const openEditModal = (client: Client) => { selectedClient.value = client; showModal.value = true }
+
+const showCreditModal = ref(false)
+const creditClient = ref<Client | null>(null)
+const openCreditModal = (client: Client) => { creditClient.value = client; showCreditModal.value = true }
 
 const confirmDeactivate = (client: Client) => {
   clientToDeactivate.value = client

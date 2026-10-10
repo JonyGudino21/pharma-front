@@ -72,13 +72,13 @@
               </td>
               <td class="px-6 py-4 text-right">
                 <div class="flex justify-end gap-2">
-                  <button @click="openCreditConfig(debtor)" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg" title="Configurar Crédito">
+                  <button v-if="authStore.can('canUpdateCreditConfig')" @click="openCreditConfig(debtor)" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg" title="Configurar Crédito">
                     <Icon name="ph:identification-card-bold" class="w-5 h-5" />
                   </button>
                   <NuxtLink :to="`/clients/${debtor.id}`" class="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg" title="Ver Estado de Cuenta">
                     <Icon name="ph:receipt-bold" class="w-5 h-5" />
                   </NuxtLink>
-                  <button @click="openPaymentModal(debtor)" class="px-3 py-1.5 bg-success-50 text-success-700 hover:bg-success-100 dark:bg-success-900/30 dark:text-success-400 dark:hover:bg-success-900/50 rounded-lg font-bold text-sm flex items-center transition-colors">
+                  <button v-if="authStore.can('canRegisterClientPayment')" @click="openPaymentModal(debtor)" class="px-3 py-1.5 bg-success-50 text-success-700 hover:bg-success-100 dark:bg-success-900/30 dark:text-success-400 dark:hover:bg-success-900/50 rounded-lg font-bold text-sm flex items-center transition-colors">
                     <Icon name="ph:money-bold" class="mr-1.5" /> Cobrar
                   </button>
                 </div>
@@ -107,10 +107,15 @@ import { useDate } from '~/composables/useDate'
 import Pagination from '~/components/shared/Pagination.vue'
 import CreditConfigModal from '~/components/clients/CreditConfigModal.vue'
 import ClientPaymentModal from '~/components/clients/ClientPaymentModal.vue'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ requiredPermission: 'canViewDebtors' })
 
 const store = useClientStore()
+// Cada acción con su permiso: entrar a Deudores no implica poder cambiar el
+// límite de crédito (el backend también lo exige; aquí se evita ofrecer un
+// botón que sólo puede terminar en 403).
+const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const { formatDateTime } = useDate()
 

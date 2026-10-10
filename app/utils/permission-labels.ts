@@ -18,8 +18,9 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     icon: 'ph:shopping-cart-bold',
     items: [
       { key: 'canSell', label: 'Vender en el punto de venta' },
-      { key: 'canPrintReceipt', label: 'Imprimir tickets' },
-      { key: 'canViewSalesSummary', label: 'Consultar ventas' },
+      { key: 'canPrintReceipt', label: 'Imprimir tickets y notas de remisión' },
+      { key: 'canViewSalesHistory', label: 'Consultar el historial de ventas' },
+      { key: 'canViewSalesSummary', label: 'Ver el resumen gerencial de ventas' },
       { key: 'canGiveDiscounts', label: 'Autorizar descuentos sobre el tope' },
       { key: 'canCancelSales', label: 'Cancelar ventas' },
       { key: 'canReturnSales', label: 'Registrar devoluciones' },
@@ -56,6 +57,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       { key: 'canViewLowStockAlerts', label: 'Ver stock bajo' },
       { key: 'canViewExpiringBatches', label: 'Ver caducidades' },
       { key: 'canViewControlledLog', label: 'Libro de controlados' },
+      { key: 'canExportControlledLog', label: 'Exportar el libro de controlados' },
       { key: 'canAdjustInventory', label: 'Ajustar inventario' },
       { key: 'canViewInventoryValuation', label: 'Ver valuación' },
     ],
@@ -77,7 +79,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     items: [
       { key: 'canViewAnalytics', label: 'Reportes y tablero' },
       { key: 'canManageCompany', label: 'Datos de la farmacia y ticket' },
-      { key: 'canManageSettings', label: 'Configuración de caja e inventario' },
+      { key: 'canManageSettings', label: 'Configuración de operación (caja, inventario, descuentos, impuestos, nota de remisión, dispositivos)' },
       { key: 'canManageUsers', label: 'Usuarios y permisos' },
     ],
   },

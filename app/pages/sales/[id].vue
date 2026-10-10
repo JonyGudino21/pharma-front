@@ -354,7 +354,7 @@ import { saleToReceiptView } from '~/utils/receipt-view'
 import { useSettingsStore } from '~/stores/settings'
 import RemissionModal from '~/components/receipt/RemissionModal.vue'
 
-definePageMeta({ requiredPermission: 'canViewSalesSummary' })
+definePageMeta({ requiredPermission: 'canViewSalesHistory' })
 
 const route = useRoute()
 const store = useSalesHistoryStore()

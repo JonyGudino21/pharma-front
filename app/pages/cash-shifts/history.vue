@@ -97,6 +97,11 @@
 </template>
 
 <script setup lang="ts">
+// La pantalla no tenía permiso de ruta: sólo se ocultaba el enlace. El backend
+// ya filtra los turnos de cajeros y farmacéuticos a los propios, pero esta
+// vista (con acceso al detalle de cada turno) es gerencial.
+definePageMeta({ requiredPermission: 'canViewAllShifts' })
+
 import { onMounted } from 'vue'
 import { useCashShiftStore, type ShiftStatus } from '~/stores/cashShift'
 import { useAuthStore } from '~/stores/auth'
