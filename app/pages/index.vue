@@ -40,7 +40,28 @@
       </div>
     </div>
 
+    <div
+      v-else-if="analyticsStore.error && !analyticsStore.data"
+      class="flex flex-col items-center justify-center gap-3 rounded-2xl border border-error-500/40 bg-white p-12 text-center dark:bg-gray-800"
+      role="alert"
+    >
+      <Icon name="ph:cloud-slash-fill" class="h-12 w-12 text-error-500" />
+      <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ analyticsStore.error }}</p>
+      <p class="max-w-md text-xs text-gray-500 dark:text-gray-400">No pudimos consultar las métricas; eso no significa que no haya ventas.</p>
+      <button type="button" class="btn-primary gap-2" :disabled="analyticsStore.isLoading" @click="applyFilters">
+        <Icon name="ph:arrow-clockwise-bold" /> Reintentar
+      </button>
+    </div>
+
     <div v-else-if="analyticsStore.data" class="space-y-6">
+      <p
+        v-if="analyticsStore.error"
+        class="flex items-center gap-2 rounded-lg bg-warning-500/10 p-3 text-xs text-warning-800 dark:text-warning-300"
+        role="status"
+      >
+        <Icon name="ph:warning-bold" class="h-4 w-4 shrink-0" />
+        No se pudieron actualizar las métricas ({{ analyticsStore.error }}). Se muestran las últimas que sí cargaron.
+      </p>
       
       <div class="text-center">
         <span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-sm font-medium">

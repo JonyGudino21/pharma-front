@@ -159,7 +159,9 @@ export const useProductStore = defineStore('product', () => {
   async function fetchByBarcode(barcode: string) {
     const { $api } = useNuxtApp()
     try {
-      const res = await $api<ApiResponse<Product>>(`/products/barcode/${barcode}`)
+      // encodeURIComponent: un código con "/", "#" o "?" (lectores mal configurados,
+      // códigos internos) cambiaba la ruta y buscaba otra cosa o daba 404.
+      const res = await $api<ApiResponse<Product>>(`/products/barcode/${encodeURIComponent(barcode)}`)
       return res.data
     } catch (error) {
       return null

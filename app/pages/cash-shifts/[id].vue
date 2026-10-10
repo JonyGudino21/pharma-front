@@ -99,8 +99,21 @@
     </div>
 
   </div>
-  <div v-else class="min-h-screen flex items-center justify-center">
+  <div v-else-if="loading" class="min-h-[50vh] flex items-center justify-center" aria-busy="true">
     <Icon name="ph:spinner-gap-bold" class="w-10 h-10 animate-spin text-primary-600" />
+  </div>
+  <div
+    v-else
+    class="mx-auto mt-12 flex max-w-md flex-col items-center gap-3 rounded-2xl border border-error-500/40 bg-white p-10 text-center dark:bg-gray-800"
+    role="alert"
+  >
+    <Icon name="ph:cloud-slash-fill" class="h-12 w-12 text-error-500" />
+    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">No pudimos cargar este turno.</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400">Puede que no exista o que no haya conexión con el servidor.</p>
+    <div class="flex gap-2">
+      <NuxtLink to="/cash-shifts/history" class="btn-secondary">Volver al historial</NuxtLink>
+      <button type="button" class="btn-primary gap-2" @click="cargar"><Icon name="ph:arrow-clockwise-bold" /> Reintentar</button>
+    </div>
   </div>
 </template>
 
@@ -119,9 +132,18 @@ const { formatCurrency } = useCurrency()
 const { formatDateTime } = useDate()
 
 const shift = ref<CashShift | null>(null)
+// Antes, si la carga fallaba, el spinner giraba para siempre: no había forma de
+// saber que algo salió mal ni de reintentar.
+const loading = ref(true)
 
-onMounted(async () => {
-  const id = Number(route.params.id)
-  shift.value = await store.fetchShiftById(id)
-})
+async function cargar() {
+  loading.value = true
+  try {
+    shift.value = await store.fetchShiftById(Number(route.params.id))
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(cargar)
 </script>

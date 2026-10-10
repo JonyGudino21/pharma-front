@@ -228,6 +228,9 @@ const toast = useToast()
 const isEditing = ref(false)
 const isSubmitting = ref(false)
 
+/** IVA con el que se abrió el producto en edición: sólo se envía si cambió. */
+const taxBaseline = ref<TaxCategory | null>(null)
+
 const form = reactive({
   name: '',
   description: '',
@@ -316,6 +319,7 @@ onMounted(async () => {
     form.price = Number(p.price)
     form.cost = Number(p.cost)
     form.taxCategory = p.taxCategory ?? 'ZERO'
+    taxBaseline.value = form.taxCategory
     form.isActive = p.isActive
 
     form.categories = p.categories.map(c => c.category.id)
@@ -356,7 +360,11 @@ async function handleSubmit() {
       minStock: form.minStock,
       price: priceNum,
       cost: costNum,
-      taxCategory: form.taxCategory,
+      // Al EDITAR, el IVA sólo viaja si el usuario lo cambió. Antes se mandaba
+      // siempre y, si el producto llegaba sin el dato, como 'ZERO': un gerente
+      // podía cambiar el IVA sin darse cuenta y un farmacéutico recibía 403 al
+      // guardar un simple cambio de nombre.
+      taxCategory: isEditing.value && form.taxCategory === taxBaseline.value ? undefined : form.taxCategory,
       categories: form.categories,
       isActive: form.isActive 
     }
