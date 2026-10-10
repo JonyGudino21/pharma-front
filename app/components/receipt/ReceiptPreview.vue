@@ -128,7 +128,11 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
         <p class="pharma-ticket__item-name">{{ item.quantity }} × {{ item.name }}</p>
         <p class="pharma-ticket__item-row">
           <span>{{ formatCurrency(item.unitPrice) }}</span>
-          <span>{{ formatCurrency(item.subtotal) }}</span>
+          <span>{{ formatCurrency(item.subtotal + (item.discount ?? 0)) }}</span>
+        </p>
+        <p v-if="(item.discount ?? 0) > 0" class="pharma-ticket__item-row pharma-ticket__muted">
+          <span>Descuento {{ item.discountPercent }}%</span>
+          <span>−{{ formatCurrency(item.discount ?? 0) }}</span>
         </p>
       </div>
     </section>
@@ -140,9 +144,17 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
         <span>Subtotal</span>
         <span>{{ formatCurrency(sale.subtotal) }}</span>
       </p>
+      <p v-if="(sale.discountTotal ?? 0) > 0">
+        <span>Descuentos</span>
+        <span>−{{ formatCurrency(sale.discountTotal ?? 0) }}</span>
+      </p>
       <p class="pharma-ticket__grand">
         <span>Total</span>
         <span>{{ formatCurrency(sale.total) }}</span>
+      </p>
+      <p v-for="row in sale.taxBreakdown ?? []" :key="row.ratePercent" class="pharma-ticket__muted">
+        <span>IVA {{ row.ratePercent }}% incluido</span>
+        <span>{{ formatCurrency(row.tax) }}</span>
       </p>
       <p>
         <span>Pagado</span>
@@ -151,6 +163,9 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
       <p v-if="sale.balance > 0" class="pharma-ticket__balance">
         <span>Saldo</span>
         <span>{{ formatCurrency(sale.balance) }}</span>
+      </p>
+      <p v-if="(sale.discountTotal ?? 0) > 0" class="pharma-ticket__muted" style="justify-content: center">
+        Usted ahorró {{ formatCurrency(sale.discountTotal ?? 0) }}
       </p>
     </section>
 

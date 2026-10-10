@@ -5,25 +5,32 @@ import type { SaleItem } from '~/stores/sales'
 defineProps<{
   items: SaleItem[]
   busy?: boolean
+  /** Descuentos disponibles (configuración activa). */
+  canDiscount?: boolean
+  /** Ya hay un pago: el servidor congela los descuentos. */
+  discountsLocked?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'increment', item: SaleItem): void
   (e: 'decrement', item: SaleItem): void
   (e: 'remove', item: SaleItem): void
+  (e: 'discount', item: SaleItem): void
 }>()
 
 const { formatCurrency } = useCurrency()
+const pct = (i: SaleItem) => Number(i.discountPercent ?? 0)
+const gross = (i: SaleItem) => Number(i.price) * i.quantity
 </script>
 
 <template>
   <div class="flex flex-col h-full">
     <!-- Encabezado de columnas -->
     <div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
-      <div class="col-span-6">Producto</div>
+      <div class="col-span-5">Producto</div>
       <div class="col-span-3 text-center">Cantidad</div>
       <div class="col-span-2 text-right">Importe</div>
-      <div class="col-span-1"></div>
+      <div class="col-span-2"></div>
     </div>
 
     <!-- Estado vacío -->
@@ -43,7 +50,7 @@ const { formatCurrency } = useCurrency()
         class="grid grid-cols-12 gap-2 items-center px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
       >
         <!-- Producto -->
-        <div class="col-span-12 sm:col-span-6 min-w-0">
+        <div class="col-span-12 sm:col-span-5 min-w-0">
           <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ item.product?.name ?? 'Producto #' + item.productId }}</p>
           <p class="text-xs text-gray-400 dark:text-gray-500">
             {{ item.product?.sku }} · {{ formatCurrency(Number(item.price)) }} c/u
@@ -53,11 +60,18 @@ const { formatCurrency } = useCurrency()
             >
               Controlado
             </span>
+            <span
+              v-if="pct(item) > 0"
+              class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300"
+              :title="item.discountReason ?? undefined"
+            >
+              −{{ pct(item) }}%
+            </span>
           </p>
         </div>
 
         <!-- Cantidad -->
-        <div class="col-span-7 sm:col-span-3 flex items-center justify-center gap-1.5">
+        <div class="col-span-6 sm:col-span-3 flex items-center justify-center gap-1.5">
           <button
             :disabled="busy"
             class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 transition-colors"
@@ -76,15 +90,27 @@ const { formatCurrency } = useCurrency()
         </div>
 
         <!-- Importe -->
-        <div class="col-span-4 sm:col-span-2 text-right font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
-          {{ formatCurrency(Number(item.subtotal)) }}
+        <div class="col-span-4 sm:col-span-2 text-right tabular-nums">
+          <p v-if="pct(item) > 0" class="text-xs text-gray-400 line-through">{{ formatCurrency(gross(item)) }}</p>
+          <p class="font-semibold text-gray-900 dark:text-gray-100">{{ formatCurrency(Number(item.subtotal)) }}</p>
         </div>
 
-        <!-- Quitar -->
-        <div class="col-span-1 flex justify-end">
+        <!-- Descuento y quitar -->
+        <div class="col-span-2 flex justify-end gap-0.5">
+          <button
+            v-if="canDiscount"
+            :disabled="busy || discountsLocked"
+            class="w-8 h-8 rounded-lg flex items-center justify-center text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-40 transition-colors"
+            :title="discountsLocked ? 'Ya hay un pago registrado: el descuento no se puede cambiar' : 'Descuento'"
+            :aria-label="`Descuento en ${item.product?.name ?? 'producto'}`"
+            @click="emit('discount', item)"
+          >
+            <Icon name="ph:percent-bold" class="w-4 h-4" />
+          </button>
           <button
             :disabled="busy"
             class="w-8 h-8 rounded-lg flex items-center justify-center text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 disabled:opacity-40 transition-colors"
+            :aria-label="`Quitar ${item.product?.name ?? 'producto'}`"
             @click="emit('remove', item)"
           >
             <Icon name="ph:trash-bold" class="w-4 h-4" />

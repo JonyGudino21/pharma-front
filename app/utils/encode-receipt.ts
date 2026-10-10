@@ -203,9 +203,14 @@ export function encodeReceipt(
   sale: ReceiptSaleView,
   company: Company,
   template: ReceiptTemplate,
+  /** Abrir el cajón al empezar a imprimir (cobro en efectivo). */
+  opts: { openDrawerPin?: 0 | 1 } = {},
 ): Uint8Array {
   const receipt = buildThermalReceipt(sale, company, template)
   const enc = new EscPosEncoder(receipt.charset).init()
+  // El pulso va ANTES del texto: el cajón abre mientras el ticket sale y el
+  // cajero no espera al corte para dar el cambio.
+  if (opts.openDrawerPin !== undefined) enc.openDrawer(opts.openDrawerPin)
 
   for (const line of receipt.lines) {
     enc.align(line.align).bold(line.bold).size(line.size).line(line.text)
@@ -242,17 +247,32 @@ function writeMeta(b: LineBuilder, sale: ReceiptSaleView) {
 function writeItems(b: LineBuilder, sale: ReceiptSaleView) {
   for (const item of sale.items) {
     b.wrap(`${item.quantity} x ${item.name}`)
-    b.pair(`  ${money(item.unitPrice)} c/u`, money(item.subtotal))
+    const descuento = item.discount ?? 0
+    // Con descuento se imprime el bruto y el descuento aparte: SUBTOTAL −
+    // DESCUENTOS = TOTAL cuadra renglón por renglón con lo que ve el cliente.
+    b.pair(`  ${money(item.unitPrice)} c/u`, money(descuento > 0 ? item.subtotal + descuento : item.subtotal))
+    if (descuento > 0) {
+      b.pair(`  Descuento ${formatPercent(item.discountPercent ?? 0)}`, `-${money(descuento)}`)
+    }
   }
 }
 
+const formatPercent = (p: number) => `${Number.isInteger(p) ? p : p.toFixed(2).replace(/0$/, '')}%`
+
 function writeTotals(b: LineBuilder, sale: ReceiptSaleView, scale: 1 | 2) {
   b.pair('SUBTOTAL', money(sale.subtotal))
+  const descuentos = sale.discountTotal ?? 0
+  if (descuentos > 0) b.pair('DESCUENTOS', `-${money(descuentos)}`)
   // A tamaño doble el renglón tiene la MITAD de columnas. Antes se rellenaba al
   // ancho completo y el total —el número que más importa— se salía del papel.
   writeTotalLine(b, money(sale.total), scale)
+  // Precios con IVA incluido (LFPC art. 7 Bis): el desglose es informativo.
+  for (const row of sale.taxBreakdown ?? []) {
+    b.pair(`IVA ${row.ratePercent}% incluido`, money(row.tax))
+  }
   b.pair('PAGADO', money(sale.paidAmount))
   if (sale.balance > 0) b.pair('SALDO', money(sale.balance), { bold: true })
+  if (descuentos > 0) b.add(`Usted ahorró ${money(descuentos)}`, { align: 'center' })
 }
 
 /**

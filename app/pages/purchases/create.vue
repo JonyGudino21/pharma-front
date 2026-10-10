@@ -122,10 +122,10 @@
                     <p v-if="item.product.controlled" class="text-[10px] font-bold uppercase text-error-600 mt-0.5">Controlado</p>
                   </td>
                   <td class="px-4 py-3">
-                    <input v-model="item.lotNumber" type="text" maxlength="40" class="input-base p-1.5 text-xs font-mono uppercase w-28" :required="item.product.controlled" />
+                    <input v-model="item.lotNumber" type="text" maxlength="40" class="input-base p-1.5 text-xs font-mono uppercase w-28" :required="lotRequired(item.product)" />
                   </td>
                   <td class="px-4 py-3">
-                    <input v-model="item.expiryDate" type="date" class="input-base p-1.5 text-xs w-36" :required="item.product.controlled" />
+                    <input v-model="item.expiryDate" type="date" class="input-base p-1.5 text-xs w-36" :required="lotRequired(item.product)" />
                   </td>
                   <td class="px-4 py-3 w-28">
                     <input
@@ -239,12 +239,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useSettingsStore } from '~/stores/settings'
 import { useRouter } from '#app'
 import { usePurchaseStore, type CreatePurchasePayload, type PaymentMethod } from '~/stores/purchase'
 import { useSupplierStore } from '~/stores/supplier'
 import { useProductStore, type Product } from '~/stores/product'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
+import { useUpdateHold } from '~/composables/useAppUpdate'
 
 definePageMeta({ requiredPermission: 'canManagePurchases' })
 
@@ -257,6 +259,12 @@ const toast = useToast()
 
 const isSubmitting = ref(false)
 
+// Configuración › Inventario: con "exigir lote en toda entrada", cada partida
+// lo necesita, no sólo los controlados. Mismo criterio que al recibir.
+const settingsStore = useSettingsStore()
+const lotRequired = (product: Product) =>
+  product.controlled || (settingsStore.valuesOf('inventory')?.requireLotForAll ?? false)
+
 // Estado del Formulario
 const form = reactive({
   supplierId: null as number | null,
@@ -265,6 +273,11 @@ const form = reactive({
   payments: [] as Array<{ method: PaymentMethod, amount: number, references: string }>
 })
 
+// Una compra a medio capturar no debe perderse por una recarga para actualizar.
+useUpdateHold('purchase-create', () =>
+  form.items.length > 0 || form.payments.length > 0 ? 'Tienes una compra a medio capturar.' : null,
+)
+
 // Lógica del Buscador Autocompletado
 const searchQuery = ref('')
 const searchResults = ref<Product[]>([])
@@ -272,6 +285,7 @@ const isSearching = ref(false)
 let searchTimeout: any = null
 
 onMounted(async () => {
+  void settingsStore.fetch('inventory').catch(() => null)
   // Opciones del combo, no la tabla paginada del directorio. Además, la versión
   // anterior escribía `supplierStore.filters.isActive = 'true'`, lo que dejaba
   // el filtro cambiado para la pantalla de proveedores al volver a ella.
@@ -343,7 +357,7 @@ const isFormValid = computed(() => {
       && form.invoiceNumber.trim() !== '' 
       && form.items.length > 0 
       && form.items.every(i => i.quantity > 0 && i.cost >= 0)
-      && form.items.every(i => !i.product.controlled || (i.lotNumber.trim() !== '' && i.expiryDate !== ''))
+      && form.items.every(i => !lotRequired(i.product) || (i.lotNumber.trim() !== '' && i.expiryDate !== ''))
       && form.payments.every(p => p.amount > 0)
 })
 

@@ -7,11 +7,17 @@ import type { Client } from '~/stores/client'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
+import { useUpdateHold } from '~/composables/useAppUpdate'
+import { useConnectivity } from '~/composables/useConnectivity'
 import PosCart from '~/components/pos/PosCart.vue'
 import PosSearchModal from '~/components/pos/PosSearchModal.vue'
 import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
 import PosPrescriptionModal from '~/components/pos/PosPrescriptionModal.vue'
+import PosDiscountModal from '~/components/pos/PosDiscountModal.vue'
+import { useSettingsStore } from '~/stores/settings'
+import RemissionModal from '~/components/receipt/RemissionModal.vue'
+import type { SaleItem, DiscountRequest } from '~/stores/sales'
 import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
 import { useCompanyStore } from '~/stores/company'
 import { useAuthStore } from '~/stores/auth'
@@ -25,8 +31,56 @@ const companyStore = useCompanyStore()
 const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
-const { printSale, isPrinting } = useReceiptPrint()
-const { items, total, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
+const { printSale, afterSaleCompleted, isPrinting } = useReceiptPrint()
+const { items, total, subtotal, discountTotal, taxTotal, discountsLocked, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
+
+// ── Descuentos (Configuración › Descuentos) ────────────────────────────────
+const settingsStore = useSettingsStore()
+const discountCfg = computed(() => settingsStore.valuesOf('discounts'))
+const canDiscount = computed(() => !!discountCfg.value?.enabled)
+
+/** Qué se está descontando: una línea o toda la venta. */
+const discountTarget = ref<{ item: SaleItem | null } | null>(null)
+
+const discountProps = computed(() => {
+  const t = discountTarget.value
+  if (!t) return null
+  if (t.item) {
+    const i = t.item
+    return {
+      label: i.product?.name ?? `Producto #${i.productId}`,
+      gross: Number(i.price) * i.quantity,
+      cost: Number(i.costAtSale) * i.quantity,
+      currentPercent: Number(i.discountPercent ?? 0),
+    }
+  }
+  // Toda la venta: el % "actual" es el mayor de las líneas, como en el servidor.
+  return {
+    label: 'Toda la venta',
+    gross: subtotal.value,
+    cost: items.value.reduce((acc, i) => acc + Number(i.costAtSale) * i.quantity, 0),
+    currentPercent: Math.max(0, ...items.value.map((i) => Number(i.discountPercent ?? 0))),
+  }
+})
+
+function openDiscount(item: SaleItem | null) {
+  if (discountsLocked.value) {
+    toast.warning('Ya hay un pago registrado: el descuento ya no se puede cambiar.')
+    return
+  }
+  discountTarget.value = { item }
+}
+
+function applyDiscount(req: DiscountRequest) {
+  const t = discountTarget.value
+  return sales.applyDiscount({ itemId: t?.item?.id }, req)
+}
+
+function onDiscountDone() {
+  discountTarget.value = null
+  toast.success('Descuento actualizado')
+  focusScanner()
+}
 
 const scannerRef = ref<HTMLInputElement | null>(null)
 const scannerValue = ref('')
@@ -36,12 +90,19 @@ const showClient = ref(false)
 const showPayment = ref(false)
 const showPrescription = ref(false)
 const showReceipt = ref(false)
+const showRemission = ref(false)
+/** Copias de la nota de remisión emitidas para la venta que está en pantalla. */
+const remissionCopies = ref(0)
+const canRemission = computed(
+  () => authStore.can('canPrintReceipt') && (settingsStore.valuesOf('remission')?.enabled ?? true),
+)
 const completedSale = ref<Sale | null>(null)
 const ticketCopy = ref(0)
 const ticketEl = ref<HTMLElement | null>(null)
 
 const liveTicket = computed(() =>
   cartToReceiptView({
+    showTaxBreakdown: settingsStore.valuesOf('taxes')?.showBreakdownOnTicket ?? true,
     sale: sales.sale,
     items: items.value,
     subtotal: Number(sales.sale?.subtotal ?? total.value),
@@ -54,13 +115,28 @@ const liveTicket = computed(() =>
 const completedTicket = computed(() => {
   if (!completedSale.value) return null
   return saleToReceiptView(completedSale.value, {
+    showTaxBreakdown: settingsStore.valuesOf('taxes')?.showBreakdownOnTicket ?? true,
     copyNumber: ticketCopy.value,
     fallbackClient: selectedClient.value,
     fallbackCashier: authStore.user,
   })
 })
 
-const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value || showPrescription.value)
+// Sin conexión con el servidor no se puede cobrar: se avisa arriba (banner) y
+// aquí se deshabilita Cobrar, en lugar de dejar que falle con un error genérico.
+const connectivity = useConnectivity()
+
+// Mientras haya una venta abierta o el comprobante en pantalla, no se ofrece
+// recargar para actualizar la aplicación (ADR-0018).
+useUpdateHold('pos', () =>
+  showReceipt.value
+    ? 'Hay un comprobante de venta en pantalla.'
+    : !isEmpty.value
+      ? 'Hay una venta en curso en el punto de venta.'
+      : null,
+)
+
+const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
 
 function focusScanner() {
@@ -101,6 +177,10 @@ async function onScan() {
 }
 
 function openPayment() {
+  if (!connectivity.canOperate.value) {
+    toast.warning('Sin conexión con el servidor: no se puede cobrar hasta que regrese.')
+    return
+  }
   if (isEmpty.value) {
     toast.warning('Agrega al menos un producto antes de cobrar.')
     return
@@ -143,11 +223,21 @@ function onCompleted(sale: Sale) {
   showPayment.value = false
   completedSale.value = sale
   ticketCopy.value = 0
+  remissionCopies.value = 0
   showReceipt.value = true
+  // Perfil de esta caja: impresión automática y/o cajón. Nunca bloquea: la
+  // venta ya está cobrada; si el dispositivo falla, se avisa y se reimprime.
+  void afterSaleCompleted(sale, {
+    onRegistered: (copyNumber) => {
+      ticketCopy.value = copyNumber
+    },
+  })
 }
 
 function newSale() {
   showReceipt.value = false
+  showRemission.value = false
+  remissionCopies.value = 0
   completedSale.value = null
   ticketCopy.value = 0
   focusScanner()
@@ -161,6 +251,7 @@ async function discard() {
 }
 
 function handleEscape() {
+  if (discountTarget.value) { discountTarget.value = null; focusScanner(); return }
   if (showSearch.value) { showSearch.value = false; focusScanner(); return }
   if (showClient.value) { showClient.value = false; focusScanner(); return }
   if (showPrescription.value) { showPrescription.value = false; focusScanner(); return }
@@ -204,6 +295,11 @@ useKeyboardShortcuts({
 onMounted(async () => {
   focusScanner()
   companyStore.ensureProfile()
+  // Reglas de descuento: si no cargan, el botón de descuento simplemente no aparece.
+  void settingsStore.fetch('discounts').catch(() => null)
+  void settingsStore.fetch('taxes').catch(() => null)
+  // Nota de remisión: si no carga, el botón simplemente no aparece.
+  void settingsStore.fetch('remission').catch(() => null)
 
   // RECUPERACIÓN DEL CARRITO. Antes, un F5 o una sesión caducada dejaban al
   // cajero con el carrito vacío mientras la venta DRAFT seguía viva en el
@@ -283,6 +379,9 @@ onMounted(async () => {
           @increment="sales.incrementItem"
           @decrement="sales.decrementItem"
           @remove="(i) => sales.removeItem(i.id)"
+          :can-discount="canDiscount"
+          :discounts-locked="discountsLocked"
+          @discount="openDiscount"
         />
       </section>
 
@@ -325,17 +424,38 @@ onMounted(async () => {
             <span>Artículos</span>
             <span class="tabular-nums">{{ itemCount }}</span>
           </div>
+          <template v-if="discountTotal > 0">
+            <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+              <span>Subtotal</span>
+              <span class="tabular-nums">{{ formatCurrency(subtotal) }}</span>
+            </div>
+            <div class="flex justify-between text-sm text-success-700 dark:text-success-400">
+              <span>Descuentos</span>
+              <span class="tabular-nums">− {{ formatCurrency(discountTotal) }}</span>
+            </div>
+          </template>
           <div class="flex justify-between items-end">
             <span class="text-gray-500 dark:text-gray-400">Total</span>
             <span class="text-4xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ formatCurrency(total) }}</span>
           </div>
+          <p v-if="taxTotal > 0" class="text-right text-xs text-gray-400 tabular-nums">IVA incluido: {{ formatCurrency(taxTotal) }}</p>
+          <button
+            v-if="canDiscount && !isEmpty"
+            type="button"
+            class="w-full rounded-lg border border-dashed border-gray-300 py-2 text-sm font-medium text-primary-700 hover:border-primary-400 hover:bg-primary-50/50 disabled:opacity-40 dark:border-gray-600 dark:text-primary-300 dark:hover:bg-primary-900/10"
+            :disabled="busy || discountsLocked"
+            @click="openDiscount(null)"
+          >
+            <Icon name="ph:percent-bold" class="mr-1 inline h-4 w-4" /> Descuento a toda la venta
+          </button>
         </div>
 
         <!-- Acciones -->
         <div class="p-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
           <button
             class="w-full py-4 rounded-xl bg-primary-600 text-white text-lg font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            :disabled="isEmpty || busy"
+            :disabled="isEmpty || busy || !connectivity.canOperate.value"
+            :title="connectivity.canOperate.value ? undefined : 'Sin conexión con el servidor'"
             @click="openPayment"
           >
             <Icon name="ph:money-bold" class="w-6 h-6" />
@@ -361,6 +481,28 @@ onMounted(async () => {
       @confirmed="onPrescriptionConfirmed"
     />
     <PosPaymentModal v-if="showPayment" :client="selectedClient" @close="handleEscape" @completed="onCompleted" />
+    <PosDiscountModal
+      v-if="discountTarget && discountProps"
+      :label="discountProps.label"
+      :gross="discountProps.gross"
+      :cost="discountProps.cost"
+      :current-percent="discountProps.currentPercent"
+      :role="authStore.user?.role"
+      :settings="discountCfg"
+      :apply="applyDiscount"
+      @close="handleEscape"
+      @done="onDiscountDone"
+    />
+
+    <!-- Nota de remisión (hoja completa) sobre el comprobante -->
+    <RemissionModal
+      v-if="showRemission && completedSale"
+      :sale="completedSale"
+      :printed-copies="remissionCopies"
+      :fallback-client="selectedClient"
+      @printed="remissionCopies += 1"
+      @close="showRemission = false"
+    />
 
     <!-- Comprobante -->
     <div v-if="showReceipt && completedSale && completedTicket" class="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -377,7 +519,16 @@ onMounted(async () => {
             :template="companyStore.defaultTemplate"
           />
         </div>
-        <div class="flex gap-3 mt-5">
+        <button
+          v-if="canRemission"
+          class="mt-4 w-full py-2.5 rounded-xl border border-[#c4a35a]/30 text-[#c4a35a] text-sm font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+          data-testid="pos-open-remission"
+          @click="showRemission = true"
+        >
+          <Icon name="ph:file-text-bold" class="w-5 h-5" />
+          Nota de remisión (hoja carta)
+        </button>
+        <div class="flex gap-3 mt-3">
           <button
             class="flex-1 py-3 rounded-xl border border-[#c4a35a]/50 text-[#f3e6c4] font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             :disabled="isPrinting"

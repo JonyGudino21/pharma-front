@@ -72,6 +72,13 @@ export interface ControlledLogEntry {
   sale: { id: number; invoiceNumber: string | null } | null
 }
 
+/** Criterios con los que el servidor clasificó los lotes (Configuración › Inventario). */
+export interface ExpiryCriteria {
+  days: number
+  critical: number
+  warning: number
+}
+
 export interface InventoryPage<T> {
   data: T[]
   pagination: {
@@ -88,6 +95,7 @@ export const useInventoryStore = defineStore('inventory', () => {
   const currentKardex = ref<InventoryMovement[]>([])
   const expiring = ref<ExpiringBatch[]>([])
   const expiringPagination = ref({ page: 1, limit: 20, total: 0, totalPages: 1 })
+  const expiringCriteria = ref<ExpiryCriteria | null>(null)
   const controlledLog = ref<ControlledLogEntry[]>([])
   const controlledPagination = ref({ page: 1, limit: 20, total: 0, totalPages: 1 })
 
@@ -161,12 +169,14 @@ export const useInventoryStore = defineStore('inventory', () => {
     expiringError.value = null
     try {
       const query = new URLSearchParams()
-      query.set('days', String(params.days ?? 90))
+      // Sin `days`, el servidor usa el horizonte configurado por gerencia.
+      if (params.days !== undefined) query.set('days', String(params.days))
       query.set('page', String(params.page ?? 1))
       query.set('limit', String(params.limit ?? 20))
-      const res = await $api<ApiResponse<InventoryPage<ExpiringBatch>>>(`/inventory/batches/expiring?${query}`)
+      const res = await $api<ApiResponse<InventoryPage<ExpiringBatch> & { criteria?: ExpiryCriteria }>>(`/inventory/batches/expiring?${query}`)
       expiring.value = res.data.data
       expiringPagination.value = res.data.pagination
+      expiringCriteria.value = res.data.criteria ?? null
     } catch (error) {
       // Antes sólo se registraba en consola y la pantalla decía 'No hay lotes por
       // caducar'. Con el servidor caído, eso invita a vender medicamento vencido.
@@ -229,6 +239,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     currentKardex,
     expiring,
     expiringPagination,
+    expiringCriteria,
     controlledLog,
     controlledPagination,
     isLoading,

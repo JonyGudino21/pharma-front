@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useCookie, useNuxtApp } from '#app'
 import type { User, UserPermissions, ApiResponse, LoginData, MeData } from '~/types/auth'
+import { useSettingsStore } from '~/stores/settings'
 
 /**
  * Marca LEGIBLE que indica "hay una sesión abierta". La emite el backend.
@@ -106,6 +107,8 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     permissions.value = {} as UserPermissions
     sesionActiva.value = null
+    // Los ajustes en caché son del usuario anterior: el siguiente los relee.
+    useSettingsStore().$reset()
   }
 
   return {
