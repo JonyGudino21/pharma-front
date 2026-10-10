@@ -36,8 +36,9 @@
 
 ## Limitaciones
 
-- La exportación CSV toma como máximo 5,000 registros por archivo; para periodos más largos,
-  filtra por fechas.
+- La exportación CSV del libro de controlados es la oficial del servidor: incluye **todo** el
+  periodo elegido, queda registrado quién la descargó y lleva una huella de integridad. Sólo
+  gerencia puede exportar; el farmacéutico puede consultarlo e imprimirlo.
 - Los criterios de semáforo los define gerencia en **Configuración › Inventario**.
 
 ## Consejos de operación
