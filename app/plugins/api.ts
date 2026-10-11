@@ -350,6 +350,13 @@ export default defineNuxtPlugin((nuxtApp) => {
     try {
       return await raw<T>(request, { ...options, headers })
     } catch (error) {
+      // Sin estado HTTP = la petición ni siquiera obtuvo respuesta (servidor
+      // caído, red cortada, timeout). Se pide al vigilante una comprobación
+      // inmediata para que el aviso de conexión no espere al siguiente sondeo.
+      if (import.meta.client && estadoDe(error) === undefined) {
+        window.dispatchEvent(new Event('pharma:network-suspect'))
+      }
+
       // El reintento se controla con una variable local, no con una opción
       // colada en el objeto de ofetch: nunca hay riesgo de que `_reintentado`
       // viaje en la petición ni de que un segundo 401 vuelva a renovar.

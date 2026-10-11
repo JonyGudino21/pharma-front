@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { TaxCategory } from '~/types/settings'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
@@ -38,7 +39,10 @@ export interface Product {
   cost: number | string
   isActive: boolean
   categories: ProductCategory[]
+  taxCategory?: TaxCategory
 }
+
+export type { TaxCategory }
 
 export interface CreateProductPayload {
   name: string
@@ -57,6 +61,8 @@ export interface CreateProductPayload {
   price: number
   cost: number
   isActive?: boolean
+  /** Tratamiento de IVA. Sin valor, el de Configuración › Impuestos. */
+  taxCategory?: TaxCategory
 }
 
 export interface SearchProductPayload {
@@ -133,6 +139,16 @@ export const useProductStore = defineStore('product', () => {
     await fetchProducts(pagination.value.page)
   }
 
+  /**
+   * Tratamiento de IVA en bloque (gerencia). Una categoría O una lista de ids.
+   * @returns cuántos productos cambiaron
+   */
+  async function setTaxCategory(payload: { taxCategory: TaxCategory; categoryId?: number; productIds?: number[] }): Promise<number> {
+    const { $api } = useNuxtApp()
+    const res = await $api<ApiResponse<{ updated: number }>>('/products/tax-category', { method: 'PATCH', body: payload })
+    return res.data.updated
+  }
+
   async function deactivateProduct(id: number) {
     const { $api } = useNuxtApp()
     await $api(`/products/${id}`, { method: 'DELETE' })
@@ -179,6 +195,7 @@ export const useProductStore = defineStore('product', () => {
     createProduct,
     updateProduct,
     deactivateProduct,
+    setTaxCategory,
     fetchByBarcode,
     searchProductsLocally
   }

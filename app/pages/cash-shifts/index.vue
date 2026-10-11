@@ -44,8 +44,11 @@
           <label class="label-base text-center block">Monto Inicial en Caja *</label>
           <div class="relative">
             <Icon name="ph:currency-dollar-bold" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input v-model.number="openForm.initialAmount" type="number" step="0.01" min="0" required class="input-base pl-10 text-xl font-bold text-center h-14" placeholder="0.00" />
+            <input v-model.number="openForm.initialAmount" type="number" step="0.01" min="0" required class="input-base pl-10 text-xl font-bold text-center h-14" placeholder="0.00" aria-describedby="fondoSugerido" />
           </div>
+          <p v-if="suggestedFloat > 0" id="fondoSugerido" class="mt-1.5 text-center text-xs text-gray-500 dark:text-gray-400">
+            Fondo sugerido por gerencia: {{ formatCurrency(suggestedFloat) }}. Confírmalo contando el dinero.
+          </p>
         </div>
         <div>
           <input v-model="openForm.notes" type="text" class="input-base text-sm text-center dark:bg-gray-800 bg-gray-50" placeholder="Notas (Ej. Cambio en monedas)" />
@@ -76,6 +79,29 @@
             <p class="text-2xl font-bold">{{ formatCurrency(Number(store.currentShift.initialAmount)) }}</p>
           </div>
         </div>
+      </div>
+
+      <!-- Límite de efectivo (Configuración › Caja) -->
+      <div
+        v-if="store.currentShift.drawer?.overLimit"
+        class="flex items-start gap-3 rounded-2xl border border-warning-500/40 bg-warning-500/10 p-4 text-sm text-warning-800 dark:text-warning-300"
+        role="status"
+      >
+        <Icon name="ph:warning-bold" class="mt-0.5 h-5 w-5 shrink-0" />
+        <div>
+          <p class="font-semibold">Hay más efectivo en caja del recomendado ({{ formatCurrency(store.currentShift.drawer.limit) }}).</p>
+          <p class="mt-0.5">
+            {{ authStore.can('canWithdrawCash') ? 'Registra un retiro (sangría) abajo para reducir el efectivo expuesto.' : 'Pide a gerencia que haga un retiro (sangría).' }}
+          </p>
+        </div>
+      </div>
+
+      <div
+        v-if="store.currentShift.drawer && store.currentShift.drawer.cashOnHand !== null"
+        class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-6 py-4 text-sm shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      >
+        <span class="text-gray-500 dark:text-gray-400">Efectivo estimado en caja <span class="text-xs">(sólo gerencia)</span></span>
+        <span class="text-lg font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(Number(store.currentShift.drawer.cashOnHand)) }}</span>
       </div>
 
       <div v-if="authStore.can('canWithdrawCash')" class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -111,6 +137,18 @@
             </button>
           </div>
         </form>
+
+        <!-- Apertura del cajón SIN venta: siempre con motivo y auditada -->
+        <form class="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5 dark:border-gray-700 md:flex-row md:items-end" @submit.prevent="handleOpenDrawer">
+          <div class="flex-1">
+            <label for="drawerReason" class="label-base text-xs">Abrir cajón sin venta · motivo *</label>
+            <input id="drawerReason" v-model="drawerReason" type="text" maxlength="200" class="input-base text-sm py-2" placeholder="Ej. cambio para cliente, revisión de billetes" />
+          </div>
+          <button type="submit" class="btn-secondary py-2 md:w-48" :disabled="drawer.opening.value || drawerReason.trim().length < 3">
+            <Icon :name="drawer.opening.value ? 'ph:spinner-gap-bold' : 'ph:vault-bold'" :class="drawer.opening.value ? 'animate-spin' : ''" class="mr-2" /> Abrir cajón
+          </button>
+        </form>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Queda registrado con tu nombre, la hora y esta caja. Gerencia lo ve en el detalle del turno.</p>
       </div>
 
       <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-error-100 dark:border-error-900/30">
@@ -118,7 +156,12 @@
           <Icon name="ph:lock-key-bold" class="text-error-500" /> Cierre de Turno (Arqueo Ciego)
         </h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Cuenta el dinero físico que hay en tu gaveta e ingrésalo. El sistema calculará automáticamente si falta o sobra dinero respecto a las ventas del día.
+          <template v-if="store.currentShift.drawer?.blindClose && !authStore.can('canViewAllShifts')">
+            Cuenta el dinero físico que hay en tu gaveta e ingrésalo. Al terminar sólo verás lo que contaste: gerencia revisa el arqueo.
+          </template>
+          <template v-else>
+            Cuenta el dinero físico que hay en tu gaveta e ingrésalo. El sistema calculará automáticamente si falta o sobra dinero respecto a las ventas del día.
+          </template>
         </p>
 
         <form @submit.prevent="handleCloseShift" class="max-w-sm mx-auto space-y-4">
@@ -137,6 +180,30 @@
             <Icon v-else name="ph:flag-checkered-bold" class="mr-2" /> Realizar Corte de Caja
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- Cierre ciego: el cajero sólo ve lo que contó -->
+    <div v-if="blindSummary" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="corteCiegoTitulo">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center">
+        <div class="bg-primary-600 p-6 text-white">
+          <Icon name="ph:check-circle-bold" class="w-16 h-16 mx-auto mb-2" />
+          <h2 id="corteCiegoTitulo" class="text-2xl font-black">Corte registrado</h2>
+          <p class="text-sm opacity-90">Gerencia revisará el arqueo.</p>
+        </div>
+        <div class="p-6 space-y-3 text-sm text-left">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Monto inicial</span>
+            <span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(Number(blindSummary.initial)) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="font-bold text-gray-700 dark:text-gray-300">Tú declaraste</span>
+            <span class="font-black text-gray-900 dark:text-white">{{ formatCurrency(Number(blindSummary.real)) }}</span>
+          </div>
+        </div>
+        <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+          <button @click="closeSummaryModal" class="btn-primary w-full">Aceptar y salir</button>
+        </div>
       </div>
     </div>
 
@@ -210,8 +277,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useCashShiftStore, type CashTransactionType, type CloseShiftSummary } from '~/stores/cashShift'
+import { useSettingsStore } from '~/stores/settings'
+import { useCashDrawer } from '~/composables/useCashDrawer'
 import { useAuthStore } from '~/stores/auth'
 import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
@@ -232,9 +301,22 @@ const closeForm = reactive({ realAmount: '', notes: '' })
 const operationForm = reactive({ type: 'MANUAL_WITHDRAW' as CashTransactionType, amount: '', reason: '' })
 
 const closureSummary = ref<CloseShiftSummary | null>(null)
+const blindSummary = ref<{ initial: string | number; real: string | number } | null>(null)
+
+const settingsStore = useSettingsStore()
+const suggestedFloat = computed(() => settingsStore.valuesOf('cash')?.suggestedOpeningFloat ?? 0)
 
 onMounted(async () => {
-  await store.fetchCurrentShift()
+  // En paralelo: la configuración sólo aporta la sugerencia del fondo; si
+  // falla, la caja se abre igual, sin sugerencia.
+  const [, cash] = await Promise.all([
+    store.fetchCurrentShift(),
+    settingsStore.fetch('cash').catch(() => null),
+  ])
+  // Se PROPONE, no se impone: sólo si el campo está vacío y no hay turno.
+  if (!store.currentShift && cash && cash.values.suggestedOpeningFloat > 0 && openForm.initialAmount === '') {
+    openForm.initialAmount = String(cash.values.suggestedOpeningFloat)
+  }
 })
 
 const handleOpenShift = async () => {
@@ -266,20 +348,42 @@ const handleCloseShift = () => {
 }
 
 const executeCloseShift = async () => {
-  const summary = await store.closeShift({
+  const result = await store.closeShift({
     realAmount: Number(closeForm.realAmount),
     notes: closeForm.notes.trim() || undefined
   })
-  
-  if (summary) {
-    closureSummary.value = summary
+
+  if (result) {
+    if (result.blind) blindSummary.value = result.summary
+    else closureSummary.value = result.summary
     closeForm.realAmount = ''
     closeForm.notes = ''
     showConfirmClose.value = false
   }
 }
 
+// ── Apertura del cajón sin venta ───────────────────────────────────────────
+const drawer = useCashDrawer()
+const drawerReason = ref('')
+
+async function handleOpenDrawer() {
+  const reason = drawerReason.value.trim()
+  if (reason.length < 3) return
+  try {
+    const r = await drawer.openWithAudit('MANUAL', reason)
+    if (r === 'opened') {
+      toast.success('Cajón abierto. La apertura quedó registrada.')
+      drawerReason.value = ''
+    } else {
+      toast.warning('No se encontró la impresora de esta caja (el cajón se abre a través de ella). Revisa Configuración › Dispositivos.')
+    }
+  } catch {
+    // El registro falló: el cajón NO se abrió. El interceptor explica el motivo.
+  }
+}
+
 const closeSummaryModal = () => {
   closureSummary.value = null
+  blindSummary.value = null
 }
 </script>

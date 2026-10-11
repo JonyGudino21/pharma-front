@@ -6,6 +6,7 @@ import type {
   Company,
   CompanyProfile,
   PrintChannel,
+  PrintDocument,
   ReceiptTemplate,
   SaleReceiptPrint,
 } from '~/types/receipt'
@@ -113,11 +114,12 @@ export const useCompanyStore = defineStore('company', () => {
     saleId: number,
     channel: PrintChannel,
     templateId?: number,
+    document: PrintDocument = 'TICKET',
   ) {
     const { $api } = useNuxtApp()
     const res = await $api<ApiResponse<SaleReceiptPrint>>(`/sales/${saleId}/prints`, {
       method: 'POST',
-      body: { channel, templateId },
+      body: { channel, templateId, document },
     })
     return res.data
   }

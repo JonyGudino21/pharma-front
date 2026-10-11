@@ -85,9 +85,25 @@ export class EscPosEncoder {
     return this
   }
 
+  /**
+   * Pulso al cajón de dinero conectado a la impresora (RJ-11).
+   * `ESC p m t1 t2`: m = conector (0 = pin 2, 1 = pin 5); t1/t2 = encendido y
+   * apagado en unidades de 2 ms. 25/250 (50 ms / 500 ms) es lo que abre la
+   * mayoría de los cajones sin forzar el solenoide.
+   */
+  openDrawer(pin: 0 | 1 = 0) {
+    this.chunks.push(0x1b, 0x70, pin, 0x19, 0xfa)
+    return this
+  }
+
   encode() {
     return Uint8Array.from(this.chunks)
   }
+}
+
+/** Sólo el pulso de cajón, sin imprimir nada (apertura manual o de prueba). */
+export function encodeDrawerPulse(pin: 0 | 1 = 0): Uint8Array {
+  return new EscPosEncoder().init().openDrawer(pin).encode()
 }
 
 /**

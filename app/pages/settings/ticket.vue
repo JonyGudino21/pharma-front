@@ -10,6 +10,7 @@ import PaperOptionsCard from '~/components/settings/ticket/PaperOptionsCard.vue'
 import BlockOrderCard from '~/components/settings/ticket/BlockOrderCard.vue'
 import PrinterStage from '~/components/settings/ticket/PrinterStage.vue'
 import UnsavedChangesBar from '~/components/shared/UnsavedChangesBar.vue'
+import { useUpdateHold } from '~/composables/useAppUpdate'
 
 definePageMeta({ requiredPermission: 'canManageCompany' })
 
@@ -44,6 +45,9 @@ function onSelect(id: number) {
   if (s.templateDirty.value && !window.confirm('La plantilla actual tiene cambios sin guardar. ¿Cambiar de plantilla y descartarlos?')) return
   s.selectTemplate(id)
 }
+
+// Cambios sin guardar en la ficha o la plantilla: no se ofrece recargar para actualizar (ADR-0018).
+useUpdateHold('settings:ticket', () => (s.dirty.value ? 'Tienes cambios sin guardar en la configuración del ticket.' : null))
 
 async function onCreate(width: 58 | 80) {
   if (s.templateDirty.value && !window.confirm('La plantilla actual tiene cambios sin guardar. La copia se hará con lo que ves en pantalla. ¿Continuar?')) return

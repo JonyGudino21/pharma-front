@@ -75,11 +75,20 @@
             </div>
 
             <div>
-              <label class="label-base">Precio de Venta * <span class="text-xs text-gray-400">(MXN)</span></label>
+              <label class="label-base">Precio de Venta * <span class="text-xs text-gray-400">(MXN, IVA incluido)</span></label>
               <div class="relative">
                 <Icon name="ph:tag-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input v-model.number="form.price" type="number" step="0.01" min="0.01" required class="input-base pl-10" />
               </div>
+              <p v-if="taxHint" class="mt-1 text-xs text-gray-500">{{ taxHint }}</p>
+            </div>
+
+            <div>
+              <label for="taxCategory" class="label-base">IVA</label>
+              <select id="taxCategory" v-model="form.taxCategory" class="input-base" :disabled="taxLocked">
+                <option v-for="(meta, key) in TAX_CATEGORY_META" :key="key" :value="key">{{ meta.label }} — {{ meta.hint }}</option>
+              </select>
+              <p v-if="taxLocked" class="mt-1 text-xs text-gray-500">Sólo gerencia cambia el tratamiento de IVA.</p>
             </div>
           </div>
 
@@ -99,11 +108,12 @@
                 <legend class="px-1 text-xs font-semibold text-success-700 dark:text-success-400">
                   Lote del inventario inicial
                   <span v-if="form.controlled" class="text-error-600">(obligatorio en controlados)</span>
+                  <span v-else-if="requireLotForAll" class="text-error-600">(obligatorio: lo exige la configuración de inventario)</span>
                   <span v-else class="font-normal text-gray-500">(recomendado)</span>
                 </legend>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label for="initialLot" class="label-base">Número de lote{{ form.controlled ? ' *' : '' }}</label>
+                    <label for="initialLot" class="label-base">Número de lote{{ lotRequired ? ' *' : '' }}</label>
                     <input
                       id="initialLot"
                       v-model="form.lotNumber"
@@ -117,7 +127,7 @@
                     />
                   </div>
                   <div>
-                    <label for="initialExpiry" class="label-base">Caducidad{{ form.controlled ? ' *' : '' }}</label>
+                    <label for="initialExpiry" class="label-base">Caducidad{{ lotRequired ? ' *' : '' }}</label>
                     <input
                       id="initialExpiry"
                       v-model="form.expiryDate"
@@ -202,6 +212,10 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import { useProductStore } from '~/stores/product'
 import { useCategoryStore } from '~/stores/category'
 import { useToast } from '~/composables/useToast'
+import { useSettingsStore } from '~/stores/settings'
+import { useAuthStore } from '~/stores/auth'
+import { TAX_CATEGORY_META } from '~/utils/tax-categories'
+import type { TaxCategory } from '~/types/settings'
 import type { CreateProductPayload, Product } from '~/stores/product'
 
 const props = defineProps<{ productToEdit?: Product | null }>()
@@ -229,7 +243,20 @@ const form = reactive({
   minStock: 5,
   price: '' as number | string, // Permite que el input empiece vacío
   cost: '' as number | string,
-  isActive: true
+  isActive: true,
+  taxCategory: 'ZERO' as TaxCategory,
+})
+
+// IVA: decisión fiscal. Al editar, sólo gerencia lo cambia (el servidor lo exige).
+const authStore = useAuthStore()
+const esGerencia = computed(() => authStore.user?.role === 'MANAGER' || authStore.user?.role === 'ADMIN')
+const taxLocked = computed(() => isEditing.value && !esGerencia.value)
+const taxHint = computed(() => {
+  const price = Number(form.price)
+  if (form.taxCategory !== 'GENERAL' || !(price > 0)) return ''
+  const rate = settingsStore.valuesOf('taxes')?.generalRate ?? 16
+  const iva = Math.round((price - price / (1 + rate / 100)) * 100) / 100
+  return `Contiene ${iva.toFixed(2)} de IVA (${rate}%).`
 })
 
 /** Hoy en la zona de la farmacia (YYYY-MM-DD): el mismo corte que usa el servidor. */
@@ -242,13 +269,21 @@ const today = new Intl.DateTimeFormat('en-CA', {
 
 const hasInitialStock = computed(() => Number(form.stock) > 0)
 
+// Configuración › Inventario. Si no se pudo leer, rigen las reglas de siempre
+// (lote obligatorio sólo en controlados): el servidor decide de todos modos.
+const settingsStore = useSettingsStore()
+const requireLotForAll = computed(() => settingsStore.valuesOf('inventory')?.requireLotForAll ?? false)
+const lotRequired = computed(() => form.controlled || requireLotForAll.value)
+
 /** Mismas reglas que `ProductService.resolveInitialLot` en el backend. */
 const lotError = computed(() => {
   if (isEditing.value || !hasInitialStock.value) return ''
   const lot = form.lotNumber.trim()
   const expiry = form.expiryDate
   if (!lot && !expiry) {
-    return form.controlled ? 'Un medicamento controlado necesita lote y caducidad para registrar su inventario inicial.' : ''
+    if (form.controlled) return 'Un medicamento controlado necesita lote y caducidad para registrar su inventario inicial.'
+    if (requireLotForAll.value) return 'La configuración de inventario exige lote y caducidad en toda entrada de mercancía.'
+    return ''
   }
   if (!lot || !expiry) return 'El número de lote y la caducidad van juntos.'
   if (expiry < today) return 'Esa caducidad ya pasó: no se puede dar de alta inventario caducado.'
@@ -261,7 +296,11 @@ onMounted(async () => {
   // la pantalla de categorías que hubiera detrás del modal.
   // `fetchCategoryOptions` cachea: abrir el modal diez veces no son diez
   // peticiones.
-  await categoryStore.fetchCategoryOptions()
+  await Promise.all([
+    categoryStore.fetchCategoryOptions(),
+    settingsStore.fetch('inventory').catch(() => null),
+    settingsStore.fetch('taxes').catch(() => null),
+  ])
 
   if (props.productToEdit) {
     isEditing.value = true
@@ -276,9 +315,17 @@ onMounted(async () => {
     form.minStock = p.minStock
     form.price = Number(p.price)
     form.cost = Number(p.cost)
+    form.taxCategory = p.taxCategory ?? 'ZERO'
     form.isActive = p.isActive
 
     form.categories = p.categories.map(c => c.category.id)
+  } else {
+    // Alta: se propone el stock mínimo que definió gerencia.
+    const cfg = settingsStore.valuesOf('inventory')
+    if (cfg) form.minStock = cfg.defaultMinStock
+    // …y el tratamiento de IVA con que nacen los productos (Configuración › Impuestos).
+    const taxes = settingsStore.valuesOf('taxes')
+    if (taxes) form.taxCategory = taxes.defaultCategory
   }
 })
 
@@ -309,6 +356,7 @@ async function handleSubmit() {
       minStock: form.minStock,
       price: priceNum,
       cost: costNum,
+      taxCategory: form.taxCategory,
       categories: form.categories,
       isActive: form.isActive 
     }

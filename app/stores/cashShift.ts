@@ -31,8 +31,20 @@ export interface CashShift {
   closedAt: string | null
   // Relaciones (para cuando se consulta findOne)
   user?: { id: number, userName: string, firstName: string, lastName: string }
+  /** Sólo en el turno actual: estado del cajón según Configuración › Caja. */
+  drawer?: DrawerStatus
   transactions?: CashTransaction[]
   sales?: any[]
+}
+
+export interface DrawerStatus {
+  /** Límite configurado. 0 = sin límite. */
+  limit: number
+  /** El efectivo estimado rebasó el límite: toca un retiro. */
+  overLimit: boolean
+  /** Efectivo estimado. Sólo llega a gerencia; al cajero, null. */
+  cashOnHand: string | number | null
+  blindClose: boolean
 }
 
 export interface CloseShiftSummary {
@@ -44,7 +56,16 @@ export interface CloseShiftSummary {
   real: string | number
   difference: string | number
   status: ShiftStatus
+  tolerance?: number
 }
+
+/**
+ * Resultado del cierre. Con cierre ciego el cajero sólo recibe lo que contó:
+ * ni esperado, ni diferencia, ni estado.
+ */
+export type CloseShiftResult =
+  | { blind: false; summary: CloseShiftSummary }
+  | { blind: true; summary: { initial: string | number; real: string | number } }
 
 export const useCashShiftStore = defineStore('cashShift', () => {
   const currentShift = ref<CashShift | null>(null)
@@ -91,15 +112,17 @@ export const useCashShiftStore = defineStore('cashShift', () => {
   }
 
   // 3. Cerrar Turno (Arqueo)
-  async function closeShift(payload: { realAmount: number, notes?: string }): Promise<CloseShiftSummary | null> {
+  async function closeShift(payload: { realAmount: number, notes?: string }): Promise<CloseShiftResult | null> {
     const { $api } = useNuxtApp()
     isActionLoading.value = true
     try {
-      const res = await $api<ApiResponse<{ success: boolean, summary: CloseShiftSummary }>>('/cash-shift/close', { 
-        method: 'POST', body: payload 
+      const res = await $api<ApiResponse<{ success: boolean } & CloseShiftResult>>('/cash-shift/close', {
+        method: 'POST', body: payload
       })
       await fetchCurrentShift() // Limpia el currentShift porque ya se cerró
-      return res.data.summary
+      return res.data.blind
+        ? { blind: true, summary: res.data.summary }
+        : { blind: false, summary: res.data.summary }
     } catch (error) {
       console.error("Error al cerrar caja")
       return null
@@ -114,8 +137,9 @@ export const useCashShiftStore = defineStore('cashShift', () => {
     isActionLoading.value = true
     try {
       await $api('/cash-shift/register-operation', { method: 'POST', body: payload })
-      // No afecta el initialAmount, por lo que no es estrictamente necesario recargar el currentShift, 
-      // pero podríamos hacerlo si el backend devolviera el balance actual vivo.
+      // Un retiro cambia el efectivo en el cajón: se relee el turno para que
+      // el aviso de "rebasaste el límite" se apague (o se encienda) al momento.
+      await fetchCurrentShift()
     } finally {
       isActionLoading.value = false
     }

@@ -15,11 +15,35 @@ export interface SaleItem {
   id: number
   productId: number
   quantity: number
+  /** Precio unitario CON IVA incluido. */
   price: string | number
+  /** Importe descontado de la línea (no por unidad). */
   discount: string | number
+  /** Neto de la línea: precio × cantidad − descuento. */
   subtotal: string | number
   costAtSale: string | number
+  discountPercent?: string | number
+  discountReason?: string | null
+  discountAuthorizedById?: number | null
+  /** Sólo en el detalle de la venta (auditoría). */
+  discountAppliedBy?: { firstName: string; lastName: string } | null
+  discountAuthorizedBy?: { firstName: string; lastName: string } | null
+  /** Tasa de IVA congelada al vender (0.16, 0.08, 0). */
+  taxRate?: string | number
+  taxAmount?: string | number
   product?: { id: number; name: string; sku: string; controlled?: boolean }
+}
+
+/** Credenciales de quien autoriza un descuento sobre el tope. */
+export interface DiscountAuthorizer {
+  login: string
+  password: string
+}
+
+export interface DiscountRequest {
+  percent: number
+  reason?: string
+  authorizer?: DiscountAuthorizer
 }
 
 export interface SalePayment {
@@ -35,7 +59,11 @@ export interface Sale {
   clientId: number | null
   userId: number | null
   total: string | number
+  /** Suma bruta (antes de descuentos). */
   subtotal: string | number
+  discountTotal?: string | number
+  /** IVA contenido en `total`. */
+  taxTotal?: string | number
   paidAmount: string | number
   balance: string | number
   flowStatus: SaleFlowStatus
@@ -106,6 +134,11 @@ export const useSalesStore = defineStore('sales', () => {
   const items = computed<SaleItem[]>(() => sale.value?.items ?? [])
   const itemCount = computed(() => items.value.reduce((acc, i) => acc + i.quantity, 0))
   const total = computed(() => n(sale.value?.total))
+  const subtotal = computed(() => n(sale.value?.subtotal))
+  const discountTotal = computed(() => n(sale.value?.discountTotal))
+  const taxTotal = computed(() => n(sale.value?.taxTotal))
+  /** Hay un pago registrado: el servidor congela los descuentos. */
+  const discountsLocked = computed(() => n(sale.value?.paidAmount) > 0)
   const balance = computed(() => n(sale.value?.balance))
   const paidAmount = computed(() => n(sale.value?.paidAmount))
   const isEmpty = computed(() => !sale.value || items.value.length === 0)
@@ -390,6 +423,26 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   /**
+   * Aplica (o quita, con 0 %) un descuento a una línea o a toda la venta.
+   *
+   * NO atrapa el error: el modal de descuento necesita saber si el servidor
+   * pidió autorización (403) para mostrar el paso de credenciales. El
+   * interceptor ya muestra el mensaje.
+   */
+  async function applyDiscount(target: { itemId?: number }, request: DiscountRequest) {
+    if (!sale.value) return
+    const { $api } = useNuxtApp()
+    const saleId = sale.value.id
+    await withMutation(async () => {
+      await $api(
+        target.itemId ? `/sales/${saleId}/items/${target.itemId}/discount` : `/sales/${saleId}/discount`,
+        { method: 'PATCH', body: request },
+      )
+      await refreshSale()
+    })
+  }
+
+  /**
    * Registra un pago sobre la venta viva (efectivo requiere caja abierta en el backend).
    * Devuelve true si el pago se registró.
    */
@@ -482,10 +535,11 @@ export const useSalesStore = defineStore('sales', () => {
     sale, selectedClient, lastCompletedSale, prescription,
     isBootstrapping, isMutating, isCompleting,
     // getters
-    items, itemCount, total, balance, paidAmount, isEmpty, hasDraft, canChangeClient, hasControlledItems,
+    items, itemCount, total, subtotal, discountTotal, taxTotal, discountsLocked,
+    balance, paidAmount, isEmpty, hasDraft, canChangeClient, hasControlledItems,
     // acciones
     refreshSale, resumeDraft, setClient, scanBarcode, addProduct, removeItem,
-    incrementItem, decrementItem, setQuantity, registerPayment,
+    incrementItem, decrementItem, setQuantity, registerPayment, applyDiscount,
     completeSale, discardSale, reset, setPrescription,
   }
 })

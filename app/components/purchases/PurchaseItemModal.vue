@@ -58,16 +58,19 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="label-base">{{ isControlled ? 'Lote *' : 'Lote' }}</label>
-            <input v-model="form.lotNumber" type="text" maxlength="40" class="input-base uppercase" :required="isControlled" placeholder="FAB-2026-01" />
+            <label class="label-base">{{ lotRequired ? 'Lote *' : 'Lote' }}</label>
+            <input v-model="form.lotNumber" type="text" maxlength="40" class="input-base uppercase" :required="lotRequired" placeholder="FAB-2026-01" />
           </div>
           <div>
-            <label class="label-base">{{ isControlled ? 'Caducidad *' : 'Caducidad' }}</label>
-            <input v-model="form.expiryDate" type="date" class="input-base" :required="isControlled" />
+            <label class="label-base">{{ lotRequired ? 'Caducidad *' : 'Caducidad' }}</label>
+            <input v-model="form.expiryDate" type="date" class="input-base" :required="lotRequired" />
           </div>
         </div>
         <p v-if="isControlled" class="text-xs text-error-600 font-medium">
           Medicamento controlado: lote y caducidad son obligatorios para recibirlo.
+        </p>
+        <p v-else-if="requireLotForAll" class="text-xs text-error-600 font-medium">
+          La configuración de inventario exige lote y caducidad en toda entrada: sin ellos la compra no se podrá recibir.
         </p>
 
         <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg flex justify-between items-center border border-gray-100 dark:border-gray-700">
@@ -93,6 +96,7 @@ import { usePurchaseStore, type PurchaseItem } from '~/stores/purchase'
 import { useProductStore, type Product } from '~/stores/product'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
+import { useSettingsStore } from '~/stores/settings'
 
 const props = defineProps<{ modelValue: boolean, purchaseId: number, itemToEdit?: PurchaseItem | null }>()
 const emit = defineEmits(['update:modelValue'])
@@ -116,8 +120,15 @@ const isControlled = computed(() =>
   !!(props.itemToEdit?.product.controlled || selectedProduct.value?.controlled),
 )
 
+// Configuración › Inventario: puede exigir lote también en productos comunes.
+// Se valida aquí para avisar al capturar, no hasta el momento de recibir.
+const settingsStore = useSettingsStore()
+const requireLotForAll = computed(() => settingsStore.valuesOf('inventory')?.requireLotForAll ?? false)
+const lotRequired = computed(() => isControlled.value || requireLotForAll.value)
+
 watch(() => props.modelValue, (val) => {
   if (val) {
+    void settingsStore.fetch('inventory').catch(() => null)
     if (props.itemToEdit) {
       form.quantity = props.itemToEdit.quantity
       form.cost = Number(props.itemToEdit.cost)
@@ -152,8 +163,10 @@ const selectProduct = (p: Product) => {
 
 const handleSubmit = async () => {
   if (form.quantity <= 0 || form.cost < 0) return
-  if (isControlled.value && (!form.lotNumber.trim() || !form.expiryDate)) {
-    toast.error('El medicamento controlado requiere lote y caducidad.')
+  if (lotRequired.value && (!form.lotNumber.trim() || !form.expiryDate)) {
+    toast.error(isControlled.value
+      ? 'El medicamento controlado requiere lote y caducidad.'
+      : 'La configuración de inventario exige lote y caducidad en toda entrada.')
     return
   }
   isLoading.value = true

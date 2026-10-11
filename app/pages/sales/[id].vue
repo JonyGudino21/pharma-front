@@ -102,6 +102,16 @@
             </button>
 
             <button
+              v-if="puedeRemision"
+              class="btn-secondary"
+              data-testid="open-remission"
+              @click="mostrarRemision = true"
+            >
+              <Icon name="ph:file-text-bold" class="mr-2" />
+              Nota de remisión
+            </button>
+
+            <button
               v-if="puedeDevolver"
               class="btn-primary"
               @click="mostrarDevolucion = true"
@@ -171,6 +181,12 @@
                     {{ item.product?.name || `Producto #${item.productId}` }}
                   </p>
                   <p v-if="item.product?.sku" class="text-xs text-gray-500 mt-0.5">{{ item.product.sku }}</p>
+                  <p v-if="Number(item.discountPercent ?? 0) > 0" class="mt-1 text-xs text-success-700 dark:text-success-400">
+                    Descuento {{ Number(item.discountPercent) }}% (−{{ formatCurrency(Number(item.discount)) }})
+                    <template v-if="item.discountReason"> · {{ item.discountReason }}</template>
+                    <template v-if="item.discountAppliedBy"> · aplicó {{ item.discountAppliedBy.firstName }} {{ item.discountAppliedBy.lastName }}</template>
+                    <template v-if="item.discountAuthorizedBy"> · autorizó {{ item.discountAuthorizedBy.firstName }} {{ item.discountAuthorizedBy.lastName }}</template>
+                  </p>
                 </td>
                 <td class="px-6 py-4 text-center font-semibold text-gray-900 dark:text-white">{{ item.quantity }}</td>
                 <td class="px-6 py-4 text-center">
@@ -259,12 +275,13 @@
             Copias impresas
           </h3>
           <div v-if="!impresiones.length" class="px-6 py-8 text-center text-sm text-gray-500">
-            Aún no se ha impreso este ticket.
+            Aún no se ha impreso ningún comprobante de esta venta.
           </div>
           <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700">
             <li v-for="copia in impresiones" :key="copia.id" class="px-6 py-4 flex items-center justify-between gap-4">
               <div>
                 <p class="font-medium text-gray-900 dark:text-white">
+                  {{ copia.document === 'REMISSION' ? 'Nota de remisión' : 'Ticket' }} ·
                   {{ copia.copyNumber === 1 ? 'Original' : `Copia ${copia.copyNumber}` }}
                 </p>
                 <p class="text-xs text-gray-500 mt-0.5">
@@ -298,6 +315,15 @@
       :sale="venta"
     />
 
+    <RemissionModal
+      v-if="mostrarRemision && venta"
+      :sale="venta"
+      :printed-copies="copiasRemision"
+      :returned-total="totalDevuelto"
+      @printed="cargar"
+      @close="mostrarRemision = false"
+    />
+
     <ConfirmModal
       v-if="mostrarAnulacion"
       title="Anular esta venta"
@@ -325,6 +351,8 @@ import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
 import { useCompanyStore } from '~/stores/company'
 import { useReceiptPrint } from '~/composables/useReceiptPrint'
 import { saleToReceiptView } from '~/utils/receipt-view'
+import { useSettingsStore } from '~/stores/settings'
+import RemissionModal from '~/components/receipt/RemissionModal.vue'
 
 definePageMeta({ requiredPermission: 'canViewSalesSummary' })
 
@@ -332,12 +360,16 @@ const route = useRoute()
 const store = useSalesHistoryStore()
 const authStore = useAuthStore()
 const companyStore = useCompanyStore()
+const settingsStore = useSettingsStore()
+void settingsStore.fetch('taxes').catch(() => null)
+void settingsStore.fetch('remission').catch(() => null)
 const { formatCurrency } = useCurrency()
 const { formatDateTime } = useDate()
 const { printSale, isPrinting } = useReceiptPrint()
 
 const mostrarDevolucion = ref(false)
 const mostrarAnulacion = ref(false)
+const mostrarRemision = ref(false)
 const ticketEl = ref<HTMLElement | null>(null)
 const ticketCopy = ref(0)
 
@@ -421,11 +453,31 @@ const puedeImprimir = computed(
 
 const impresiones = computed(() => venta.value?.receiptPrints ?? [])
 
+// Los registros anteriores a la nota de remisión no traen `document`: son tickets.
+const impresionesTicket = computed(() => impresiones.value.filter((c) => (c.document ?? 'TICKET') === 'TICKET'))
+const copiasRemision = computed(() => impresiones.value.filter((c) => c.document === 'REMISSION').length)
+
+/** La nota exige venta cobrada y no anulada, que el gerente no la haya apagado y permiso de impresión. */
+const puedeRemision = computed(
+  () =>
+    puedeImprimir.value &&
+    venta.value?.status !== 'CANCELLED' &&
+    venta.value?.flowStatus !== 'CANCELLED' &&
+    authStore.can('canPrintReceipt') &&
+    (settingsStore.valuesOf('remission')?.enabled ?? true),
+)
+
+/** Importe ya devuelto (suma de reembolsos), para advertirlo en la nota. */
+const totalDevuelto = computed(() =>
+  (venta.value?.saleReturn ?? []).reduce((acc, d) => acc + montoReembolsado(d), 0),
+)
+
 const ticketView = computed(() => {
   if (!venta.value) return null
-  const last = impresiones.value[impresiones.value.length - 1]
+  const last = impresionesTicket.value[impresionesTicket.value.length - 1]
   return saleToReceiptView(venta.value, {
     copyNumber: ticketCopy.value || last?.copyNumber || 0,
+    showTaxBreakdown: settingsStore.valuesOf('taxes')?.showBreakdownOnTicket ?? true,
   })
 })
 

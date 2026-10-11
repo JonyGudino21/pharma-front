@@ -170,9 +170,11 @@ import { useRoute } from 'vue-router'
 import { useColorMode } from '#imports'
 import { useUIStore } from '~/stores/ui'
 import { useAuthStore } from '~/stores/auth'
+import { visibleSettingsSections } from '~/utils/settings-sections'
 
 const uiStore = useUIStore()
 const authStore = useAuthStore()
+const settingsSections = computed(() => visibleSettingsSections((p) => authStore.can(p)))
 const colorMode = useColorMode()
 const route = useRoute()
 
@@ -187,7 +189,10 @@ const currentRouteName = computed(() => {
   if (path === 'sales' || path.startsWith('sales/')) return 'Ventas'
   if (path.startsWith('cash-shifts')) return 'Caja'
   if (path.startsWith('catalog')) return 'Catálogo'
-  if (path.startsWith('settings/ticket')) return 'Ticket'
+  if (path.startsWith('settings')) {
+    const section = settingsSections.value.find((s) => route.path.startsWith(s.to))
+    return section ? `Configuración · ${section.label}` : 'Configuración'
+  }
   if (path === 'inventory/expiring') return 'Caducidades'
   if (path === 'inventory/controlled') return 'Libro de controlados'
   if (path.startsWith('inventory')) return 'Inventario'
@@ -256,14 +261,15 @@ const menuItems = computed(() => {
     // "Acceso denegado". Un menú que ofrece lo que no deja usar se siente roto.
     { name: 'Proveedores', path: '/suppliers', icon: 'ph:truck-bold', show: authStore.can('canManageSuppliers') },
     { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
-    { name: 'Usuarios', path: '/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') },
+    // Usuarios vive en Configuración (junto a Permisos); el acceso directo se
+    // conserva porque es de las pantallas que más abre el administrador.
+    { name: 'Usuarios', path: '/settings/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') },
     {
       name: 'Configuración',
       icon: 'ph:sliders-horizontal-bold',
-      show: authStore.can('canManageCompany'),
-      children: [
-        { name: 'Ticket', path: '/settings/ticket' },
-      ],
+      // Misma lista que las pestañas de Configuración: sólo lo que se puede abrir.
+      show: settingsSections.value.length > 0,
+      children: settingsSections.value.map((s) => ({ name: s.label, path: s.to })),
     },
   ].filter(item => item.show) // Filtramos lo que no tiene permiso
 })

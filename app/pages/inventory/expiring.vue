@@ -6,12 +6,16 @@
           <Icon name="ph:hourglass-bold" class="text-primary-600" /> Alertas de caducidad
         </h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Lotes vigentes y vencidos. Semáforo: rojo &lt; 30 días, amarillo 30–60, verde &gt; 60.
+          Lotes vigentes y vencidos.
+          <template v-if="criteria">
+            Semáforo: rojo &lt; {{ criteria.critical }} días, amarillo {{ criteria.critical }}–{{ criteria.warning }}, verde &gt; {{ criteria.warning }}.
+          </template>
+          <NuxtLink v-if="authStore.can('canManageSettings')" to="/settings/inventory" class="ml-1 font-medium text-primary-600 hover:underline dark:text-primary-400">Ajustar criterios</NuxtLink>
         </p>
       </div>
       <div class="flex gap-2">
         <button
-          v-for="option in [30, 60, 90]"
+          v-for="option in dayOptions"
           :key="option"
           class="px-4 py-2 rounded-xl text-sm font-semibold border transition-colors"
           :class="days === option
@@ -103,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useInventoryStore, type ExpiringBatch, type ExpiryStatus } from '~/stores/inventory'
 import { useAuthStore } from '~/stores/auth'
 import { useDate } from '~/composables/useDate'
@@ -116,7 +120,16 @@ const inventoryStore = useInventoryStore()
 const authStore = useAuthStore()
 const { formatDate } = useDate()
 
-const days = ref(90)
+// null hasta la primera respuesta: el servidor decide el horizonte configurado.
+const days = ref<number | null>(null)
+const criteria = computed(() => inventoryStore.expiringCriteria)
+
+/** 30/60/90 más el horizonte configurado, si es otro. */
+const dayOptions = computed(() => {
+  const set = new Set([30, 60, 90])
+  if (criteria.value) set.add(criteria.value.days)
+  return [...set].sort((a, b) => a - b)
+})
 const page = ref(1)
 const showDestroy = ref(false)
 const selectedBatch = ref<ExpiringBatch | null>(null)
@@ -140,8 +153,12 @@ function lightLabel(status: ExpiryStatus) {
   return 'Vigente'
 }
 
-function reload() {
-  inventoryStore.fetchExpiring({ days: days.value, page: page.value })
+async function reload() {
+  await inventoryStore.fetchExpiring({ days: days.value ?? undefined, page: page.value })
+  // La primera carga adopta el horizonte con el que respondió el servidor.
+  if (days.value === null && inventoryStore.expiringCriteria) {
+    days.value = inventoryStore.expiringCriteria.days
+  }
 }
 
 function changeDays(value: number) {

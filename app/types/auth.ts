@@ -10,6 +10,9 @@ export interface UserPermissions {
   // ---- Empresa / ticket ----
   canManageCompany: boolean;
 
+  // ---- Configuración de operación (caja, inventario) ----
+  canManageSettings: boolean;
+
   // ---- Clientes (client) ----
   canViewClients: boolean;
   canCreateClient: boolean;
