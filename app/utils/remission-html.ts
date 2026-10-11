@@ -1,5 +1,6 @@
 import type { Company } from '~/types/receipt'
-import type { RemissionSettings } from '~/types/settings'
+import type { RemissionDensity, RemissionSettings } from '~/types/settings'
+import { BRAND_MARK_SVG } from '~/utils/pharma-ticket-css'
 import type { RemissionLine, RemissionView } from '~/utils/remission-view'
 
 /**
@@ -10,16 +11,22 @@ import type { RemissionLine, RemissionView } from '~/utils/remission-view'
  * ve es lo que sale en papel o en el PDF, y el CSS no se mezcla con el de la
  * aplicación.
  *
- * ─── DISEÑO ("botica") ───
- * Tinta verde-negra sobre papel blanco, verde botica como único acento y menta
- * para los renglones alternos. Todo legible en impresora láser de un solo
- * color (los tonos se convierten en grises distinguibles). La banda de
- * guilloché —el trazo fino del papel de seguridad de cheques y documentos con
- * folio— es el sello visual; lo demás se mantiene sobrio.
+ * ─── DISEÑO (identidad PharmaPOS) ───
+ * Misma identidad que la aplicación: tinta azul pizarra sobre papel blanco,
+ * azul de marca como único acento, azul hielo para los renglones alternos y la
+ * píldora del logo como marca cuando la farmacia no tiene logo propio. Todo
+ * legible en impresora láser de un solo color (los tonos se vuelven grises
+ * distinguibles). La banda de guilloché —el trazo fino del papel de seguridad
+ * de cheques y documentos con folio— es el sello visual; lo demás, sobrio.
+ *
+ * ─── DENSIDAD ───
+ * Cómoda (renglón amplio, código/lote debajo) para notas cortas; compacta
+ * (renglón de una línea, encabezado y totales más bajos) cuando son muchas
+ * partidas, para no gastar hojas. Automática por omisión (`resolveDensity`).
  *
  * ─── ACCESIBILIDAD ───
  * Cuerpo a 10.5 pt, contraste de tinta ≥ 12:1, cifras tabulares alineadas a la
- * derecha y la tabla de partidas en RENGLONES ALTERNOS (blanco / menta) para
+ * derecha y la tabla de partidas en RENGLONES ALTERNOS (blanco / azul hielo) para
  * seguir cada producto con la vista sin saltar de línea. Menos columnas: el
  * código, el lote y el descuento van en una línea secundaria bajo el nombre.
  *
@@ -88,21 +95,35 @@ export function guillocheSvg(): string {
   }
   familia(64, 11, 7, 0.55)
   familia(41, 7, 5, 0.35)
-  return `<svg class="guilloche" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="#1E6B52" stroke-width="0.6">${paths.join('')}</g></svg>`
+  return `<svg class="guilloche" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="#1D4ED8" stroke-width="0.6">${paths.join('')}</g></svg>`
 }
 
-/** Marca de botica (cruz) cuando la farmacia no tiene logo. */
-const CRUZ = `<svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#1E6B52"/><path d="M16 8h8v8h8v8h-8v8h-8v-8H8v-8h8z" fill="#fff"/></svg>`
+/**
+ * Hasta cuántas partidas se usa la densidad cómoda en modo automático.
+ * Calibrado midiendo hojas Carta reales (ADR-0021). Con condiciones configuradas,
+ * la cómoda (renglón ~12.3 mm) cabe completa en una hoja hasta ~7 partidas; la
+ * compacta (renglón ~5.5 mm) acomoda 21–24 con totales y firmas en una sola hoja,
+ * 34 en la primera si la tabla continúa y 45 en las siguientes.
+ */
+export const COMFORTABLE_MAX_LINES = 7
+
+export function resolveDensity(density: RemissionDensity | undefined, lines: number): 'comfortable' | 'compact' {
+  if (density === 'COMFORTABLE') return 'comfortable'
+  if (density === 'COMPACT') return 'compact'
+  return lines > COMFORTABLE_MAX_LINES ? 'compact' : 'comfortable'
+}
 
 const CSS = (paper: RemissionSettings['paper'], folio: string, fontFaces: string) => `
 ${fontFaces}
 :root {
-  --tinta: #14231C;
-  --botica: #1E6B52;
-  --menta: #E3EFE8;
-  --ambar: #A8551A;
-  --linea: #C9D3CE;
-  --suave: #55665E;
+  --tinta: #0F172A;
+  --marca: #1D4ED8;
+  --marca-fuerte: #1E3A8A;
+  --hielo: #E8EEFB;
+  --ambar: #B45309;
+  --ambar-suave: #FDF0E1;
+  --linea: #CBD5E1;
+  --suave: #475569;
   --papel: #FFFFFF;
   --display: 'Literata', Georgia, 'Times New Roman', serif;
   --texto: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -110,9 +131,9 @@ ${fontFaces}
 }
 @page {
   size: ${PAPER_SIZE[paper]};
-  margin: 11mm 13mm 15mm;
-  @bottom-left { content: "${cssText(folio)}"; font: 7.5pt ui-monospace, Consolas, monospace; color: #55665E; }
-  @bottom-right { content: "Hoja " counter(page) " de " counter(pages); font: 7.5pt system-ui, sans-serif; color: #55665E; }
+  margin: 9mm 10mm 12mm;
+  @bottom-left { content: "${cssText(folio)}"; font: 7.5pt ui-monospace, Consolas, monospace; color: #475569; }
+  @bottom-right { content: "Hoja " counter(page) " de " counter(pages); font: 7.5pt system-ui, sans-serif; color: #475569; }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--papel); }
@@ -121,84 +142,123 @@ body {
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
   font-variant-numeric: tabular-nums;
 }
-@media screen { .sheet { padding: 11mm 13mm 14mm; } }
+@media screen { .sheet { padding: 9mm 10mm 12mm; } }
 h1, h2, p, dl, dd, dt { margin: 0; }
 
 /* ── Encabezado ─────────────────────────────────────────────── */
-.guilloche { display: block; width: 100%; height: 7mm; }
-.head { display: grid; grid-template-columns: 1fr auto; gap: 8mm; align-items: start; padding: 4.5mm 0 5mm; border-bottom: 1.2pt solid var(--tinta); }
+.guilloche { display: block; width: 100%; height: 6mm; }
+.head { display: grid; grid-template-columns: 1fr auto; gap: 8mm; align-items: start; padding: 3.2mm 0 3.6mm; border-bottom: 1.2pt solid var(--tinta); }
 .brand { display: flex; gap: 4mm; align-items: flex-start; min-width: 0; }
-.brand img, .brand .mark { width: 16mm; height: 16mm; object-fit: contain; flex-shrink: 0; }
-.brand h1 { font-family: var(--display); font-weight: 700; font-size: 21pt; line-height: 1.05; letter-spacing: -0.01em; }
-.brand .legal { margin-top: 1.2mm; font-size: 9pt; font-weight: 500; }
-.brand .meta { font-size: 8.5pt; color: var(--suave); margin-top: 0.6mm; }
+.brand img, .brand .mark { width: 14mm; height: 14mm; object-fit: contain; flex-shrink: 0; }
+.brand h1 { font-family: var(--display); font-weight: 700; font-size: 19pt; line-height: 1.05; letter-spacing: -0.01em; }
+.brand .legal { margin-top: 0.8mm; font-size: 9pt; font-weight: 500; }
+.brand .meta { font-size: 8.5pt; color: var(--suave); margin-top: 0.3mm; }
 .doc { min-width: 62mm; text-align: right; }
-.doc .eyebrow { font-size: 8pt; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--botica); }
-.doc .folio { font-family: var(--mono); font-weight: 600; font-size: 15pt; letter-spacing: 0.02em; margin: 1mm 0 1.5mm; }
-.doc dl { display: grid; grid-template-columns: auto auto; justify-content: end; gap: 0.4mm 3mm; font-size: 8.5pt; }
-.doc dt { color: var(--suave); }
-.doc dd { font-weight: 500; }
-.stamp { display: inline-block; margin-top: 2.5mm; padding: 0.8mm 3mm; border: 1.1pt solid currentColor; outline: 0.5pt solid currentColor; outline-offset: 0.7mm;
-  border-radius: 1mm; font-size: 8pt; font-weight: 700; letter-spacing: 0.24em; color: var(--botica); }
+.doc .eyebrow { font-size: 8pt; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--marca); }
+.doc .folio { font-family: var(--mono); font-weight: 600; font-size: 14pt; letter-spacing: 0.02em; margin: 0.6mm 0 1mm; }
+.doc .when { font-size: 8.5pt; font-weight: 500; }
+.doc .when span { color: var(--suave); font-weight: 400; }
+.stamp { display: inline-block; margin-top: 1.8mm; padding: 0.8mm 3mm; border: 1.1pt solid currentColor; outline: 0.5pt solid currentColor; outline-offset: 0.7mm;
+  border-radius: 1mm; font-size: 8pt; font-weight: 700; letter-spacing: 0.24em; color: var(--marca); }
 .stamp.copy { color: var(--ambar); }
 .stamp.preview { color: var(--suave); border-style: dashed; outline: none; }
 
 /* ── Cliente / venta ────────────────────────────────────────── */
-.parties { display: grid; grid-template-columns: 1.35fr 1fr; gap: 6mm; margin: 5mm 0 4.5mm; }
+.parties { display: grid; grid-template-columns: 1.35fr 1fr; gap: 6mm; margin: 3.6mm 0 3.4mm; }
 .party { break-inside: avoid; }
-.label { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--botica); padding-bottom: 1.2mm; border-bottom: 0.6pt solid var(--linea); margin-bottom: 2mm; }
+.label { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--marca); padding-bottom: 0.9mm; border-bottom: 0.6pt solid var(--linea); margin-bottom: 1.4mm; }
 .party .name { font-size: 13pt; font-weight: 600; line-height: 1.2; }
-.party p { font-size: 9.5pt; margin-top: 0.8mm; }
+.party p { font-size: 9.5pt; margin-top: 0.4mm; }
 .muted { color: var(--suave); }
 .rfc { font-family: var(--mono); font-size: 9pt; }
-.facts { display: grid; grid-template-columns: auto 1fr; gap: 1mm 4mm; font-size: 9.5pt; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 0.5mm 4mm; font-size: 9.5pt; }
 .facts dt { color: var(--suave); }
 .facts dd { font-weight: 500; }
 .chip { display: inline-block; padding: 0.3mm 2.2mm; border-radius: 10mm; font-size: 8pt; font-weight: 700; letter-spacing: 0.04em; }
-.chip.paid { background: var(--menta); color: var(--botica); }
-.chip.credit { background: #F6E6D8; color: var(--ambar); }
+.chip.paid { background: var(--hielo); color: var(--marca); }
+.chip.credit { background: var(--ambar-suave); color: var(--ambar); }
 
 /* ── Partidas (renglones alternos para seguir cada producto) ── */
 table.items { width: 100%; border-collapse: collapse; }
 table.items thead { display: table-header-group; }
-table.items th { background: var(--tinta); color: #fff; font-size: 8pt; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; padding: 2.4mm 2.6mm; }
+table.items th { background: var(--tinta); color: #fff; font-size: 8pt; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; padding: 2mm 2.6mm; }
 table.items th.num { text-align: right; }
-table.items td { padding: 2.4mm 2.6mm; vertical-align: top; font-size: 10.5pt; }
+table.items td { padding: 1.7mm 2.6mm; vertical-align: top; font-size: 10.5pt; line-height: 1.3; }
 table.items tbody tr { break-inside: avoid; page-break-inside: avoid; }
-table.items tbody tr:nth-child(even) td { background: var(--menta); }
+table.items tbody tr:nth-child(even) td { background: var(--hielo); }
 table.items tbody tr:last-child td { border-bottom: 1.2pt solid var(--tinta); }
 .num { text-align: right; white-space: nowrap; }
 .idx { font-family: var(--mono); font-size: 8.5pt; color: var(--suave); width: 9mm; }
 table.items th.idx { color: #fff; }
 .qty { font-weight: 700; font-size: 11pt; }
 .prod { font-weight: 500; }
-.sub { display: block; margin-top: 0.6mm; font-size: 8.3pt; font-weight: 400; color: var(--suave); }
+.sub { display: block; margin-top: 0.2mm; font-size: 8.3pt; font-weight: 400; color: var(--suave); }
 .sub .mono { font-family: var(--mono); font-size: 8pt; }
 .sub .disc { color: var(--ambar); font-weight: 600; }
 .amount { font-weight: 600; }
 .count { display: flex; justify-content: space-between; gap: 4mm; font-size: 8.5pt; color: var(--suave); margin-top: 1.6mm; }
 
 /* ── Totales ─────────────────────────────────────────────────── */
-.summary { display: grid; grid-template-columns: 1fr 68mm; gap: 7mm; margin-top: 5mm; break-inside: avoid; }
+.summary { display: grid; grid-template-columns: 1fr 68mm; gap: 7mm; margin-top: 3.6mm; break-inside: avoid; }
 .words .txt { font-size: 10pt; font-weight: 600; letter-spacing: 0.01em; line-height: 1.35; }
-.pay { margin-top: 4mm; }
+.pay { margin-top: 2.8mm; }
 .pay ul { list-style: none; margin: 0; padding: 0; max-width: 85mm; }
-.pay li { display: flex; justify-content: space-between; gap: 4mm; font-size: 9.5pt; padding: 0.8mm 0; border-bottom: 0.5pt dotted var(--linea); }
-.totals .row { display: flex; justify-content: space-between; gap: 4mm; font-size: 10pt; padding: 1mm 0; }
+.pay li { display: flex; justify-content: space-between; gap: 4mm; font-size: 9.5pt; padding: 0.5mm 0; border-bottom: 0.5pt dotted var(--linea); }
+.totals .row { display: flex; justify-content: space-between; gap: 4mm; font-size: 10pt; padding: 0.6mm 0; }
 .totals .row.muted { font-size: 8.8pt; }
-.totals .grand { display: flex; justify-content: space-between; align-items: baseline; margin: 2mm 0 1.5mm; padding: 2.6mm 3.5mm; background: var(--botica); color: #fff; border-radius: 1.2mm; }
+.totals .grand { display: flex; justify-content: space-between; align-items: baseline; margin: 1.6mm 0 1.2mm; padding: 2.2mm 3.5mm; background: var(--marca-fuerte); color: #fff; border-radius: 1.2mm; }
 .totals .grand span:first-child { font-size: 8.5pt; font-weight: 700; letter-spacing: 0.2em; }
 .totals .grand span:last-child { font-family: var(--display); font-weight: 700; font-size: 18pt; }
 .totals .row.due { color: var(--ambar); font-weight: 700; font-size: 10.5pt; }
 
 /* ── Avisos, notas, firmas ──────────────────────────────────── */
-.block { margin-top: 4.5mm; font-size: 9pt; break-inside: avoid; }
-.warn { padding: 2.4mm 3.5mm; background: #F6E6D8; border-radius: 1.2mm; color: #6E3610; }
-.sign { display: grid; grid-template-columns: 1fr 1fr; gap: 16mm; margin-top: 15mm; break-inside: avoid; }
+.block { margin-top: 3.2mm; font-size: 9pt; break-inside: avoid; }
+.block.warn { margin: 3mm 0 0; }
+.warn { padding: 2.4mm 3.5mm; background: var(--ambar-suave); border-radius: 1.2mm; color: #78350F; }
+.sign { display: grid; grid-template-columns: 1fr 1fr; gap: 9mm; margin-top: 11mm; break-inside: avoid; }
 .sign div { border-top: 0.9pt solid var(--tinta); padding-top: 1.6mm; font-size: 8.8pt; }
 .sign strong { display: block; font-weight: 600; }
 .sign span { color: var(--suave); font-size: 8pt; }
-.legend { margin-top: 7mm; padding-top: 2.5mm; border-top: 0.6pt solid var(--linea); font-size: 8pt; color: var(--suave); text-align: center; break-inside: avoid; }
+.legend { margin-top: 4.5mm; padding-top: 2mm; border-top: 0.6pt solid var(--linea); font-size: 8pt; color: var(--suave); text-align: center; break-inside: avoid; }
+
+/* ── Densidad compacta: muchas partidas en menos hojas ─────────
+   Renglón de una línea (código y lote al lado del nombre, en pequeño),
+   encabezado, datos y totales más bajos. Se conservan los renglones alternos,
+   el contraste y las cifras tabulares: compacto no significa ilegible. */
+.compact .guilloche { height: 4mm; }
+.compact .head { padding: 2.4mm 0 2.6mm; gap: 6mm; }
+.compact .brand img, .compact .brand .mark { width: 11mm; height: 11mm; }
+.compact .brand h1 { font-size: 16pt; }
+.compact .brand .legal { margin-top: 0.6mm; font-size: 8.5pt; }
+.compact .brand .meta { font-size: 8pt; margin-top: 0.3mm; }
+.compact .doc .folio { font-size: 13pt; margin: 0.6mm 0 1mm; }
+.compact .stamp { margin-top: 1.5mm; }
+.compact .parties { margin: 2.6mm 0 2.4mm; gap: 5mm; }
+.compact .label { padding-bottom: 0.8mm; margin-bottom: 1.2mm; }
+.compact .party .name { font-size: 11pt; }
+.compact .party p, .compact .facts { font-size: 8.5pt; }
+.compact .party p { margin-top: 0.4mm; }
+.compact .facts { gap: 0.4mm 3mm; }
+.compact table.items th { padding: 1.3mm 2mm; font-size: 7.5pt; }
+.compact table.items td { padding: 0.8mm 2mm; font-size: 8.8pt; line-height: 1.2; }
+.compact .qty { font-size: 9.5pt; }
+.compact .sub { display: inline; margin: 0 0 0 2mm; font-size: 7.3pt; }
+.compact .sub .mono { font-size: 7.2pt; }
+.compact .count { margin-top: 1.2mm; font-size: 8pt; }
+.compact .summary { margin-top: 2.6mm; gap: 6mm; }
+.compact .words .txt { font-size: 9pt; }
+/* Etiquetas en línea en la compacta: ahorran ~3 mm por bloque del pie. */
+.compact .words .label, .compact .block .label { display: inline; border: 0; padding: 0; margin: 0 1.5mm 0 0; }
+.compact .words .txt { display: inline; }
+.compact .words { margin-bottom: 1mm; }
+.compact .pay { margin-top: 2.5mm; }
+.compact .pay li { font-size: 8.5pt; padding: 0.4mm 0; }
+.compact .totals .row { font-size: 9pt; padding: 0.5mm 0; }
+.compact .totals .grand { margin: 1.2mm 0 1mm; padding: 1.8mm 3mm; }
+.compact .totals .grand span:last-child { font-size: 15pt; }
+.compact .block { margin-top: 2.4mm; font-size: 8.5pt; }
+.compact .sign { margin-top: 8mm; }
+.compact .legend { margin-top: 3.4mm; padding-top: 1.6mm; }
 `
 
 function stampOf(copy: number): string {
@@ -243,7 +303,8 @@ export function renderRemissionHtml(
     .filter(Boolean)
     .join(' · ')
 
-  const marca = company?.logoUrl ? `<img src="${esc(company.logoUrl)}" alt="" onerror="this.remove()" />` : CRUZ
+  const marca = company?.logoUrl ? `<img src="${esc(company.logoUrl)}" alt="" onerror="this.remove()" />` : BRAND_MARK_SVG('mark')
+  const densidad = resolveDensity(cfg.density, view.items.length)
 
   const filas = view.items
     .map(
@@ -312,7 +373,7 @@ export function renderRemissionHtml(
 <title>${titulo}</title>
 <style>${CSS(cfg.paper, view.folio, opts.fontFaces ?? '')}</style>
 </head>
-<body>
+<body class="${densidad}">
 <main class="sheet">
   ${guillocheSvg()}
   <header class="head">
@@ -329,7 +390,7 @@ export function renderRemissionHtml(
     <div class="doc">
       <div class="eyebrow">NOTA DE REMISIÓN</div>
       <div class="folio">${esc(view.folio)}</div>
-      <dl><dt>Fecha</dt><dd>${f.dia}</dd><dt>Hora</dt><dd>${esc(f.hora)}</dd></dl>
+      <p class="when"><span>Fecha</span> ${f.dia} · ${esc(f.hora)}</p>
       ${stampOf(view.copyNumber)}
     </div>
   </header>
@@ -365,10 +426,22 @@ export function renderRemissionHtml(
   </table>
   <div class="count"><span>${partidas} · ${piezas}</span><span>Precios en MXN con IVA incluido cuando corresponde.</span></div>
 
+  ${devolucion}
+
   <section class="summary">
-    <div>
+    <div class="left">
       <div class="words"><div class="label">Importe con letra</div><p class="txt">${esc(view.amountInWords)}</p></div>
       ${pagos}
+      ${view.note ? `<div class="block"><div class="label">Observaciones</div>${multiline(view.note)}</div>` : ''}
+      ${cfg.terms.trim() ? `<div class="block"><div class="label">Condiciones</div>${multiline(cfg.terms)}</div>` : ''}
+      ${
+        cfg.showSignatures
+          ? `<div class="sign">
+        <div><strong>Entregó</strong><span>Nombre y firma</span></div>
+        <div><strong>Recibí de conformidad</strong><span>Nombre, firma y fecha</span></div>
+      </div>`
+          : ''
+      }
     </div>
     <div class="totals">
       <div class="row"><span>Subtotal</span><span>${money(view.subtotal)}</span></div>
@@ -379,18 +452,6 @@ export function renderRemissionHtml(
     </div>
   </section>
 
-  ${devolucion}
-  ${view.note ? `<div class="block"><div class="label">Observaciones</div>${multiline(view.note)}</div>` : ''}
-  ${cfg.terms.trim() ? `<div class="block"><div class="label">Condiciones</div>${multiline(cfg.terms)}</div>` : ''}
-
-  ${
-    cfg.showSignatures
-      ? `<div class="sign">
-    <div><strong>Entregó</strong><span>Nombre y firma</span></div>
-    <div><strong>Recibí de conformidad</strong><span>Nombre, firma y fecha</span></div>
-  </div>`
-      : ''
-  }
   ${cfg.legend.trim() ? `<div class="legend">${multiline(cfg.legend)}</div>` : ''}
 </main>
 </body>

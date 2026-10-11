@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useSettingsForm } from '~/composables/useSettingsForm'
 import { useCompanyStore } from '~/stores/company'
-import type { FieldErrors, RemissionPaper, RemissionSettings } from '~/types/settings'
+import type { FieldErrors, RemissionDensity, RemissionPaper, RemissionSettings } from '~/types/settings'
 import { renderRemissionHtml } from '~/utils/remission-html'
 import { sampleRemissionView } from '~/utils/remission-view'
 import { remissionFontFaces } from '~/utils/remission-fonts'
@@ -28,6 +28,7 @@ const LABELS: Record<keyof RemissionSettings, string> = {
   showPayments: 'Forma de pago y saldo',
   showSku: 'Columna de código',
   showTaxBreakdown: 'Desglose de IVA',
+  density: 'Densidad de la tabla',
 }
 
 function validate(v: RemissionSettings): FieldErrors<RemissionSettings> {
@@ -53,18 +54,28 @@ const PAPERS = [
   { value: 'A4' as RemissionPaper, title: 'A4', hint: '210 × 297 mm' },
 ]
 
-const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPayments', 'showSku', 'showTaxBreakdown']
+const DENSITIES = [
+  { value: 'AUTO' as RemissionDensity, title: 'Automática', hint: 'Recomendada' },
+  { value: 'COMFORTABLE' as RemissionDensity, title: 'Cómoda', hint: 'Letra amplia' },
+  { value: 'COMPACT' as RemissionDensity, title: 'Compacta', hint: 'Más por hoja' },
+]
+
+/** La vista previa puede simular una nota corta o un pedido grande. */
+const sampleLines = ref<3 | 30>(3)
+
+const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPayments', 'showSku', 'showTaxBreakdown', 'density']
 const contentDirty = computed(() => CONTENT_KEYS.some((k) => s.isChanged(k)))
 
 /** La vista previa usa lo que está en el formulario, guardado o no: sirve para decidir. */
 const previewHtml = computed(() =>
   s.snapshot.value
-    ? renderRemissionHtml(sampleRemissionView(), companyStore.company, { ...s.form }, { title: 'Vista previa', fontFaces: remissionFontFaces() })
+    ? renderRemissionHtml(sampleRemissionView(sampleLines.value), companyStore.company, { ...s.form }, { title: 'Vista previa', fontFaces: remissionFontFaces() })
     : '',
 )
 
 function format(key: string, value: unknown) {
   if (key === 'paper') return value === 'A4' ? 'A4' : 'Carta'
+  if (key === 'density') return DENSITIES.find((d) => d.value === value)?.title ?? String(value)
   if (key === 'legend' || key === 'terms') {
     const text = String(value ?? '')
     return text ? `“${text.slice(0, 60)}${text.length > 60 ? '…' : ''}”` : '(vacío)'
@@ -109,6 +120,12 @@ function format(key: string, value: unknown) {
             <SettingsSwitch v-model="s.form.showSignatures" label="Líneas de firma" description="“Entregó” y “Recibí de conformidad”, para que quede constancia de la entrega." :changed="s.isChanged('showSignatures')" />
             <SettingsSwitch v-model="s.form.showSku" label="Columna de código" description="El SKU de cada producto, útil para que el cliente concilie con su inventario." :changed="s.isChanged('showSku')" />
             <SettingsSwitch v-model="s.form.showTaxBreakdown" label="Desglose de IVA incluido" description="Muestra, bajo el total, cuánto IVA contiene la venta en cada tasa. Los precios ya lo incluyen." :changed="s.isChanged('showTaxBreakdown')" />
+            <div>
+              <SegmentedControl v-model="s.form.density" label="Densidad de la tabla de productos" :options="DENSITIES" />
+              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Automática: renglones amplios hasta 7 productos (caben en una hoja); con más, renglones de una línea: unos 22 productos caben en una sola hoja con totales y firmas, y un pedido de 50 ocupa 2 hojas en lugar de 4. Cambia el ejemplo de la vista previa a 30 productos para verla.
+              </p>
+            </div>
           </div>
         </SettingsCard>
 
@@ -137,6 +154,14 @@ function format(key: string, value: unknown) {
       </div>
 
       <SettingsCard class="xl:sticky xl:top-20" title="Vista previa" description="Venta de ejemplo con tu ficha de farmacia y lo que tienes en pantalla, guardado o no." icon="ph:eye-bold">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <span class="text-xs text-gray-500 dark:text-gray-400">Ejemplo:</span>
+          <div class="inline-flex rounded-lg border border-gray-200 p-0.5 text-xs dark:border-gray-600" role="group" aria-label="Tamaño del ejemplo">
+            <button v-for="n in [3, 30] as const" :key="n" type="button" class="rounded-md px-3 py-1 font-medium transition-colors" :class="sampleLines === n ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'" :aria-pressed="sampleLines === n" @click="sampleLines = n">
+              {{ n }} productos
+            </button>
+          </div>
+        </div>
         <RemissionSheet :html="previewHtml" :paper="s.form.paper" />
         <p v-if="!companyStore.company" class="mt-3 text-xs text-warning-700 dark:text-warning-300">
           Falta la ficha de la farmacia: captúrala en Configuración › Ticket para que aparezca en el encabezado.

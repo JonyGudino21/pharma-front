@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { caducidad, esc, guillocheSvg, renderRemissionHtml } from './remission-html'
+import { COMFORTABLE_MAX_LINES, caducidad, esc, guillocheSvg, renderRemissionHtml, resolveDensity } from './remission-html'
 import { remissionFolio, sampleRemissionView, type RemissionView } from './remission-view'
 import { DEFAULT_REMISSION_SETTINGS, type RemissionSettings } from '~/types/settings'
 import type { Company } from '~/types/receipt'
@@ -123,7 +123,7 @@ describe('renderRemissionHtml', () => {
 
   it('la tabla de partidas alterna el tono de los renglones (lectura con baja visión)', () => {
     const html = renderRemissionHtml(view(), company, cfg())
-    expect(html).toContain('tbody tr:nth-child(even) td { background: var(--menta); }')
+    expect(html).toContain('tbody tr:nth-child(even) td { background: var(--hielo); }')
     // Los tonos se imprimen aunque el navegador quite fondos por defecto.
     expect(html).toContain('print-color-adjust: exact')
   })
@@ -204,5 +204,25 @@ describe('forma de pago en "Datos de la venta"', () => {
   it('pagada: sólo los métodos', () => {
     const v = { ...sampleRemissionView(), payments: [{ method: 'Tarjeta', amount: 157.1 }], paidAmount: 157.1, balance: 0 }
     expect(renderRemissionHtml(v, company, cfg)).toContain('<dt>Pago</dt><dd>Tarjeta</dd>')
+  })
+})
+
+describe('densidad de la tabla', () => {
+  it('automática: cómoda hasta 12 partidas, compacta desde 13', () => {
+    expect(resolveDensity('AUTO', 1)).toBe('comfortable')
+    expect(resolveDensity('AUTO', COMFORTABLE_MAX_LINES)).toBe('comfortable')
+    expect(resolveDensity('AUTO', COMFORTABLE_MAX_LINES + 1)).toBe('compact')
+    expect(resolveDensity(undefined, 50)).toBe('compact')
+  })
+  it('forzada: respeta la elección del gerente', () => {
+    expect(resolveDensity('COMFORTABLE', 50)).toBe('comfortable')
+    expect(resolveDensity('COMPACT', 2)).toBe('compact')
+  })
+  it('el documento marca la densidad en <body>', () => {
+    const corto = renderRemissionHtml(sampleRemissionView(3), null, DEFAULT_REMISSION_SETTINGS)
+    const largo = renderRemissionHtml(sampleRemissionView(30), null, DEFAULT_REMISSION_SETTINGS)
+    expect(corto).toContain('<body class="comfortable">')
+    expect(largo).toContain('<body class="compact">')
+    expect(largo).toContain('30 partidas')
   })
 })
