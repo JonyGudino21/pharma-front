@@ -48,24 +48,26 @@ Se leen al arrancar/compilar (`nuxt.config.ts` → `runtimeConfig.public`).
 | `NUXT_PUBLIC_API_BASE_URL` | `http://localhost:3005/api` | URL base del API del backend (incluye el prefijo `/api`). |
 | `NUXT_PUBLIC_HEALTH_URL` | *(vacío)* | URL de la sonda de conexión. Vacío = `<origen del API>/health/ready`. Úsala si un proxy no expone `/health` en el mismo origen. |
 
-Ejemplo de `.env`:
+**Producción (recomendado, ADR-0024):** compilar con la API **relativa** y servir front y API desde el
+mismo origen con Caddy. El mismo build sirve para cualquier farmacia y las cookies funcionan sin CORS
+cruzado:
 
 ```dotenv
-NUXT_PUBLIC_API_BASE_URL=https://api.mifarmacia.mx/api
-# NUXT_PUBLIC_HEALTH_URL=https://api.mifarmacia.mx/health/ready
+NUXT_PUBLIC_API_BASE_URL=/api
 ```
 
-> El backend debe permitir CORS con `credentials: true` y una lista explícita de orígenes:
-> la sesión viaja en cookies `httpOnly` y el front las envía con `credentials: 'include'`.
+> Si el API vive en otro dominio, el backend debe permitir CORS con `credentials: true` y una lista
+> explícita de orígenes, y las cookies necesitan `COOKIE_SAME_SITE=none` + `COOKIE_SECURE=true`.
+> Guía completa de instalación: `pharma-back/docs/produccion/README.md`.
 
 ## Scripts
 
 | Script | Qué hace |
 |---|---|
 | `pnpm dev` | Servidor de desarrollo con recarga en caliente. |
-| `pnpm build` | Compila para producción (`.output/`). |
-| `pnpm preview` | Sirve localmente el build de producción. |
-| `pnpm generate` | Genera un sitio estático (no es el modo de despliegue documentado). |
+| `pnpm generate` | **Build de producción**: sitio estático en `.output/public` (SPA, ADR-0020). Es lo que se publica. |
+| `pnpm build` | Compila con servidor Nitro (lo usa CI como verificación; no hace falta para publicar). |
+| `pnpm preview` | Sirve localmente el build. |
 | `pnpm typecheck` | Verificación de tipos (`nuxt typecheck`, usa `vue-tsc`). |
 | `pnpm test` | Pruebas unitarias con Vitest (`app/**/*.spec.ts`). |
 
