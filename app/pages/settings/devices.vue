@@ -14,6 +14,7 @@ import SettingsCard from '~/components/settings/SettingsCard.vue'
 import SettingsSwitch from '~/components/settings/fields/SettingsSwitch.vue'
 import SegmentedControl from '~/components/settings/ticket/SegmentedControl.vue'
 import UnsavedChangesBar from '~/components/shared/UnsavedChangesBar.vue'
+import DevicesGuide from '~/components/settings/DevicesGuide.vue'
 import { useUpdateHold } from '~/composables/useAppUpdate'
 
 definePageMeta({ requiredPermission: 'canManageSettings' })
@@ -40,6 +41,8 @@ const dirty = computed(() => JSON.stringify(form) !== baseline.value)
 // Cambios sin guardar: no se ofrece recargar para actualizar (ADR-0018).
 useUpdateHold('settings:devices', () => (dirty.value ? 'Tienes cambios sin guardar en los dispositivos de esta caja.' : null))
 const usb = ref(false)
+/** Guía de conexión para quien configura dispositivos por primera vez. */
+const showGuide = ref(false)
 const pairing = ref(false)
 
 onMounted(() => {
@@ -158,13 +161,19 @@ async function testDrawer() {
 
 <template>
   <div class="space-y-6">
-    <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      <h1 class="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-        <Icon name="ph:printer-bold" class="text-primary-600" /> Dispositivos de esta caja
-      </h1>
-      <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
-        Impresora y cajón conectados a <strong>esta computadora</strong>. Se guarda aquí, no en el servidor: configúralo en cada caja.
-      </p>
+    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between dark:border-gray-700 dark:bg-gray-800">
+      <div>
+        <h1 class="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
+          <Icon name="ph:printer-bold" class="text-primary-600" /> Dispositivos de esta caja
+        </h1>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+          Impresora y cajón conectados a <strong>esta computadora</strong>. Se guarda aquí, no en el servidor: configúralo en cada caja.
+        </p>
+      </div>
+      <button type="button" class="btn-secondary shrink-0 gap-2" data-testid="open-devices-guide" @click="showGuide = true">
+        <Icon name="ph:question-bold" class="h-5 w-5 text-primary-600" />
+        Guía de conexión
+      </button>
     </div>
 
     <div class="grid items-start gap-6 lg:grid-cols-2">
@@ -214,6 +223,8 @@ async function testDrawer() {
         </div>
       </SettingsCard>
     </div>
+
+    <DevicesGuide :open="showGuide" @close="showGuide = false" />
 
     <UnsavedChangesBar :visible="dirty" :saving="false" :can-save="true" :scopes="['los dispositivos de esta caja']" @save="save" @discard="discard" />
   </div>
