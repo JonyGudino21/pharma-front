@@ -6,6 +6,44 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Ayuda contextual y diseño responsivo (ADR-0023, 11/10/2026)
+
+- **Botón Ayuda en todas las pantallas**: abre la guía de la pantalla (y la sección de la
+  subpantalla: Caducidades, Controlados, Deudores, Historial de turnos, Nueva compra). 13 guías sin
+  tecnicismos, con buscador. Sustituye a la guía suelta de Dispositivos.
+- **Celular y tableta**: menú en cajón (antes ocupaba 256 de 375 px), listas como tarjetas, filtros
+  plegables, modales como hoja inferior con pie fijo, campos de 16 px (sin zoom en iOS), objetivos
+  táctiles ≥ 40 px, avisos y toasts sin encimarse. Escritorio sin cambios.
+- **Tablas según el ancho del contenido** (container query): con el menú abierto en una laptop de
+  1024 px se ven tarjetas; desde ~1280 px, tablas. Auditoría automática: sin desborde horizontal en
+  21 pantallas a 375, 768, 1024 y 1280 px.
+- **POS en celular**: barra fija con total y **Cobrar**; carrito en dos renglones; comprobante como
+  hoja con Imprimir / Nueva venta siempre visibles; receta capturada editable desde el resumen.
+- **Nota de remisión**: SKU, lote y caducidad se activan por separado en Configuración.
+
+### Corregido (revisión de pantallas, 11/10/2026)
+
+- **Crédito con abono inicial**: el cobro exigía crédito para el total aunque el abono cubriera una
+  parte (el servidor sólo carga el resto). Ahora muestra «Se carga a crédito» y el abono mínimo.
+- **Caja en el menú** para quien sólo supervisa turnos: lleva al historial (antes rebotaba).
+- **Detalle de turno**: estados, movimientos de efectivo y métodos en español con signo correcto;
+  nueva sección «Aperturas de cajón sin venta».
+- **Historial de turnos, compras, productos y categorías**: un fallo de carga se muestra como error
+  con **Reintentar** (antes parecía lista vacía). El detalle de compra ya no gira para siempre.
+- **Venta**: «Imprimir ticket» y la nota sólo en ventas cerradas no anuladas y con permiso.
+- **Clientes**: tarjetas del estado de cuenta con nombres correctos; alta sin correo ni teléfono;
+  «Cliente activo» se guarda al editar; Deudores con su propia paginación y permiso en el enlace;
+  configuración de crédito desde Deudores carga los datos reales.
+- **Búsquedas**: proveedores y productos filtran Activos/Inactivos en el servidor (antes sólo los
+  primeros 100); productos por nombre o SKU parcial; usuarios por nombre, usuario o correo.
+- **Compras**: un solo vocabulario (Pagada / Pago parcial / Sin pagar / Anulada; Efectivo,
+  Transferencia…); lote y caducidad van en pareja y costo mínimo $0.01, con el mismo mensaje en
+  captura y edición. Kardex con tipos en español y «Saldo».
+- **Dashboard**: «Top 5 productos más vendidos» por piezas; métodos de pago en español; sin
+  filtros de fecha para quien no ve analítica.
+- **Contraseña**: avisa si la nueva es igual a la actual. Toasts de información con icono.
+- Controlado con existencia sin lote: el mensaje indica **Inventario › Asignar lote**.
+
 ### Identidad única y densidad adaptativa (ADR-0021)
 
 - Ticket, modal "Venta cobrada" y nota de remisión con la identidad azul de PharmaPOS (antes verde y

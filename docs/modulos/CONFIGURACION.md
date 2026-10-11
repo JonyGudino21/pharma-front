@@ -112,6 +112,7 @@ Acción aparte (no es un ajuste): **asignar IVA en bloque a una categoría** con
 | Permitir notas de remisión | Si se apaga, el botón desaparece del POS y del historial (y el servidor rechaza la emisión). |
 | Tamaño de hoja | Carta o A4. |
 | Forma de pago y saldo · Líneas de firma · Columna de código · Desglose de IVA | Contenido de la hoja. |
+| Detalle de cada producto: SKU · Lote · Caducidad | Interruptores independientes (`showSku`, `showLot`, `showExpiry`); la línea bajo el nombre sólo muestra lo encendido y lo que la partida tiene. |
 | Leyenda | ≤ 300 caracteres; por omisión aclara que no es CFDI. |
 | Condiciones | ≤ 600 caracteres; vacío = no se imprime. |
 
