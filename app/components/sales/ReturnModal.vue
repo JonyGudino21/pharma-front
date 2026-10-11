@@ -164,6 +164,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useSalesHistoryStore, type SaleDetail } from '~/stores/salesHistory'
 import { useCurrency } from '~/composables/useCurrency'
+import { refundForUnits } from '~/utils/refund'
 
 const props = defineProps<{ modelValue: boolean; sale: SaleDetail }>()
 const emit = defineEmits<{
@@ -198,10 +199,14 @@ const unidadesSeleccionadas = computed(() =>
   seleccionadas.value.reduce((acc, l) => acc + l.quantity, 0),
 )
 
+// Reembolso NETO (con el descuento de cada línea), con la misma fórmula
+// acumulativa que el servidor. Antes se usaba precio de lista × cantidad y, con
+// descuentos, la pantalla prometía más efectivo del que el servidor devolvía.
 const totalDevolucion = computed(() =>
   seleccionadas.value.reduce((acc, linea) => {
     const item = props.sale.items.find((i) => i.id === linea.saleItemId)
-    return acc + linea.quantity * Number(item?.price ?? 0)
+    if (!item) return acc
+    return acc + refundForUnits(Number(item.subtotal), item.quantity, devueltas(item.id), linea.quantity)
   }, 0),
 )
 

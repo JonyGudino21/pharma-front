@@ -6,8 +6,8 @@ Consulta de ventas ya registradas y operaciones posteriores al cobro.
 
 | Ruta | Archivo | Permiso |
 |---|---|---|
-| `/sales` | `app/pages/sales/index.vue` | `canViewSalesSummary` |
-| `/sales/:id` | `app/pages/sales/[id].vue` | `canViewSalesSummary` |
+| `/sales` | `app/pages/sales/index.vue` | `canViewSalesHistory` |
+| `/sales/:id` | `app/pages/sales/[id].vue` | `canViewSalesHistory` |
 
 ## Componentes
 
@@ -76,7 +76,7 @@ Separado del store del POS a propósito: aquel modela la venta viva; éste, vent
 
 | Permiso | Efecto |
 |---|---|
-| `canViewSalesSummary` | Listado y detalle. |
+| `canViewSalesHistory` | Listado y detalle. |
 | `canReturnSales` | Botón Devolver. |
 | `canCancelSales` | Botón Anular (el backend exige gerencia para ventas cerradas). |
 | `canPrintReceipt` | Nota de remisión. |

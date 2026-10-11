@@ -65,9 +65,11 @@ Estado separado por recurso: valuación, alertas de stock bajo, kardex, caducida
 - Filtros: folio de receta, cédula, paciente (Enter busca), fechas y tipo (Dispensa, Devolución,
   Destrucción). Paginado.
 - **Imprimir** (`window.print()` de la página).
-- **Exportar CSV**: recorre páginas de 100 registros (máximo 50 páginas) y descarga
-  `libro-controlados-AAAA-MM-DD.csv` con fecha, tipo, producto, SKU, lote, cantidad, receta,
-  médico, cédula, paciente y quién despachó.
+- **Exportar CSV** (`canExportControlledLog`, gerencia): descarga la exportación oficial
+  `GET /inventory/controlled-log/export` con el periodo y el tipo elegidos (receta, médico y
+  paciente son filtros sólo de consulta). El servidor genera el archivo completo, con BOM para
+  Excel, registra quién exportó y devuelve la huella en `X-Integrity-Hash`, que se muestra en el
+  aviso. Estado "Exportando…" y sin promesas sin atender.
 - Un fallo se muestra como error, no como "no hay registros".
 
 ## Lotes en otras pantallas

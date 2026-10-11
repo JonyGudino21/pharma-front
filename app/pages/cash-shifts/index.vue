@@ -321,10 +321,17 @@ onMounted(async () => {
 
 const handleOpenShift = async () => {
   if (openForm.initialAmount === '' || Number(openForm.initialAmount) < 0) return
-  await store.openShift({
-    initialAmount: Number(openForm.initialAmount),
-    notes: openForm.notes.trim() || undefined
-  })
+  // Si el servidor rechaza (p. ej. ya hay un turno abierto), el interceptor
+  // muestra el motivo; aquí sólo se evita anunciar un éxito que no ocurrió y
+  // dejar una promesa rechazada sin atender.
+  try {
+    await store.openShift({
+      initialAmount: Number(openForm.initialAmount),
+      notes: openForm.notes.trim() || undefined
+    })
+  } catch {
+    return
+  }
   toast.success('Turno de caja abierto exitosamente.')
   openForm.initialAmount = ''
   openForm.notes = ''
@@ -332,11 +339,15 @@ const handleOpenShift = async () => {
 
 const handleRegisterOperation = async () => {
   if (operationForm.amount === '' || Number(operationForm.amount) <= 0 || !operationForm.reason.trim()) return
-  await store.registerOperation({
-    type: operationForm.type,
-    amount: Number(operationForm.amount),
-    reason: operationForm.reason.trim()
-  })
+  try {
+    await store.registerOperation({
+      type: operationForm.type,
+      amount: Number(operationForm.amount),
+      reason: operationForm.reason.trim()
+    })
+  } catch {
+    return
+  }
   toast.success('Operación registrada exitosamente.')
   operationForm.amount = ''
   operationForm.reason = ''

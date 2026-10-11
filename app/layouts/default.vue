@@ -224,7 +224,7 @@ const menuItems = computed(() => {
   return [
     { name: 'Dashboard', path: '/', icon: 'ph:chart-line-up-bold', show: true }, // Siempre visible si estás logueado
     { name: 'Punto de Venta', path: '/pos', icon: 'ph:shopping-cart-bold', show: authStore.can('canSell') },
-    { name: 'Ventas', path: '/sales', icon: 'ph:receipt-bold', show: authStore.can('canViewSalesSummary') },
+    { name: 'Ventas', path: '/sales', icon: 'ph:receipt-bold', show: authStore.can('canViewSalesHistory') },
     // `canOpenShift` y NO sólo `canViewAllShifts`: la pantalla exige
     // `canOpenShift`, así que un cajero —que tiene ése y no el de ver todos
     // los turnos— no encontraba en el menú dónde abrir su propia caja.
@@ -255,7 +255,7 @@ const menuItems = computed(() => {
           : []),
       ],
     },
-    { name: 'Compras', path: '/purchases', icon: 'ph:shopping-cart-bold', show: authStore.can('canViewPurchases') },
+    { name: 'Compras', path: '/purchases', icon: 'ph:truck-bold', show: authStore.can('canViewPurchases') },
     // Sólo con el permiso que la página exige. Antes también se mostraba con
     // `canViewPurchases`: el farmacéutico veía el enlace, hacía clic y recibía
     // "Acceso denegado". Un menú que ofrece lo que no deja usar se siente roto.

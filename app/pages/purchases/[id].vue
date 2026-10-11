@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <div v-if="!isCancelled" class="flex flex-wrap gap-3">
+    <div v-if="!isCancelled && canManage" class="flex flex-wrap gap-3">
       <button 
         v-if="!isReceived" 
         @click="confirmAction('receive', null)" 
@@ -126,7 +126,7 @@
             <h2 class="font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Icon name="ph:wallet-bold" /> Historial de Pagos
             </h2>
-            <button v-if="!isCancelled && Number(purchase.balance) > 0" @click="showPaymentModal = true" class="text-xs font-bold text-primary-600 hover:bg-primary-50 px-2 py-1 rounded cursor-pointer">
+            <button v-if="canManage && !isCancelled && Number(purchase.balance) > 0" @click="showPaymentModal = true" class="text-xs font-bold text-primary-600 hover:bg-primary-50 px-2 py-1 rounded cursor-pointer">
               + Abonar
             </button>
           </div>
@@ -140,7 +140,7 @@
                 <p class="font-bold text-sm text-gray-900 dark:text-white">{{ formatCurrency(Number(pay.amount)) }}</p>
                 <p class="text-[10px] uppercase text-gray-500 font-bold mt-0.5">{{ pay.method }} • {{ formatDate(pay.createdAt) }}</p>
               </div>
-              <button v-if="!isCancelled" @click="confirmAction('removePayment', pay.id)" class="text-error-400 hover:text-error-600" title="Revertir Pago">
+              <button v-if="canManage && !isCancelled" @click="confirmAction('removePayment', pay.id)" class="text-error-400 hover:text-error-600" title="Revertir Pago">
                 <Icon name="ph:trash-bold" class="w-4 h-4" />
               </button>
             </div>
@@ -182,14 +182,21 @@ import { useToast } from '~/composables/useToast'
 import PaymentModal from '~/components/purchases/PaymentModal.vue'
 import PurchaseItemModal from '~/components/purchases/PurchaseItemModal.vue'
 import ConfirmModal from '~/components/shared/ConfirmModal.vue'
+import { useAuthStore } from '~/stores/auth'
 
-definePageMeta({ requiredPermission: 'canManagePurchases' })
+// Ver el detalle basta con poder ver compras (el listado enlaza aquí para todo
+// el que tenga `canViewPurchases`); OPERAR exige `canManagePurchases`. Antes la
+// página exigía gestionar, y un rol de sólo consulta recibía "Acceso denegado"
+// al abrir una compra desde el listado.
+definePageMeta({ requiredPermission: 'canViewPurchases' })
 
 const route = useRoute()
 const purchaseStore = usePurchaseStore()
 const { formatCurrency } = useCurrency()
 const { formatDateTime, formatDate } = useDate()
 const toast = useToast()
+const authStore = useAuthStore()
+const canManage = computed(() => authStore.can('canManagePurchases'))
 
 const purchase = computed(() => purchaseStore.currentPurchase)
 
@@ -201,7 +208,7 @@ onMounted(async () => {
 // Reglas de Negocio Reactivas
 const isCancelled = computed(() => purchase.value?.status === 'CANCELLED')
 const isReceived = computed(() => purchase.value?.deliveryStatus === 'RECEIVED')
-const canEditItems = computed(() => !isCancelled.value && !isReceived.value)
+const canEditItems = computed(() => canManage.value && !isCancelled.value && !isReceived.value)
 
 // Estado de Modales
 const showPaymentModal = ref(false)

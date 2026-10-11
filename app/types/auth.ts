@@ -4,6 +4,9 @@ export interface UserPermissions {
   canCancelSales: boolean;
   canGiveDiscounts: boolean;
   canReturnSales: boolean;
+  /** Historial y detalle de ventas. */
+  canViewSalesHistory: boolean;
+  /** Resumen gerencial de ventas (GET /sales/summary). */
   canViewSalesSummary: boolean;
   canPrintReceipt: boolean;
 
@@ -33,6 +36,8 @@ export interface UserPermissions {
   canViewInventoryValuation: boolean;
   canViewExpiringBatches: boolean;
   canViewControlledLog: boolean;
+  /** Exportación oficial del libro (GET /inventory/controlled-log/export, gerencia). */
+  canExportControlledLog: boolean;
 
   // ---- Caja (cash-shift) ----
   canOpenShift: boolean;

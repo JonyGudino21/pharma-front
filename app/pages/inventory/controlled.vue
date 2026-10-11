@@ -10,8 +10,15 @@
         </p>
       </div>
       <div class="flex gap-2 print:hidden">
-        <button class="btn-secondary" @click="exportCsv">
-          <Icon name="ph:download-simple-bold" class="mr-2" /> Exportar CSV
+        <button
+          v-if="authStore.can('canExportControlledLog')"
+          class="btn-secondary"
+          :disabled="exporting"
+          title="Exporta el libro completo del periodo (registra quién lo exportó)"
+          @click="exportCsv"
+        >
+          <Icon :name="exporting ? 'ph:spinner-gap-bold' : 'ph:download-simple-bold'" class="mr-2" :class="{ 'animate-spin': exporting }" />
+          {{ exporting ? 'Exportando…' : 'Exportar CSV' }}
         </button>
         <button class="btn-primary" @click="printLog">
           <Icon name="ph:printer-bold" class="mr-2" /> Imprimir
@@ -133,6 +140,8 @@ import { useNuxtApp } from '#app'
 import { useInventoryStore, type ControlledLogEntry, type ControlledLogEntryType, type InventoryPage } from '~/stores/inventory'
 import type { ApiResponse } from '~/types/auth'
 import { useDate } from '~/composables/useDate'
+import { useToast } from '~/composables/useToast'
+import { useAuthStore } from '~/stores/auth'
 import Pagination from '~/components/shared/Pagination.vue'
 
 definePageMeta({ requiredPermission: 'canViewControlledLog' })
@@ -140,6 +149,8 @@ definePageMeta({ requiredPermission: 'canViewControlledLog' })
 const inventoryStore = useInventoryStore()
 const { formatDateTime } = useDate()
 const { $api } = useNuxtApp()
+const toast = useToast()
+const authStore = useAuthStore()
 const page = ref(1)
 
 const filters = reactive({
@@ -178,56 +189,55 @@ function printLog() {
   window.print()
 }
 
-function csvEscape(value: string | number | null | undefined) {
-  const text = String(value ?? '')
-  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`
-  return text
-}
+/**
+ * EXPORTACIÓN OFICIAL DEL LIBRO (CSV) — la genera el servidor.
+ *
+ * Antes el navegador armaba el CSV pidiendo páginas de 100 y se detenía en
+ * silencio a las 50 (5,000 filas): un libro COFEPRIS incompleto sin aviso, sin
+ * BOM (Excel deformaba acentos) y sin manejo de errores. El servidor ya tenía
+ * una exportación completa que además deja constancia de quién exportó y una
+ * huella de integridad (X-Integrity-Hash). Se usa esa.
+ *
+ * Filtros: el periodo y el tipo de movimiento. Receta, médico y paciente son
+ * filtros de CONSULTA en pantalla; el libro oficial del periodo va completo.
+ */
+const exporting = ref(false)
 
 async function exportCsv() {
-  const rows: ControlledLogEntry[] = []
-  let current = 1
-  let totalPages = 1
-  do {
+  if (exporting.value) return
+  exporting.value = true
+  try {
     const params = new URLSearchParams()
-    params.set('page', String(current))
-    params.set('limit', '100')
     if (filters.startDate) params.set('startDate', filters.startDate)
     if (filters.endDate) params.set('endDate', filters.endDate)
-    if (filters.prescriptionNo.trim()) params.set('prescriptionNo', filters.prescriptionNo.trim())
-    if (filters.doctorLicense.trim()) params.set('doctorLicense', filters.doctorLicense.trim())
-    if (filters.patientName.trim()) params.set('patientName', filters.patientName.trim())
     if (filters.entryType) params.set('entryType', filters.entryType)
-    const res = await $api<ApiResponse<InventoryPage<ControlledLogEntry>>>(`/inventory/controlled-log?${params}`)
-    rows.push(...res.data.data)
-    totalPages = res.data.pagination.totalPages
-    current += 1
-  } while (current <= totalPages && current <= 50)
 
-  const header = ['Fecha', 'Tipo', 'Producto', 'SKU', 'Lote', 'Cantidad', 'Receta', 'Medico', 'Cedula', 'Paciente', 'Despacho']
-  const lines = [
-    header.join(','),
-    ...rows.map((r) => [
-      csvEscape(r.createdAt),
-      csvEscape(r.entryType),
-      csvEscape(r.product.name),
-      csvEscape(r.product.sku),
-      csvEscape(r.batch?.lotNumber),
-      csvEscape(r.quantity),
-      csvEscape(r.prescriptionNo),
-      csvEscape(r.doctorName),
-      csvEscape(r.doctorLicense),
-      csvEscape(r.patientName),
-      csvEscape(`${r.soldBy.firstName} ${r.soldBy.lastName}`),
-    ].join(',')),
-  ]
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `libro-controlados-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+    let filename = `libro-controlados-${new Date().toISOString().slice(0, 10)}.csv`
+    let hash = ''
+    const content = await $api<string>(`/inventory/controlled-log/export?${params}`, {
+      responseType: 'text',
+      onResponse({ response }) {
+        hash = response.headers.get('X-Integrity-Hash') ?? ''
+        const disp = response.headers.get('Content-Disposition') ?? ''
+        const m = /filename="?([^";]+)"?/i.exec(disp)
+        if (m?.[1]) filename = m[1]
+      },
+    })
+
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    // Se libera después: revocar en el mismo tick puede cancelar la descarga.
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast.success(hash ? `Libro exportado. Huella de integridad: ${hash.slice(0, 16)}…` : 'Libro exportado.')
+  } catch {
+    // El interceptor de $api ya explicó el motivo (sin permiso, sin conexión…).
+  } finally {
+    exporting.value = false
+  }
 }
 
 onMounted(() => inventoryStore.fetchControlledLog(query()))

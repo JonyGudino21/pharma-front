@@ -22,7 +22,7 @@ export const ROLE_META: Record<UserRole, RoleMeta> = {
   },
   [UserRole.MANAGER]: {
     label: 'Gerente',
-    summary: 'Cancela ventas, hace descuentos y retiros, ajusta inventario y configura caja, inventario y ticket.',
+    summary: 'Cancela ventas, autoriza descuentos y retiros, ajusta inventario, ve reportes y configura la operación (caja, inventario, impuestos, ticket y nota de remisión).',
     badge: 'bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-900/30 dark:text-primary-400 dark:border-primary-800/30',
     icon: 'ph:briefcase-bold',
   },

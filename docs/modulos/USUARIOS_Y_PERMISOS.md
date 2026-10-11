@@ -4,7 +4,7 @@
 
 | Ruta | Archivo | Permiso |
 |---|---|---|
-| `/login` | `app/pages/Login.vue` (layout `blank`) | público |
+| `/login` | `app/pages/login.vue` (layout `blank`) | público |
 | `/account/password` | `app/pages/account/password.vue` | cualquier usuario con sesión |
 | `/settings/users` | `app/pages/settings/users.vue` | `canManageUsers` |
 | `/settings/permissions` | `app/pages/settings/permissions.vue` | `canManageUsers` |
@@ -74,7 +74,11 @@ La matriz exacta la define el backend (`pharma-back/docs/PERMISSIONS_MATRIX.md`)
 |---|---|
 | `canSell` | `/pos`, menú Punto de Venta |
 | `canPrintReceipt` | Nota de remisión (POS, detalle de venta) |
-| `canViewSalesSummary` | `/sales`, `/sales/:id` |
+| `canViewSalesHistory` | `/sales`, `/sales/:id`, menú Ventas |
+| `canViewSalesSummary` | Resumen gerencial de ventas (sólo gerencia; hoy sin pantalla propia) |
+| `canExportControlledLog` | Botón "Exportar CSV" del libro de controlados |
+| `canViewPurchases` · `canManagePurchases` | Listado y detalle de compras · acciones dentro del detalle |
+| `canUpdateCreditConfig` · `canRegisterClientPayment` | "Configurar crédito" (Clientes y Deudores) · "Cobrar" en Deudores |
 | `canReturnSales` · `canCancelSales` | Devolver · Anular en el detalle |
 | `canOpenShift` | `/cash-shifts` |
 | `canWithdrawCash` | Operaciones de efectivo, abrir cajón, probar cajón en Dispositivos |

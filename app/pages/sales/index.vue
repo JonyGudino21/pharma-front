@@ -257,7 +257,7 @@ import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
 import Pagination from '~/components/shared/Pagination.vue'
 
-definePageMeta({ requiredPermission: 'canViewSalesSummary' })
+definePageMeta({ requiredPermission: 'canViewSalesHistory' })
 
 const store = useSalesHistoryStore()
 const authStore = useAuthStore()
