@@ -97,6 +97,13 @@
               <div v-if="!isEditing">
                 <label class="label-base text-success-600 dark:text-success-400">Stock Inicial Físico <span class="text-xs">(Generará movimiento)</span></label>
                 <input v-model.number="form.stock" type="number" min="0" step="1" class="input-base border-success-200 focus:ring-success-500" />
+                <!-- La caducidad es del LOTE, no del producto: sin piezas no hay lote
+                     que registrar. Antes no se explicaba y parecía que el sistema no
+                     pedía caducidad. -->
+                <p v-if="!hasInitialStock" class="mt-1 flex gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  <Icon name="ph:info-bold" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  La caducidad se registra por lote: escribe aquí las piezas que ya tienes y te pediremos su lote y caducidad. Si llega después, se capturan al recibir la compra.
+                </p>
               </div>
 
               <!--
