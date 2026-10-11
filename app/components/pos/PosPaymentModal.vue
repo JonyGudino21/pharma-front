@@ -40,11 +40,18 @@ const change = computed(() => {
   return Math.max(0, restar(received.value, totalDue.value))
 })
 
+/**
+ * Lo pagado supera el total (venta anterior a la guarda del servidor que lo
+ * impide). Cerrarla así dejaría dinero de más sin cambio registrado.
+ */
+const sobrepagada = computed(() => totalDue.value < 0)
+
 /** Ya se pagó todo en un intento anterior: sólo falta cerrar la venta. */
-const pagoCubierto = computed(() => totalDue.value <= 0 && sales.paidAmount > 0)
+const pagoCubierto = computed(() => totalDue.value === 0 && sales.paidAmount > 0)
 
 const canConfirm = computed(() => {
   if (isProcessing.value) return false
+  if (sobrepagada.value) return false
   if (pagoCubierto.value) return true
   if (onCredit.value) return alcanza(creditAvailable.value, totalDue.value)
   if (method.value === 'CASH') return alcanza(received.value ?? 0, totalDue.value)
@@ -122,9 +129,21 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
       </div>
 
       <div class="p-6 space-y-5">
+        <div
+          v-if="sobrepagada"
+          class="flex gap-3 rounded-xl border border-error-500/40 bg-error-500/10 p-4 text-sm text-error-800 dark:text-error-300"
+          role="alert"
+        >
+          <Icon name="ph:warning-bold" class="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            Lo pagado ({{ formatCurrency(sales.paidAmount) }}) supera el total de la venta.
+            Agrega los productos que faltan o descarta la venta para devolver el dinero.
+          </p>
+        </div>
+
         <!-- Pago ya registrado en un intento anterior: sólo falta cerrar -->
         <div
-          v-if="pagoCubierto"
+          v-else-if="pagoCubierto"
           class="flex gap-3 rounded-xl border border-success-500/40 bg-success-500/10 p-4 text-sm text-success-800 dark:text-success-300"
           role="status"
         >

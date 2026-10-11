@@ -33,6 +33,8 @@ export interface SaleItem {
   taxRate?: string | number
   taxAmount?: string | number
   product?: { id: number; name: string; sku: string; controlled?: boolean }
+  /** Lotes surtidos (FEFO). Sólo en el detalle de la venta (GET /sales/:id). */
+  batches?: Array<{ quantity: number; batch: { id: number; lotNumber: string; expiryDate: string | null } }>
 }
 
 /** Credenciales de quien autoriza un descuento sobre el tope. */
@@ -385,13 +387,25 @@ export const useSalesStore = defineStore('sales', () => {
     })
   }
 
-  async function removeItem(itemId: number) {
-    if (!sale.value) return
+  /**
+   * Quita una línea. Si el servidor la rechaza (p. ej. dejaría el total por
+   * debajo de lo ya cobrado), el interceptor muestra el motivo y aquí sólo se
+   * resincroniza: sin promesas rechazadas sueltas ni un carrito distinto al real.
+   */
+  async function removeItem(itemId: number): Promise<boolean> {
+    if (!sale.value) return false
     const { $api } = useNuxtApp()
     const saleId = sale.value.id
-    await withMutation(async () => {
-      await $api(`/sales/${saleId}/remove-product/${itemId}`, { method: 'POST' })
-      await refreshSale()
+    return withMutation(async () => {
+      try {
+        await $api(`/sales/${saleId}/remove-product/${itemId}`, { method: 'POST' })
+        return true
+      } catch {
+        return false
+      } finally {
+        // Si tampoco responde la consulta, el vigilante de conexión ya avisa.
+        await refreshSale().catch(() => undefined)
+      }
     })
   }
 
@@ -404,18 +418,27 @@ export const useSalesStore = defineStore('sales', () => {
    * Conserva el precio ya aplicado en la línea (no re-precia) y valida stock en el backend.
    * Si la cantidad llega a 0, se elimina la línea.
    */
-  async function setQuantity(item: SaleItem, quantity: number) {
-    if (!sale.value) return
+  async function setQuantity(item: SaleItem, quantity: number): Promise<boolean> {
+    if (!sale.value) return false
     if (quantity <= 0) return removeItem(item.id)
 
     const { $api } = useNuxtApp()
     const saleId = sale.value.id
-    await withMutation(async () => {
-      await $api(`/sales/${saleId}/update-item/${item.id}`, {
-        method: 'PATCH',
-        body: { quantity },
-      })
-      await refreshSale()
+    // Mismo criterio que removeItem: un rechazo (sin existencias, controlado sin
+    // lote, total por debajo de lo cobrado) se avisa y se resincroniza.
+    return withMutation(async () => {
+      try {
+        await $api(`/sales/${saleId}/update-item/${item.id}`, {
+          method: 'PATCH',
+          body: { quantity },
+        })
+        return true
+      } catch {
+        return false
+      } finally {
+        // Si tampoco responde la consulta, el vigilante de conexión ya avisa.
+        await refreshSale().catch(() => undefined)
+      }
     })
   }
 

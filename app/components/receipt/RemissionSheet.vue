@@ -7,8 +7,10 @@ import type { RemissionPaper } from '~/types/settings'
  *
  * La hoja se maqueta a su tamaño real (Carta 8.5 in = 816 px a 96 dpi) y se
  * reduce con `transform` al ancho disponible: así la proporción de papel se
- * conserva en cualquier pantalla. `sandbox=""` (sin scripts): el documento sólo
- * lleva datos y jamás debe ejecutar nada.
+ * conserva en cualquier pantalla. `sandbox="allow-same-origin"` SIN
+ * `allow-scripts`: el documento jamás ejecuta nada, pero conserva el origen de
+ * la app para cargar sus tipografías locales (con origen opaco, el navegador
+ * bloquearía las fuentes y la vista previa no se parecería al papel).
  */
 const props = defineProps<{
   html: string
@@ -42,7 +44,7 @@ onBeforeUnmount(() => observer?.disconnect())
     <div class="mx-auto bg-white shadow-lg" :style="{ width: `${PAGE_W * scale}px`, height: `${pageH * scale}px` }">
       <iframe
         :srcdoc="html"
-        sandbox=""
+        sandbox="allow-same-origin"
         title="Vista de la nota de remisión"
         class="block origin-top-left border-0 bg-white"
         :style="{ width: `${PAGE_W}px`, height: `${pageH}px`, transform: `scale(${scale})` }"

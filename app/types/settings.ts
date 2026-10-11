@@ -44,6 +44,9 @@ export interface TaxSettings {
 
 export type RemissionPaper = 'LETTER' | 'A4'
 
+/** AUTO: cómoda en notas cortas y compacta con muchas partidas (recomendado). */
+export type RemissionDensity = 'AUTO' | 'COMFORTABLE' | 'COMPACT'
+
 /** Nota de remisión (hoja completa). Espejo de remission.settings.ts del backend. */
 export interface RemissionSettings {
   enabled: boolean
@@ -56,6 +59,7 @@ export interface RemissionSettings {
   showPayments: boolean
   showSku: boolean
   showTaxBreakdown: boolean
+  density: RemissionDensity
 }
 
 /** Valores de fábrica; se usan si el servidor no pudo entregar la configuración. */
@@ -68,6 +72,7 @@ export const DEFAULT_REMISSION_SETTINGS: RemissionSettings = {
   showPayments: true,
   showSku: true,
   showTaxBreakdown: false,
+  density: 'AUTO',
 }
 
 export interface SettingsMap {

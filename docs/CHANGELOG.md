@@ -6,6 +6,27 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Nota de remisión — rediseño "botica" (10/10/2026)
+
+- Diseño premium y legible en impresora de un color: banda de guilloché, tipografías locales (Literata,
+  IBM Plex Sans/Mono), **tabla con renglones alternos blanco/menta** para lectura con baja visión,
+  lote y caducidad por partida, "N partidas · M piezas", total destacado y "Efectivo + crédito".
+- Vista previa idéntica al papel (fuentes cargadas en el iframe). Botón "Imprimir o guardar PDF".
+
+### Corregido (validación en vivo, 10/10/2026)
+
+- **F5 cerraba la sesión** (crítico): con SSR, el servidor de Nuxt llamaba a `/auth/me` sin las cookies
+  del navegador. La app pasa a **SPA** (`ssr: false`, ADR-0020) y se publica como estáticos.
+- **Fechas en UTC:** historial, turnos y pagos mostraban la hora UTC (una venta de 6:26 p.m. aparecía
+  como 00:26 del día siguiente). `utils/dates.ts` distingue momentos (hora local) de fechas de
+  calendario (caducidades).
+- **Carrito:** muestra "Ya pagado / Por cobrar" cuando hay abonos; avisa "Pagado de más" y el cobro no
+  cierra una venta sobrepagada. Cambiar cantidad o quitar un producto ya no deja promesas sin atender
+  y resincroniza con el servidor si éste lo rechaza.
+- **Nota de remisión:** el modal anunciaba la copia equivocada (contaba dos veces).
+- **Colores del tema:** faltaban los tonos 50–300 de éxito/advertencia/error (y 200–300 del primario);
+  más de 150 clases (insignias, fondos, texto en modo oscuro) no generaban color.
+
 ### Corregido (revisión de calidad, de mayor a menor gravedad)
 
 - **Cobro atorado.** Si el pago entraba pero el cierre fallaba, reintentar mandaba un pago de $0 que

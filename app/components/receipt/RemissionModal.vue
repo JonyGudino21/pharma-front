@@ -36,10 +36,15 @@ const cfg = ref<RemissionSettings>(DEFAULT_REMISSION_SETTINGS)
 const html = ref('')
 const loading = ref(true)
 const failed = ref(false)
-/** Copias emitidas desde que se abrió el modal (se suman a las ya conocidas). */
-const printedNow = ref(0)
+/**
+ * Último número de copia que REGISTRÓ el servidor desde que se abrió el modal.
+ * La fuente de verdad es el servidor: antes se sumaba un contador local a
+ * `printedCopies`, que el padre también incrementaba, y la misma impresión se
+ * contaba dos veces ("se imprimirá como COPIA 5" tras dos impresiones).
+ */
+const lastRegistered = ref(0)
 
-const nextCopy = computed(() => (props.printedCopies ?? 0) + printedNow.value + 1)
+const nextCopy = computed(() => Math.max(props.printedCopies ?? 0, lastRegistered.value) + 1)
 
 async function loadPreview() {
   loading.value = true
@@ -64,11 +69,11 @@ async function imprimir() {
       returnedTotal: props.returnedTotal,
       fallbackClient: props.fallbackClient,
       onRegistered: (n) => {
-        printedNow.value += 1
+        lastRegistered.value = n
         emit('printed', n)
       },
     })
-    if (ok) toast.success(nextCopy.value > 2 ? 'Copia enviada a la impresión.' : 'Original enviado a la impresión.')
+    if (ok) toast.success(lastRegistered.value > 1 ? `Copia ${lastRegistered.value} enviada a la impresión.` : 'Original enviado a la impresión.')
   } catch {
     // El interceptor de $api ya explicó el motivo (sin conexión, sin permiso…).
   }
@@ -109,7 +114,7 @@ function onKey(e: KeyboardEvent) {
           <p class="mt-0.5 text-xs text-gray-500">
             Hoja {{ cfg.paper === 'A4' ? 'A4' : 'Carta' }} · se imprimirá como
             <strong>{{ nextCopy === 1 ? 'ORIGINAL' : `COPIA ${nextCopy}` }}</strong>.
-            En el diálogo de impresión elige “Guardar como PDF” si la quieres en archivo.
+            Para descargarla, elige “Guardar como PDF” como impresora en el diálogo.
           </p>
         </div>
         <button type="button" class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Cerrar" @click="emit('close')">
@@ -145,7 +150,7 @@ function onKey(e: KeyboardEvent) {
           @click="imprimir"
         >
           <Icon :name="isPrinting ? 'ph:spinner-gap-bold' : 'ph:printer-bold'" :class="{ 'animate-spin': isPrinting }" class="h-5 w-5" />
-          {{ isPrinting ? 'Imprimiendo…' : 'Imprimir nota' }}
+          {{ isPrinting ? 'Preparando…' : 'Imprimir o guardar PDF' }}
         </button>
       </footer>
     </div>

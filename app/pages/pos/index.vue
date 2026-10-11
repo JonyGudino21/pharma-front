@@ -32,7 +32,7 @@ const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 const { printSale, afterSaleCompleted, isPrinting } = useReceiptPrint()
-const { items, total, subtotal, discountTotal, taxTotal, discountsLocked, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
+const { items, total, subtotal, discountTotal, taxTotal, paidAmount, balance, discountsLocked, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
 
 // ── Descuentos (Configuración › Descuentos) ────────────────────────────────
 const settingsStore = useSettingsStore()
@@ -445,6 +445,27 @@ onMounted(async () => {
             <span class="text-4xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ formatCurrency(total) }}</span>
           </div>
           <p v-if="taxTotal > 0" class="text-right text-xs text-gray-400 tabular-nums">IVA incluido: {{ formatCurrency(taxTotal) }}</p>
+          <!-- Abonos ya registrados en esta venta (p. ej. un cobro cuyo cierre
+               falló): sin esto el carrito mostraba el total completo y el cajero
+               no sabía que parte ya estaba pagada. -->
+          <div
+            v-if="paidAmount > 0"
+            class="space-y-1 rounded-lg bg-success-500/10 px-3 py-2 text-sm"
+            data-testid="pos-paid-summary"
+          >
+            <div class="flex justify-between text-success-800 dark:text-success-300">
+              <span>Ya pagado</span>
+              <span class="tabular-nums font-semibold">{{ formatCurrency(paidAmount) }}</span>
+            </div>
+            <div v-if="balance >= 0" class="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+              <span>Por cobrar</span>
+              <span class="tabular-nums">{{ formatCurrency(balance) }}</span>
+            </div>
+            <div v-else class="flex justify-between font-semibold text-error-700 dark:text-error-300">
+              <span>Pagado de más</span>
+              <span class="tabular-nums">{{ formatCurrency(-balance) }}</span>
+            </div>
+          </div>
           <button
             v-if="canDiscount && !isEmpty"
             type="button"
@@ -506,19 +527,24 @@ onMounted(async () => {
       :sale="completedSale"
       :printed-copies="remissionCopies"
       :fallback-client="clientAtCheckout"
-      @printed="remissionCopies += 1"
+      @printed="(n) => (remissionCopies = n)"
       @close="showRemission = false"
     />
 
     <!-- Comprobante -->
     <div v-if="showReceipt && completedSale && completedTicket" class="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div class="fixed inset-0 bg-[#12261e]/70 backdrop-blur-sm" @click="newSale"></div>
-      <div class="relative w-full max-w-md bg-[#12261e] rounded-2xl shadow-2xl overflow-hidden p-5 text-center">
-        <p class="font-[Literata] text-[#f3e6c4] text-xl mb-1">Venta cobrada</p>
-        <p class="text-[#c4a35a] text-xs tracking-[0.2em] uppercase font-mono mb-4">
+      <!-- Identidad de la app (azul PharmaPOS, claro/oscuro). Antes era un verde
+           y dorado fijos que no correspondían con ninguna otra pantalla. -->
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="newSale"></div>
+      <div class="relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 text-center shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+        <div class="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
+          <Icon name="ph:check-circle-fill" class="h-7 w-7" />
+        </div>
+        <p class="text-xl font-bold text-gray-900 dark:text-white">Venta cobrada</p>
+        <p class="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-primary-600 dark:text-primary-400">
           {{ completedSale.invoiceNumber ?? '#' + completedSale.id }}
         </p>
-        <div ref="ticketEl" class="flex justify-center max-h-[55vh] overflow-y-auto">
+        <div ref="ticketEl" class="flex max-h-[52vh] justify-center overflow-y-auto rounded-xl bg-gray-100 px-3 pb-3 pt-4 dark:bg-gray-900">
           <ReceiptPreview
             :sale="completedTicket"
             :company="companyStore.company"
@@ -527,7 +553,7 @@ onMounted(async () => {
         </div>
         <button
           v-if="canRemission"
-          class="mt-4 w-full py-2.5 rounded-xl border border-[#c4a35a]/30 text-[#c4a35a] text-sm font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+          class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary-200 py-2.5 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 dark:border-primary-500/30 dark:text-primary-300 dark:hover:bg-primary-500/10"
           data-testid="pos-open-remission"
           @click="showRemission = true"
         >
@@ -536,7 +562,7 @@ onMounted(async () => {
         </button>
         <div class="flex gap-3 mt-3">
           <button
-            class="flex-1 py-3 rounded-xl border border-[#c4a35a]/50 text-[#f3e6c4] font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
             :disabled="isPrinting"
             @click="printReceipt"
           >
@@ -544,7 +570,7 @@ onMounted(async () => {
             {{ isPrinting ? 'Imprimiendo…' : 'Imprimir' }}
           </button>
           <button
-            class="flex-1 py-3 rounded-xl bg-[#c4a35a] text-[#12261e] font-semibold hover:bg-[#d4b56a] transition-colors"
+            class="flex-1 rounded-xl bg-primary-600 py-3 font-semibold text-white transition-colors hover:bg-primary-700"
             @click="newSale"
           >
             Nueva venta
