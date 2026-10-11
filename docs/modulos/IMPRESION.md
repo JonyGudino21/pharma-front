@@ -37,6 +37,11 @@ Resumen de arquitectura en [ARQUITECTURA.md §8](../ARQUITECTURA.md#8-impresión
 
 ## Ticket
 
+**Estilo (ADR-0021):** una sola fuente, `PHARMA_TICKET_CSS`, que `ReceiptPreview` inyecta con
+`useHead` y `printBrowser` usa al imprimir (antes había dos copias que ya diferían). Papel blanco, tinta
+pizarra, píldora azul como marca, ámbar para saldo y copias. La impresión térmica ESC/POS no usa este CSS.
+El modal "Venta cobrada" del POS usa los estilos de la app en claro y oscuro.
+
 ### Reglas de `printSale(sale, opts)`
 
 1. Borrador → "Cobra la venta para imprimir el ticket." · Anulada → "Esta venta está anulada…".
@@ -74,16 +79,24 @@ Winbond, NXP.
 
 Documento **no fiscal** en hoja Carta/A4 para entregas a clientes, empresas y ventas a crédito.
 
-### Diseño ("botica", rediseño 10/10/2026)
+### Diseño (identidad PharmaPOS, ADR-0021)
 
-- **Paleta legible en impresora de un solo color:** tinta `#14231C`, verde botica `#1E6B52` (único
-  acento), menta `#E3EFE8` (renglones alternos), ámbar `#A8551A` (saldo y copias), líneas `#C9D3CE`.
+- **Misma paleta que la app** (legible en impresora de un solo color): tinta `#0F172A`, azul de marca
+  `#1D4ED8` (único acento), total en `#1E3A8A`, renglones alternos azul hielo `#E8EEFB`, ámbar
+  `#B45309` (saldo y copias), líneas `#CBD5E1`. Sin logo, la **píldora de PharmaPOS**
+  (`BRAND_MARK_SVG`, la misma del ticket).
+- **Densidad adaptativa** (`resolveDensity`, ajuste `remission.density`): AUTO = cómoda hasta 7
+  partidas y compacta desde 8. Compacta: renglón de una línea (código, lote y caducidad al lado del
+  nombre), encabezado y pie más bajos, etiquetas en línea. Medido en Carta: compacta 21–24 partidas
+  con todo en una hoja; 34 en la primera si la tabla continúa y 45 en las siguientes (50 = 2 hojas).
+- **Pie reacomodado:** firmas, observaciones y condiciones van en la columna izquierda junto a los
+  totales; márgenes de página 9/10/12 mm.
 - **Tipografía local** (sin internet; `utils/remission-fonts.ts` declara las @font-face con URL
   absoluta del mismo origen): Literata para el nombre de la farmacia y el total, IBM Plex Sans para el
   cuerpo (10.5 pt), IBM Plex Mono para folio, SKU, lote y RFC. Sin ellas, fuentes del sistema.
 - **Sello visual:** banda de guilloché (trazo de papel de seguridad) en el encabezado, generada de forma
-  determinista (`guillocheSvg`). Sin logo, una cruz de botica como marca.
-- **Accesibilidad (baja visión):** la tabla de partidas alterna renglones blanco / menta
+  determinista (`guillocheSvg`), en el azul de la marca.
+- **Accesibilidad (baja visión):** la tabla de partidas alterna renglones blanco / azul hielo
   (`print-color-adjust: exact` para que se impriman), encabezado oscuro de alto contraste, cifras
   tabulares a la derecha y menos columnas: código, **lote con caducidad (MM/AAAA)** y descuento van en
   una línea secundaria bajo el nombre del producto. Debajo: "N partidas · M piezas".

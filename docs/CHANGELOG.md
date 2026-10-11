@@ -6,6 +6,20 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Identidad única y densidad adaptativa (ADR-0021)
+
+- Ticket, modal "Venta cobrada" y nota de remisión con la identidad azul de PharmaPOS (antes verde y
+  dorado). El ticket tiene una sola fuente de estilo y la píldora del logo como marca.
+- Nota de remisión con densidad adaptativa: cómoda hasta 7 productos, compacta desde 8 (21–24 en una
+  sola hoja con totales y firmas; 50 productos en 2 hojas en lugar de 4). Ajustable en Configuración.
+
+### Agregado
+
+- **Inventario › Asignar lote** para la existencia sin lote (ADR-0022).
+- **Dispositivos › Guía de conexión** sin tecnicismos (impresora, cajón, lector, problemas comunes).
+- Alta de producto: explica que la caducidad se pide al capturar stock inicial (es del lote).
+- Guía ejecutiva `docs/ejecutivo/LOTES_Y_CADUCIDADES.md`.
+
 ### Nota de remisión — rediseño "botica" (10/10/2026)
 
 - Diseño premium y legible en impresora de un color: banda de guilloché, tipografías locales (Literata,
