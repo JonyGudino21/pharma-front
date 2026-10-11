@@ -84,7 +84,7 @@
           La configuración de inventario exige lote y caducidad en toda entrada: sin ellos la compra no se podrá recibir.
         </p>
         <p v-else id="purchaseItemLotHelp" class="-mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Opcionales, pero van juntos: captura ambos o ninguno.
+          Opcionales, pero van juntos: captura ambos o ninguno.<template v-if="isEditing && props.itemToEdit?.lotNumber"> Para quitar el lote, deja los dos vacíos.</template>
         </p>
 
         <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg flex justify-between items-center gap-3 border border-gray-100 dark:border-gray-700">
@@ -212,16 +212,24 @@ const handleSubmit = async () => {
   if (qtyError.value || costError.value || lotError.value) return
   isLoading.value = true
 
-  const lotPayload = form.lotNumber.trim() && form.expiryDate
+  const conLote = !!(form.lotNumber.trim() && form.expiryDate)
+  const lote = conLote
     ? { lotNumber: form.lotNumber.trim().toUpperCase(), expiryDate: form.expiryDate }
-    : { lotNumber: undefined, expiryDate: undefined }
+    : null
 
   try {
     if (isEditing.value && props.itemToEdit) {
-      await store.updateItem(props.purchaseId, props.itemToEdit.id, { quantity: form.quantity, cost: form.cost, ...lotPayload })
+      // Al EDITAR, campos vacíos = `null` = borrar el lote (JSON Merge Patch).
+      // Con `undefined` el campo no viaja y el servidor conservaba el lote
+      // anterior: una captura equivocada no se podía corregir.
+      await store.updateItem(props.purchaseId, props.itemToEdit.id, {
+        quantity: form.quantity,
+        cost: form.cost,
+        ...(lote ?? { lotNumber: null, expiryDate: null }),
+      })
       toast.success('Ítem actualizado.')
     } else if (selectedProduct.value) {
-      await store.addItem(props.purchaseId, { productId: selectedProduct.value.id, quantity: form.quantity, cost: form.cost, ...lotPayload })
+      await store.addItem(props.purchaseId, { productId: selectedProduct.value.id, quantity: form.quantity, cost: form.cost, ...(lote ?? {}) })
       toast.success('Producto agregado a la compra.')
     }
     close()
