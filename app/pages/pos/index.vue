@@ -32,7 +32,7 @@ const authStore = useAuthStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 const { printSale, afterSaleCompleted, isPrinting } = useReceiptPrint()
-const { items, total, subtotal, discountTotal, taxTotal, discountsLocked, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
+const { items, total, subtotal, discountTotal, taxTotal, paidAmount, balance, discountsLocked, itemCount, isEmpty, selectedClient, isMutating, isBootstrapping, canChangeClient, hasControlledItems } = storeToRefs(sales)
 
 // ── Descuentos (Configuración › Descuentos) ────────────────────────────────
 const settingsStore = useSettingsStore()
@@ -445,6 +445,27 @@ onMounted(async () => {
             <span class="text-4xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ formatCurrency(total) }}</span>
           </div>
           <p v-if="taxTotal > 0" class="text-right text-xs text-gray-400 tabular-nums">IVA incluido: {{ formatCurrency(taxTotal) }}</p>
+          <!-- Abonos ya registrados en esta venta (p. ej. un cobro cuyo cierre
+               falló): sin esto el carrito mostraba el total completo y el cajero
+               no sabía que parte ya estaba pagada. -->
+          <div
+            v-if="paidAmount > 0"
+            class="space-y-1 rounded-lg bg-success-500/10 px-3 py-2 text-sm"
+            data-testid="pos-paid-summary"
+          >
+            <div class="flex justify-between text-success-800 dark:text-success-300">
+              <span>Ya pagado</span>
+              <span class="tabular-nums font-semibold">{{ formatCurrency(paidAmount) }}</span>
+            </div>
+            <div v-if="balance >= 0" class="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+              <span>Por cobrar</span>
+              <span class="tabular-nums">{{ formatCurrency(balance) }}</span>
+            </div>
+            <div v-else class="flex justify-between font-semibold text-error-700 dark:text-error-300">
+              <span>Pagado de más</span>
+              <span class="tabular-nums">{{ formatCurrency(-balance) }}</span>
+            </div>
+          </div>
           <button
             v-if="canDiscount && !isEmpty"
             type="button"
@@ -506,7 +527,7 @@ onMounted(async () => {
       :sale="completedSale"
       :printed-copies="remissionCopies"
       :fallback-client="clientAtCheckout"
-      @printed="remissionCopies += 1"
+      @printed="(n) => (remissionCopies = n)"
       @close="showRemission = false"
     />
 
