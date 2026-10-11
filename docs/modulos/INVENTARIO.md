@@ -100,3 +100,15 @@ Estado separado por recurso: valuación, alertas de stock bajo, kardex, caducida
   gerencia en Configuración › Inventario y los aplica el servidor; el front sólo los muestra.
 - El libro de controlados se trata como documento regulatorio (COFEPRIS): nunca se presenta un
   fallo como ausencia de registros.
+
+## Asignar lote a existencia sin lote (ADR-0022)
+
+- Inventario › buscar producto › **Asignar lote** (`components/inventory/AssignLotModal.vue`), con
+  `canAdjustInventory` (gerencia).
+- Muestra **Existencia / Con lote / Sin lote** (`GET /inventory/stock/:id` → `inLots`, `unbatched`).
+- Captura número de lote (mayúsculas), caducidad (no vencida) y piezas (≤ sin lote) →
+  `POST /inventory/batches/regularize`. Si quedan piezas sin lote, el modal se queda abierto para el
+  siguiente lote.
+- La existencia total no cambia; en el Kardex quedan dos asientos de ajuste con el mismo motivo.
+- Para qué: la mercancía anterior a los lotes no entra al FEFO ni a las alertas, y un **controlado** sin
+  lote no se puede vender (el POS lo indica y remite aquí).

@@ -148,3 +148,12 @@ registrado como evento `TEST`). Ambos exigen guardar antes. Confirmación al sal
   PC; dos cajas = dos perfiles.
 - Guardado de **sólo lo cambiado con versión** (concurrencia optimista).
 - Ticket y Dispositivos no usan `useSettingsForm` y **no** registran bloqueo de actualización.
+
+## Novedades (10/10/2026)
+
+- **Dispositivos › Guía de conexión** (`components/settings/DevicesGuide.vue`): panel lateral con pasos
+  sin tecnicismos para impresora, cajón y lector de códigos, y una sección "Si algo no funciona".
+- **Nota de remisión › Densidad de la tabla**: Automática (recomendada), Cómoda o Compacta. La vista
+  previa permite ver un ejemplo de 3 o de 30 productos.
+- Estado de las 9 secciones (Ticket, Caja, Inventario, Descuentos, Impuestos, Nota de remisión,
+  Dispositivos, Usuarios, Permisos): todas implementadas y verificadas en vivo, sin errores de carga.

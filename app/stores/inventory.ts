@@ -37,6 +37,18 @@ export interface ProductStockSnapshot {
   sellable: number
   expired: number
   name: string
+  controlled?: boolean
+  /** Piezas en lotes y piezas sin lote (existencia anterior a los lotes). */
+  inLots?: number
+  unbatched?: number
+}
+
+export interface RegularizeLotResult {
+  productId: number
+  lotNumber: string
+  expiryDate: string
+  assigned: number
+  remainingUnbatched: number
 }
 
 export type ExpiryStatus = 'EXPIRED' | 'CRITICAL' | 'WARNING' | 'OK'
@@ -231,7 +243,18 @@ export const useInventoryStore = defineStore('inventory', () => {
     })
   }
 
+  /** Asigna lote y caducidad a piezas sin lote (no cambia la existencia total). */
+  async function regularizeLot(payload: { productId: number; lotNumber: string; expiryDate: string; quantity: number }) {
+    const { $api } = useNuxtApp()
+    const res = await $api<ApiResponse<RegularizeLotResult>>('/inventory/batches/regularize', {
+      method: 'POST',
+      body: payload,
+    })
+    return res.data
+  }
+
   return {
+    regularizeLot,
     expiringError,
     controlledError,
     valuation,

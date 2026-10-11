@@ -17,6 +17,7 @@ se usa, qué protege y qué no hace todavía. No requieren conocimientos técnic
 | Consulta, devoluciones y anulaciones | [Ventas](VENTAS.md) |
 | Efectivo, cortes y cajón | [Caja](CAJA.md) |
 | Existencias, caducidades y controlados | [Inventario](INVENTARIO.md) |
+| Qué es un lote, FEFO y cómo registrarlo (prueba guiada) | [Lotes y caducidades](LOTES_Y_CADUCIDADES.md) |
 | Productos y categorías | [Catálogo](CATALOGO.md) |
 | Facturas de proveedores y recepción | [Compras](COMPRAS.md) |
 | Directorio y estado de cuenta | [Proveedores](PROVEEDORES.md) |

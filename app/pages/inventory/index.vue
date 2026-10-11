@@ -108,6 +108,14 @@
               >
                 <Icon name="ph:sliders-horizontal-bold" class="mr-2" /> Ajustar
               </button>
+              <button
+                v-if="authStore.can('canAdjustInventory')"
+                class="flex-1 sm:flex-none btn-secondary border-primary-200 text-primary-700 hover:bg-primary-50 dark:border-primary-500/30 dark:text-primary-300 dark:hover:bg-primary-500/10"
+                title="Registrar lote y caducidad de la existencia que no los tiene"
+                @click="openAssignLot(product)"
+              >
+                <Icon name="ph:barcode-bold" class="mr-2" /> Asignar lote
+              </button>
             </div>
           </div>
         </div>
@@ -116,6 +124,7 @@
 
     <KardexModal v-model="showKardexModal" :product="selectedProduct" />
     <AdjustmentModal v-model="showAdjustmentModal" :product="selectedProduct" @success="handleAdjustmentSuccess" />
+    <AssignLotModal v-model="showAssignLot" :product="selectedProduct" @success="handleAdjustmentSuccess" />
   </div>
 </template>
 
@@ -129,6 +138,7 @@ import type { Product, SearchProductPayload } from '~/stores/product'
 
 import KardexModal from '~/components/inventory/KardexModal.vue'
 import AdjustmentModal from '~/components/inventory/AdjustmentModal.vue'
+import AssignLotModal from '~/components/inventory/AssignLotModal.vue'
 
 definePageMeta({
   requiredPermission: 'canViewKardex' // Protegemos la ruta entera.
@@ -169,6 +179,12 @@ const handleSearch = () => {
     })
     isSearching.value = false
   }, 500)
+}
+
+const showAssignLot = ref(false)
+const openAssignLot = (product: Product) => {
+  selectedProduct.value = product
+  showAssignLot.value = true
 }
 
 const openKardex = (product: Product) => {
