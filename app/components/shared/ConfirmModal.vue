@@ -1,9 +1,9 @@
 <template>
-  <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-60 flex items-center justify-center p-4">
-    <div 
-      class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all"
-    >
-      <div class="p-6 text-center">
+  <!-- Patrón responsivo de referencia: hoja inferior en celular, centrado en laptop
+       (clases .modal-* en main.css). -->
+  <div class="modal-overlay z-60" role="alertdialog" aria-modal="true" :aria-label="title" @keydown.esc="$emit('cancel')">
+    <div class="modal-panel sm:max-w-md">
+      <div class="modal-body text-center">
         <div 
           class="mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4"
           :class="{
@@ -20,7 +20,7 @@
         <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ title }}</h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{{ message }}</p>
         
-        <div class="flex justify-center gap-3">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center sm:gap-3">
           <button @click="$emit('cancel')" class="btn-secondary w-full sm:w-auto">
             {{ cancelText }}
           </button>

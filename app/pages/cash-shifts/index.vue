@@ -1,27 +1,28 @@
 <template>
-  <div class="space-y-6 max-w-4xl mx-auto">
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <div class="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+    <div class="page-header">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon name="ph:cash-register-bold" class="text-primary-600" /> Mi Turno de Caja
         </h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Control de dinero en efectivo de tu sesión actual.</p>
       </div>
       
-      <NuxtLink 
-        v-if="authStore.can('canViewAllShifts')" 
-        to="/cash-shifts/history"
-        class="btn-secondary shrink-0 text-sm"
-      >
-        <Icon name="ph:list-dashes-bold" class="mr-2" /> Ver Historial
-      </NuxtLink>
+      <div v-if="authStore.can('canViewAllShifts')" class="page-actions">
+        <NuxtLink
+          to="/cash-shifts/history"
+          class="btn-secondary text-sm"
+        >
+          <Icon name="ph:list-dashes-bold" class="mr-2" /> Ver Historial
+        </NuxtLink>
+      </div>
     </div>
 
     <!--
       No sabemos si hay turno ≠ no hay turno. Antes un error de red caía en la
       rama "Caja cerrada" y ofrecía abrir OTRA caja.
     -->
-    <div v-if="store.currentShiftError && !store.currentShift" class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-error-500/40 text-center" role="alert">
+    <div v-if="store.currentShiftError && !store.currentShift" class="bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-2xl shadow-sm border border-error-500/40 text-center" role="alert">
       <Icon name="ph:cloud-slash-fill" class="w-10 h-10 mx-auto text-error-500" />
       <h2 class="mt-2 text-lg font-bold text-gray-900 dark:text-white">No pudimos consultar tu turno</h2>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ store.currentShiftError.mensaje }} No abras otra caja hasta confirmar si ya tienes una.</p>
@@ -30,12 +31,12 @@
       </button>
     </div>
 
-    <div v-else-if="!store.currentShift" class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+    <div v-else-if="!store.currentShift" class="bg-white dark:bg-gray-800 p-5 sm:p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
       <div class="w-20 h-20 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-gray-100 dark:border-gray-700">
         <Icon name="ph:lock-key-bold" class="w-10 h-10 text-gray-400" />
       </div>
       <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Caja Cerrada</h2>
-      <p class="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">
+      <p class="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6 sm:mb-8">
         No tienes un turno activo. Abre tu caja declarando el monto inicial (fondo o morralla) para poder recibir pagos en efectivo.
       </p>
 
@@ -44,7 +45,7 @@
           <label class="label-base text-center block">Monto Inicial en Caja *</label>
           <div class="relative">
             <Icon name="ph:currency-dollar-bold" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input v-model.number="openForm.initialAmount" type="number" step="0.01" min="0" required class="input-base pl-10 text-xl font-bold text-center h-14" placeholder="0.00" aria-describedby="fondoSugerido" />
+            <input v-model.number="openForm.initialAmount" type="number" inputmode="decimal" step="0.01" min="0" required class="input-base pl-10 text-xl font-bold text-center h-14" placeholder="0.00" aria-describedby="fondoSugerido" />
           </div>
           <p v-if="suggestedFloat > 0" id="fondoSugerido" class="mt-1.5 text-center text-xs text-gray-500 dark:text-gray-400">
             Fondo sugerido por gerencia: {{ formatCurrency(suggestedFloat) }}. Confírmalo contando el dinero.
@@ -61,20 +62,20 @@
     </div>
 
     <div v-else class="space-y-6">
-      <div class="bg-linear-to-br from-primary-600 to-primary-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+      <div class="bg-linear-to-br from-primary-600 to-primary-800 rounded-2xl p-5 sm:p-6 text-white shadow-lg relative overflow-hidden">
         <Icon name="ph:cash-register-duotone" class="absolute -bottom-4 -right-4 w-32 h-32 opacity-10" />
-        
-        <div class="relative z-10 flex justify-between items-start">
-          <div>
+
+        <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
+          <div class="min-w-0">
             <span class="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold tracking-widest mb-3 inline-block">
               Turno Abierto
             </span>
-            <p class="text-3xl font-black mb-1">Caja Activa</p>
+            <p class="text-2xl sm:text-3xl font-black mb-1">Caja Activa</p>
             <p class="text-primary-100 flex items-center gap-2 text-sm">
-              <Icon name="ph:clock-bold" /> Abierta desde: {{ formatDateTime(store.currentShift.openedAt) }}
+              <Icon name="ph:clock-bold" class="shrink-0" /> Abierta desde: {{ formatDateTime(store.currentShift.openedAt) }}
             </p>
           </div>
-          <div class="text-right">
+          <div class="sm:text-right">
             <p class="text-primary-200 text-sm font-bold uppercase tracking-wider mb-1">Monto Inicial</p>
             <p class="text-2xl font-bold">{{ formatCurrency(Number(store.currentShift.initialAmount)) }}</p>
           </div>
@@ -98,13 +99,13 @@
 
       <div
         v-if="store.currentShift.drawer && store.currentShift.drawer.cashOnHand !== null"
-        class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-6 py-4 text-sm shadow-sm dark:border-gray-700 dark:bg-gray-800"
+        class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-4 sm:px-6 text-sm shadow-sm dark:border-gray-700 dark:bg-gray-800"
       >
         <span class="text-gray-500 dark:text-gray-400">Efectivo estimado en caja <span class="text-xs">(sólo gerencia)</span></span>
         <span class="text-lg font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(Number(store.currentShift.drawer.cashOnHand)) }}</span>
       </div>
 
-      <div v-if="authStore.can('canWithdrawCash')" class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div v-if="authStore.can('canWithdrawCash')" class="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Icon name="ph:hand-coins-bold" class="text-gray-400" /> Operaciones Manuales (Manager)
         </h3>
@@ -122,7 +123,7 @@
             <label class="label-base text-xs">Monto *</label>
             <div class="flex items-center gap-2">
               <span class="text-gray-500 text-base pl-2 pr-1">$</span>
-              <input v-model.number="operationForm.amount" type="number" step="0.01" min="0.01" required class="input-base text-sm py-2 flex-1" placeholder="0.00" />
+              <input v-model.number="operationForm.amount" type="number" inputmode="decimal" step="0.01" min="0.01" required class="input-base text-sm py-2 flex-1" placeholder="0.00" />
             </div>
    
           </div>
@@ -131,7 +132,7 @@
             <input v-model="operationForm.reason" type="text" required class="input-base text-sm py-2" placeholder="Ej: Depósito bancario" />
           </div>
           <div class="md:col-span-2 flex items-end">
-            <button type="submit" :disabled="store.isActionLoading" class="btn-secondary w-full py-2">
+            <button type="submit" :disabled="store.isActionLoading" class="btn-secondary w-full py-2.5 md:py-2">
               <Icon v-if="store.isActionLoading" name="ph:spinner-gap-bold" class="animate-spin" />
               <span v-else>Registrar</span>
             </button>
@@ -144,14 +145,14 @@
             <label for="drawerReason" class="label-base text-xs">Abrir cajón sin venta · motivo *</label>
             <input id="drawerReason" v-model="drawerReason" type="text" maxlength="200" class="input-base text-sm py-2" placeholder="Ej. cambio para cliente, revisión de billetes" />
           </div>
-          <button type="submit" class="btn-secondary py-2 md:w-48" :disabled="drawer.opening.value || drawerReason.trim().length < 3">
+          <button type="submit" class="btn-secondary py-2.5 md:py-2 md:w-48" :disabled="drawer.opening.value || drawerReason.trim().length < 3">
             <Icon :name="drawer.opening.value ? 'ph:spinner-gap-bold' : 'ph:vault-bold'" :class="drawer.opening.value ? 'animate-spin' : ''" class="mr-2" /> Abrir cajón
           </button>
         </form>
         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Queda registrado con tu nombre, la hora y esta caja. Gerencia lo ve en el detalle del turno.</p>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-error-100 dark:border-error-900/30">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-error-100 dark:border-error-900/30">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <Icon name="ph:lock-key-bold" class="text-error-500" /> Cierre de Turno (Arqueo Ciego)
         </h3>
@@ -169,7 +170,7 @@
             <label class="label-base text-center block text-error-600 dark:text-error-400 font-bold">Total Físico Contado *</label>
             <div class="relative">
               <Icon name="ph:currency-dollar-bold" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input v-model.number="closeForm.realAmount" type="number" step="0.01" min="0" required class="input-base pl-10 text-2xl font-black text-center h-16 border-gray-300 dark:border-gray-600 focus:border-error-500 focus:ring-error-500" placeholder="0.00" />
+              <input v-model.number="closeForm.realAmount" type="number" inputmode="decimal" step="0.01" min="0" required class="input-base pl-10 text-2xl font-black text-center h-16 border-gray-300 dark:border-gray-600 focus:border-error-500 focus:ring-error-500" placeholder="0.00" />
             </div>
           </div>
           <div>
@@ -184,14 +185,14 @@
     </div>
 
     <!-- Cierre ciego: el cajero sólo ve lo que contó -->
-    <div v-if="blindSummary" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="corteCiegoTitulo">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center">
-        <div class="bg-primary-600 p-6 text-white">
+    <div v-if="blindSummary" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="corteCiegoTitulo">
+      <div class="modal-panel sm:max-w-sm text-center">
+        <div class="shrink-0 bg-primary-600 p-6 text-white">
           <Icon name="ph:check-circle-bold" class="w-16 h-16 mx-auto mb-2" />
           <h2 id="corteCiegoTitulo" class="text-2xl font-black">Corte registrado</h2>
           <p class="text-sm opacity-90">Gerencia revisará el arqueo.</p>
         </div>
-        <div class="p-6 space-y-3 text-sm text-left">
+        <div class="modal-body space-y-3 text-sm text-left">
           <div class="flex justify-between">
             <span class="text-gray-500">Monto inicial</span>
             <span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(Number(blindSummary.initial)) }}</span>
@@ -201,21 +202,21 @@
             <span class="font-black text-gray-900 dark:text-white">{{ formatCurrency(Number(blindSummary.real)) }}</span>
           </div>
         </div>
-        <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-          <button @click="closeSummaryModal" class="btn-primary w-full">Aceptar y salir</button>
+        <div class="modal-footer bg-gray-50 dark:bg-gray-900/50">
+          <button @click="closeSummaryModal" class="btn-primary w-full py-2.5">Aceptar y salir</button>
         </div>
       </div>
     </div>
 
-    <div v-if="closureSummary" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden text-center">
-        <div :class="closureSummary.status === 'AUDIT_REQUIRED' ? 'bg-error-500' : 'bg-success-500'" class="p-6 text-white">
+    <div v-if="closureSummary" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="corteTitulo">
+      <div class="modal-panel sm:max-w-sm text-center">
+        <div :class="closureSummary.status === 'AUDIT_REQUIRED' ? 'bg-error-500' : 'bg-success-500'" class="shrink-0 p-6 text-white">
           <Icon :name="closureSummary.status === 'AUDIT_REQUIRED' ? 'ph:warning-circle-bold' : 'ph:check-circle-bold'" class="w-16 h-16 mx-auto mb-2" />
-          <h2 class="text-2xl font-black">Corte Finalizado</h2>
+          <h2 id="corteTitulo" class="text-2xl font-black">Corte Finalizado</h2>
           <p class="text-sm opacity-90">{{ closureSummary.status === 'AUDIT_REQUIRED' ? 'Diferencia fuera de tolerancia' : 'Caja Cuadrada' }}</p>
         </div>
         
-        <div class="p-6 space-y-3 text-sm text-left">
+        <div class="modal-body space-y-3 text-sm text-left">
           <div class="flex justify-between">
             <span class="text-gray-500">Monto Inicial</span>
             <span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(Number(closureSummary.initial)) }}</span>
@@ -241,7 +242,7 @@
             <span class="font-black text-gray-900 dark:text-white">{{ formatCurrency(Number(closureSummary.real)) }}</span>
           </div>
           
-          <div class="mt-4 p-3 rounded-xl border" :class="Number(closureSummary.difference) < 0 ? 'bg-error-50 border-error-200' : Number(closureSummary.difference) > 0 ? 'bg-warning-50 border-warning-200' : 'bg-success-50 border-success-200'">
+          <div class="mt-4 p-3 rounded-xl border" :class="Number(closureSummary.difference) < 0 ? 'bg-error-50 border-error-200 dark:bg-error-900/20 dark:border-error-800/40' : Number(closureSummary.difference) > 0 ? 'bg-warning-50 border-warning-200 dark:bg-warning-900/20 dark:border-warning-800/40' : 'bg-success-50 border-success-200 dark:bg-success-900/20 dark:border-success-800/40'">
             <div class="flex justify-between items-center font-black">
               <span :class="Number(closureSummary.difference) < 0 ? 'text-error-700' : Number(closureSummary.difference) > 0 ? 'text-warning-700' : 'text-success-700'">
                 Diferencia:
@@ -255,8 +256,8 @@
           </div>
         </div>
         
-        <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-          <button @click="closeSummaryModal" class="btn-primary w-full">Aceptar y Salir</button>
+        <div class="modal-footer bg-gray-50 dark:bg-gray-900/50">
+          <button @click="closeSummaryModal" class="btn-primary w-full py-2.5">Aceptar y Salir</button>
         </div>
       </div>
     </div>

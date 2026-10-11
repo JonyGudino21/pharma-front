@@ -17,8 +17,8 @@ defineProps<{
 </script>
 
 <template>
-  <section class="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-    <header class="flex items-start gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+  <section class="min-w-0 rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <header class="flex flex-wrap items-start gap-3 border-b border-gray-100 px-4 py-4 sm:flex-nowrap sm:px-5 dark:border-gray-700">
       <span
         v-if="icon"
         class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
@@ -27,7 +27,7 @@ defineProps<{
         <Icon :name="icon" class="h-5 w-5" />
       </span>
       <div class="min-w-0 flex-1">
-        <h2 class="flex items-center gap-2 text-base font-semibold text-gray-900 dark:text-white">
+        <h2 class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold text-gray-900 dark:text-white">
           {{ title }}
           <span
             v-if="dirty"
@@ -41,7 +41,7 @@ defineProps<{
       </div>
       <slot name="actions" />
     </header>
-    <div class="px-5 py-5">
+    <div class="px-4 py-4 sm:px-5 sm:py-5">
       <slot />
     </div>
   </section>

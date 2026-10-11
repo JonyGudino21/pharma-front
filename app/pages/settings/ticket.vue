@@ -88,13 +88,13 @@ function onPrintTest(previewEl: HTMLElement | null) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl space-y-6">
+  <div class="mx-auto max-w-7xl space-y-4 sm:space-y-6">
     <!-- Encabezado, con la misma estructura que el resto de pantallas -->
-    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:flex-row lg:items-end lg:justify-between">
+    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Configuración</p>
-        <h1 class="mt-1 flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-          <Icon name="ph:receipt-bold" class="text-primary-600" /> Ticket de venta
+        <h1 class="mt-1 flex items-center gap-2 text-xl font-bold sm:text-2xl text-gray-900 dark:text-white">
+          <Icon name="ph:receipt-bold" class="shrink-0 text-primary-600 dark:text-primary-400" /> Ticket de venta
         </h1>
         <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
           Lo que imprime cada caja al cobrar. La vista previa se actualiza mientras editas y
@@ -116,7 +116,7 @@ function onPrintTest(previewEl: HTMLElement | null) {
 
     <!-- Cargando / error / contenido -->
     <div v-if="s.store.isLoading && !s.store.company" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]" aria-busy="true">
-      <div class="space-y-6">
+      <div class="min-w-0 space-y-4 sm:space-y-6">
         <div v-for="n in 3" :key="n" class="h-56 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" />
       </div>
       <div class="h-[520px] animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
@@ -130,8 +130,8 @@ function onPrintTest(previewEl: HTMLElement | null) {
       </button>
     </div>
 
-    <div v-else class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-      <div class="space-y-6">
+    <div v-else class="grid items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <div class="min-w-0 space-y-4 sm:space-y-6">
         <CompanyFiscalCard v-model="s.company" :errors="s.companyErrors.value" :dirty="s.companyDirty.value" />
         <PaperOptionsCard v-model="s.template" :name-error="s.templateErrors.value.name" :dirty="s.templateDirty.value" />
         <BlockOrderCard
@@ -145,7 +145,7 @@ function onPrintTest(previewEl: HTMLElement | null) {
         />
       </div>
 
-      <div class="lg:sticky lg:top-24">
+      <div class="min-w-0 lg:sticky lg:top-24">
         <PrinterStage
           :sale="s.sampleSale.value"
           :company="s.liveCompany.value"

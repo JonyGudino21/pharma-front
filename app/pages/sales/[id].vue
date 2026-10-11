@@ -3,15 +3,16 @@
     <div class="flex items-center gap-3">
       <NuxtLink
         to="/sales"
-        class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
         title="Volver al historial"
+        aria-label="Volver al historial"
       >
         <Icon name="ph:arrow-left-bold" class="w-5 h-5" />
       </NuxtLink>
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Detalle de venta</h1>
+      <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Detalle de venta</h1>
     </div>
 
-    <div v-if="store.detailLoading && !venta" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-700">
+    <div v-if="store.detailLoading && !venta" class="bg-white dark:bg-gray-800 rounded-2xl p-8 sm:p-12 text-center border border-gray-100 dark:border-gray-700">
       <Icon name="ph:spinner-gap-bold" class="w-10 h-10 animate-spin mx-auto mb-3 text-primary-500" />
       <p class="text-gray-500">Cargando la venta...</p>
     </div>
@@ -22,7 +23,7 @@
       venta" sobre una venta que existe perfectamente. Para un ticket que el
       cliente tiene en la mano, eso es una acusación, no un mensaje de error.
     -->
-    <div v-else-if="store.detailError" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-error-500/40">
+    <div v-else-if="store.detailError" class="bg-white dark:bg-gray-800 rounded-2xl p-8 sm:p-12 text-center border border-error-500/40">
       <Icon name="ph:cloud-slash-fill" class="w-12 h-12 mx-auto mb-3 text-error-500" />
       <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
         {{ store.detailError.mensaje }}
@@ -47,17 +48,17 @@
       </code>
     </div>
 
-    <div v-else-if="!venta" class="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-700">
+    <div v-else-if="!venta" class="bg-white dark:bg-gray-800 rounded-2xl p-8 sm:p-12 text-center border border-gray-100 dark:border-gray-700">
       <Icon name="ph:receipt-duotone" class="w-12 h-12 mx-auto mb-3 text-gray-400" />
       <p class="text-gray-500">No se encontró esta venta.</p>
     </div>
 
     <template v-else>
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div class="p-6 flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-          <div class="space-y-3">
-            <div class="flex items-center gap-3 flex-wrap">
-              <h2 class="text-2xl font-black text-gray-900 dark:text-white">
+        <div class="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-start justify-between gap-4 sm:gap-6">
+          <div class="space-y-3 min-w-0">
+            <div class="flex items-center gap-x-3 gap-y-2 flex-wrap">
+              <h2 class="text-xl sm:text-2xl font-black text-gray-900 dark:text-white break-all">
                 {{ venta.invoiceNumber || `Sin folio (#${venta.id})` }}
               </h2>
               <span :class="badgeEstado(venta.status).class">
@@ -87,13 +88,18 @@
               </div>
             </dl>
 
-            <p v-if="venta.note" class="text-sm text-gray-500 italic">{{ venta.note }}</p>
+            <p v-if="venta.note" class="text-sm text-gray-500 italic break-words">{{ venta.note }}</p>
           </div>
 
-            <div class="flex flex-wrap gap-2 shrink-0 print:hidden">
+          <!-- Celular: acciones a todo el ancho (dos por fila desde 400 px); laptop: fila. -->
+          <div
+            v-if="puedeImprimir || puedeRemision || puedeDevolver || puedeAnular"
+            class="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 sm:flex sm:flex-wrap shrink-0 print:hidden"
+          >
             <button
               v-if="puedeImprimir"
               class="btn-secondary"
+              data-testid="print-ticket"
               :disabled="isPrinting"
               @click="imprimir"
             >
@@ -121,7 +127,7 @@
 
             <button
               v-if="puedeAnular"
-              class="flex items-center px-4 py-2 rounded-lg font-medium text-white bg-error-600 hover:bg-error-700 transition-colors"
+              class="flex items-center justify-center px-4 py-2 rounded-lg font-medium text-white bg-error-600 hover:bg-error-700 transition-colors"
               @click="mostrarAnulacion = true"
             >
               <Icon name="ph:prohibit-bold" class="mr-2" /> Anular venta
@@ -129,28 +135,29 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 border-t border-gray-100 dark:border-gray-700 divide-x divide-gray-100 dark:divide-gray-700">
-          <div class="p-4 text-center">
+        <!-- gap-px sobre fondo gris: líneas divisorias correctas tanto en 2 columnas (celular) como en 4. -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-px border-t border-gray-100 bg-gray-100 dark:border-gray-700 dark:bg-gray-700">
+          <div class="p-3 sm:p-4 text-center bg-white dark:bg-gray-800 min-w-0">
             <p class="text-xs font-semibold text-gray-500 uppercase">Total</p>
-            <p class="text-xl font-black text-gray-900 dark:text-white mt-1">{{ formatCurrency(Number(venta.total)) }}</p>
+            <p class="text-lg sm:text-xl font-black tabular-nums text-gray-900 dark:text-white mt-1 break-words">{{ formatCurrency(Number(venta.total)) }}</p>
           </div>
-          <div class="p-4 text-center">
+          <div class="p-3 sm:p-4 text-center bg-white dark:bg-gray-800 min-w-0">
             <p class="text-xs font-semibold text-gray-500 uppercase">Pagado</p>
-            <p class="text-xl font-black text-success-600 dark:text-success-400 mt-1">{{ formatCurrency(Number(venta.paidAmount)) }}</p>
+            <p class="text-lg sm:text-xl font-black tabular-nums text-success-600 dark:text-success-400 mt-1 break-words">{{ formatCurrency(Number(venta.paidAmount)) }}</p>
           </div>
-          <div class="p-4 text-center">
+          <div class="p-3 sm:p-4 text-center bg-white dark:bg-gray-800 min-w-0">
             <p class="text-xs font-semibold text-gray-500 uppercase">Saldo</p>
             <p
-              class="text-xl font-black mt-1"
+              class="text-lg sm:text-xl font-black tabular-nums mt-1 break-words"
               :class="Number(venta.balance) > 0 ? 'text-error-600 dark:text-error-400' : 'text-gray-400'"
             >
               {{ formatCurrency(Number(venta.balance)) }}
             </p>
           </div>
-          <div class="p-4 text-center">
+          <div class="p-3 sm:p-4 text-center bg-white dark:bg-gray-800 min-w-0">
             <p class="text-xs font-semibold text-gray-500 uppercase">Reembolsado</p>
             <p
-              class="text-xl font-black mt-1"
+              class="text-lg sm:text-xl font-black tabular-nums mt-1 break-words"
               :class="store.totalRefunded > 0 ? 'text-warning-600 dark:text-warning-400' : 'text-gray-400'"
             >
               {{ formatCurrency(store.totalRefunded) }}
@@ -160,10 +167,10 @@
       </div>
 
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <h3 class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+        <h3 class="px-4 sm:px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
           Productos
         </h3>
-        <div class="overflow-x-auto">
+        <div class="table-wrap hidden @4xl:block">
           <table class="w-full text-left border-collapse whitespace-nowrap">
             <thead>
               <tr class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
@@ -204,18 +211,47 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Celular: un renglón por producto -->
+        <ul class="card-list @4xl:hidden" data-testid="sale-items-cards">
+          <li v-for="item in venta.items" :key="item.id" class="px-4 py-3">
+            <div class="card-row">
+              <p class="min-w-0 font-medium text-gray-900 dark:text-white break-words">
+                {{ item.product?.name || `Producto #${item.productId}` }}
+              </p>
+              <p class="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(Number(item.subtotal)) }}</p>
+            </div>
+            <div class="card-row mt-0.5">
+              <p class="card-label min-w-0 truncate">
+                {{ item.quantity }} × {{ formatCurrency(Number(item.price)) }}<template v-if="item.product?.sku"> · {{ item.product.sku }}</template>
+              </p>
+              <span
+                v-if="devueltas(item.id) > 0"
+                class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-50 text-warning-700 dark:bg-warning-900/20 dark:text-warning-400"
+              >
+                Devuelto {{ devueltas(item.id) }} de {{ item.quantity }}
+              </span>
+            </div>
+            <p v-if="Number(item.discountPercent ?? 0) > 0" class="mt-1 text-xs text-success-700 dark:text-success-400">
+              Descuento {{ Number(item.discountPercent) }}% (−{{ formatCurrency(Number(item.discount)) }})
+              <template v-if="item.discountReason"> · {{ item.discountReason }}</template>
+              <template v-if="item.discountAppliedBy"> · aplicó {{ item.discountAppliedBy.firstName }} {{ item.discountAppliedBy.lastName }}</template>
+              <template v-if="item.discountAuthorizedBy"> · autorizó {{ item.discountAuthorizedBy.firstName }} {{ item.discountAuthorizedBy.lastName }}</template>
+            </p>
+          </li>
+        </ul>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <h3 class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+          <h3 class="px-4 sm:px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
             Pagos recibidos
           </h3>
-          <div v-if="!venta.payments || venta.payments.length === 0" class="px-6 py-8 text-center text-sm text-gray-500">
+          <div v-if="!venta.payments || venta.payments.length === 0" class="px-4 sm:px-6 py-8 text-center text-sm text-gray-500">
             Esta venta no registra pagos.
           </div>
           <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700">
-            <li v-for="pago in venta.payments" :key="pago.id" class="px-6 py-4 flex items-center justify-between gap-4">
+            <li v-for="pago in venta.payments" :key="pago.id" class="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
               <div class="min-w-0">
                 <p class="font-medium text-gray-900 dark:text-white">{{ etiquetaMetodo(pago.method) }}</p>
                 <p class="text-xs text-gray-500 mt-0.5">
@@ -231,14 +267,14 @@
         </div>
 
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <h3 class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+          <h3 class="px-4 sm:px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
             Devoluciones
           </h3>
-          <div v-if="venta.saleReturn.length === 0" class="px-6 py-8 text-center text-sm text-gray-500">
+          <div v-if="venta.saleReturn.length === 0" class="px-4 sm:px-6 py-8 text-center text-sm text-gray-500">
             Esta venta no tiene devoluciones.
           </div>
           <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700">
-            <li v-for="devolucion in venta.saleReturn" :key="devolucion.id" class="px-6 py-4">
+            <li v-for="devolucion in venta.saleReturn" :key="devolucion.id" class="px-4 sm:px-6 py-4">
               <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                   <p class="font-medium text-gray-900 dark:text-white">Devolución #{{ devolucion.id }}</p>
@@ -271,15 +307,15 @@
 
       <div class="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-6 items-start">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <h3 class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
+          <h3 class="px-4 sm:px-6 py-4 text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">
             Copias impresas
           </h3>
-          <div v-if="!impresiones.length" class="px-6 py-8 text-center text-sm text-gray-500">
+          <div v-if="!impresiones.length" class="px-4 sm:px-6 py-8 text-center text-sm text-gray-500">
             Aún no se ha impreso ningún comprobante de esta venta.
           </div>
           <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700">
-            <li v-for="copia in impresiones" :key="copia.id" class="px-6 py-4 flex items-center justify-between gap-4">
-              <div>
+            <li v-for="copia in impresiones" :key="copia.id" class="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+              <div class="min-w-0">
                 <p class="font-medium text-gray-900 dark:text-white">
                   {{ copia.document === 'REMISSION' ? 'Nota de remisión' : 'Ticket' }} ·
                   {{ copia.copyNumber === 1 ? 'Original' : `Copia ${copia.copyNumber}` }}
@@ -296,6 +332,7 @@
           </ul>
         </div>
 
+        <!-- Vista previa sólo cuando el ticket se puede imprimir (no en anuladas). -->
         <div v-if="ticketView && puedeImprimir" class="flex justify-center xl:justify-end print:block">
           <div ref="ticketEl">
             <ReceiptPreview
@@ -447,8 +484,19 @@ const etiquetaMetodo = (method: PaymentMethod | null) => {
   }
 }
 
+/**
+ * Ticket: venta cerrada y vigente + permiso de impresión. Antes sólo se
+ * excluían los borradores: en una venta anulada el botón y la vista previa
+ * seguían visibles (al pulsarlo sólo avisaba) y no se revisaba `canPrintReceipt`,
+ * a diferencia de la nota de remisión.
+ */
 const puedeImprimir = computed(
-  () => !!venta.value && venta.value.flowStatus !== 'DRAFT',
+  () =>
+    !!venta.value &&
+    venta.value.flowStatus !== 'DRAFT' &&
+    venta.value.status !== 'CANCELLED' &&
+    venta.value.flowStatus !== 'CANCELLED' &&
+    authStore.can('canPrintReceipt'),
 )
 
 const impresiones = computed(() => venta.value?.receiptPrints ?? [])
@@ -460,10 +508,8 @@ const copiasRemision = computed(() => impresiones.value.filter((c) => c.document
 /** La nota exige venta cobrada y no anulada, que el gerente no la haya apagado y permiso de impresión. */
 const puedeRemision = computed(
   () =>
+    // puedeImprimir ya exige venta vigente (no borrador ni anulada) y canPrintReceipt.
     puedeImprimir.value &&
-    venta.value?.status !== 'CANCELLED' &&
-    venta.value?.flowStatus !== 'CANCELLED' &&
-    authStore.can('canPrintReceipt') &&
     (settingsStore.valuesOf('remission')?.enabled ?? true),
 )
 

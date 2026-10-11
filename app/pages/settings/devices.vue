@@ -14,7 +14,7 @@ import SettingsCard from '~/components/settings/SettingsCard.vue'
 import SettingsSwitch from '~/components/settings/fields/SettingsSwitch.vue'
 import SegmentedControl from '~/components/settings/ticket/SegmentedControl.vue'
 import UnsavedChangesBar from '~/components/shared/UnsavedChangesBar.vue'
-import DevicesGuide from '~/components/settings/DevicesGuide.vue'
+import { useHelp } from '~/composables/useHelp'
 import { useUpdateHold } from '~/composables/useAppUpdate'
 
 definePageMeta({ requiredPermission: 'canManageSettings' })
@@ -41,8 +41,8 @@ const dirty = computed(() => JSON.stringify(form) !== baseline.value)
 // Cambios sin guardar: no se ofrece recargar para actualizar (ADR-0018).
 useUpdateHold('settings:devices', () => (dirty.value ? 'Tienes cambios sin guardar en los dispositivos de esta caja.' : null))
 const usb = ref(false)
-/** Guía de conexión para quien configura dispositivos por primera vez. */
-const showGuide = ref(false)
+/** Guía de conexión (panel de Ayuda) para quien configura dispositivos por primera vez. */
+const { openHelp } = useHelp()
 const pairing = ref(false)
 
 onMounted(() => {
@@ -160,23 +160,23 @@ async function testDrawer() {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between dark:border-gray-700 dark:bg-gray-800">
+  <div class="space-y-4 sm:space-y-6">
+    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6 sm:flex-row sm:items-start sm:justify-between dark:border-gray-700 dark:bg-gray-800">
       <div>
-        <h1 class="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-          <Icon name="ph:printer-bold" class="text-primary-600" /> Dispositivos de esta caja
+        <h1 class="flex items-center gap-2 text-xl font-bold text-gray-900 sm:text-2xl dark:text-white">
+          <Icon name="ph:printer-bold" class="shrink-0 text-primary-600 dark:text-primary-400" /> Dispositivos de esta caja
         </h1>
         <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
           Impresora y cajón conectados a <strong>esta computadora</strong>. Se guarda aquí, no en el servidor: configúralo en cada caja.
         </p>
       </div>
-      <button type="button" class="btn-secondary shrink-0 gap-2" data-testid="open-devices-guide" @click="showGuide = true">
+      <button type="button" class="btn-secondary shrink-0 gap-2" data-testid="open-devices-guide" @click="openHelp('dispositivos')">
         <Icon name="ph:question-bold" class="h-5 w-5 text-primary-600" />
         Guía de conexión
       </button>
     </div>
 
-    <div class="grid items-start gap-6 lg:grid-cols-2">
+    <div class="grid items-start gap-4 sm:gap-6 [&>*]:min-w-0 lg:grid-cols-2">
       <SettingsCard title="Esta caja" description="Cómo se llama en la bitácora del cajón." icon="ph:desktop-tower-bold">
         <label for="termName" class="label-base">Nombre</label>
         <input id="termName" v-model="form.name" type="text" maxlength="60" class="input-base" placeholder="Caja 1" />
@@ -193,16 +193,16 @@ async function testDrawer() {
             <Icon :name="form.printer ? 'ph:check-circle-fill' : 'ph:plugs'" class="h-6 w-6" :class="form.printer ? 'text-success-500' : 'text-gray-400'" />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ form.printer?.label ?? 'Sin impresora emparejada' }}</p>
-              <p class="text-xs text-gray-500">{{ form.printer ? `USB ${form.printer.vendorId.toString(16)}:${form.printer.productId.toString(16)}${form.printer.serialNumber ? ' · serie ' + form.printer.serialNumber : ''}` : 'Elige la térmica conectada a esta computadora.' }}</p>
+              <p class="break-words text-xs text-gray-500 dark:text-gray-400">{{ form.printer ? `USB ${form.printer.vendorId.toString(16)}:${form.printer.productId.toString(16)}${form.printer.serialNumber ? ' · serie ' + form.printer.serialNumber : ''}` : 'Elige la térmica conectada a esta computadora.' }}</p>
             </div>
             <button type="button" class="btn-secondary text-sm" :disabled="pairing" @click="pair">{{ form.printer ? 'Cambiar' : 'Emparejar' }}</button>
-            <button v-if="form.printer" type="button" class="rounded-lg px-2 py-1 text-sm text-error-600 hover:bg-error-500/10" @click="unpair">Olvidar</button>
+            <button v-if="form.printer" type="button" class="rounded-lg px-3 py-2 text-sm text-error-600 hover:bg-error-500/10 dark:text-error-400" @click="unpair">Olvidar</button>
           </div>
         </template>
         <p v-else class="mt-4 text-xs text-gray-500 dark:text-gray-400">Se abrirá el diálogo de impresión del navegador en cada ticket. Sin impresión automática ni apertura de cajón.</p>
 
-        <div class="mt-4 flex justify-end">
-          <button type="button" class="btn-secondary gap-2 text-sm" :disabled="isPrinting" @click="testPrint">
+        <div class="mt-4 flex sm:justify-end">
+          <button type="button" class="btn-secondary w-full gap-2 text-sm sm:w-auto" :disabled="isPrinting" @click="testPrint">
             <Icon name="ph:printer" /> Imprimir prueba
           </button>
         </div>
@@ -217,14 +217,12 @@ async function testDrawer() {
 
       <SettingsCard title="Cajón de dinero" description="Conector del cajón en la impresora." icon="ph:vault-bold">
         <SegmentedControl v-model="form.drawerPin" label="Conector" :options="PINS" />
-        <div class="mt-4 flex items-center justify-between gap-3">
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-xs text-gray-500 dark:text-gray-400">Abrir el cajón sin venta queda registrado con tu nombre y esta caja.</p>
           <button v-if="canOpenDrawer" type="button" class="btn-secondary shrink-0 text-sm" :disabled="drawer.opening.value || form.printMode !== 'thermal'" @click="testDrawer">Probar cajón</button>
         </div>
       </SettingsCard>
     </div>
-
-    <DevicesGuide :open="showGuide" @close="showGuide = false" />
 
     <UnsavedChangesBar :visible="dirty" :saving="false" :can-save="true" :scopes="['los dispositivos de esta caja']" @save="save" @discard="discard" />
   </div>

@@ -15,11 +15,18 @@ const MAX_INCIDENTES = 10
 
 export const useUIStore = defineStore('ui', () => {
   // El menú lateral inicia abierto en el desktop
+  // Laptop (≥ 1024 px): menú fijo, colapsable a íconos.
   const sidebarCollapsed = ref(false)
 
   const toggleSidebar = () => {
     sidebarCollapsed.value = !sidebarCollapsed.value
   }
+
+  // Celular y tableta: el menú es un cajón que se abre sobre la pantalla.
+  // Estado aparte: colapsar en laptop no debe abrir ni cerrar el cajón.
+  const mobileNavOpen = ref(false)
+  const openMobileNav = () => { mobileNavOpen.value = true }
+  const closeMobileNav = () => { mobileNavOpen.value = false }
 
   // NOTA: El modo oscuro ya lo maneja internamente
 
@@ -109,6 +116,9 @@ export const useUIStore = defineStore('ui', () => {
   return {
     sidebarCollapsed,
     toggleSidebar,
+    mobileNavOpen,
+    openMobileNav,
+    closeMobileNav,
     incidentes,
     ultimoIncidente,
     hayIncidentes,

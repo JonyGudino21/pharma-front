@@ -67,7 +67,7 @@ function format(key: string, value: unknown) {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <SettingsPageHeader
       title="Caja"
       description="Controles del arqueo, del fondo inicial y del efectivo en el cajón. Aplican a todos los turnos de todas las cajas."
@@ -89,7 +89,7 @@ function format(key: string, value: unknown) {
       </button>
     </div>
 
-    <div v-else-if="s.snapshot.value" class="grid items-start gap-6 lg:grid-cols-2">
+    <div v-else-if="s.snapshot.value" class="grid items-start gap-4 sm:gap-6 [&>*]:min-w-0 lg:grid-cols-2">
       <SettingsCard
         title="Arqueo al cerrar turno"
         description="Diferencia que se acepta entre lo contado y lo esperado antes de pedir revisión de gerencia."

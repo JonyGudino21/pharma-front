@@ -54,7 +54,7 @@ const when = (iso: string) =>
       <div v-for="n in 3" :key="n" class="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-700/50" />
     </div>
 
-    <div v-else-if="error" class="flex items-center justify-between gap-3 text-sm text-error-600" role="alert">
+    <div v-else-if="error" class="flex items-center justify-between gap-3 text-sm text-error-600 dark:text-error-400" role="alert">
       <span>{{ error }}</span>
       <button type="button" class="font-medium underline" @click="load(current)">Reintentar</button>
     </div>
@@ -66,7 +66,7 @@ const when = (iso: string) =>
     <template v-else>
       <ol class="divide-y divide-gray-100 dark:divide-gray-700">
         <li v-for="item in page.items" :key="item.id" class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 text-sm">
-          <p class="min-w-0 text-gray-800 dark:text-gray-100">
+          <p class="min-w-0 break-words text-gray-800 dark:text-gray-100">
             <span class="font-medium">{{ labels[item.key] ?? item.key }}</span>:
             <span class="text-gray-500 line-through decoration-gray-300">{{ format(item.key, item.oldValue) }}</span>
             <Icon name="ph:arrow-right" class="mx-1 inline h-3.5 w-3.5 text-gray-400" />
@@ -75,10 +75,10 @@ const when = (iso: string) =>
           <p class="text-xs text-gray-400">{{ item.changedBy.name }} · {{ when(item.changedAt) }}</p>
         </li>
       </ol>
-      <div v-if="page.pagination.totalPages > 1" class="mt-3 flex items-center justify-end gap-2 text-sm">
-        <button type="button" class="btn-secondary px-3 py-1 text-sm" :disabled="current <= 1 || loading" @click="load(current - 1)">Anteriores</button>
-        <span class="text-gray-500">{{ current }} / {{ page.pagination.totalPages }}</span>
-        <button type="button" class="btn-secondary px-3 py-1 text-sm" :disabled="current >= page.pagination.totalPages || loading" @click="load(current + 1)">Más antiguos</button>
+      <div v-if="page.pagination.totalPages > 1" class="mt-3 flex items-center justify-between gap-2 text-sm sm:justify-end">
+        <button type="button" class="btn-secondary px-3 py-2 text-sm sm:py-1" :disabled="current <= 1 || loading" @click="load(current - 1)">Anteriores</button>
+        <span class="shrink-0 text-gray-500 dark:text-gray-400">{{ current }} / {{ page.pagination.totalPages }}</span>
+        <button type="button" class="btn-secondary px-3 py-2 text-sm sm:py-1" :disabled="current >= page.pagination.totalPages || loading" @click="load(current + 1)">Más antiguos</button>
       </div>
     </template>
   </SettingsCard>

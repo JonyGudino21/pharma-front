@@ -124,19 +124,23 @@ onMounted(() => nextTick(() => percentInput.value?.select()))
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-labelledby="discountTitle" @keydown.esc="emit('close')">
-    <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" @click="emit('close')" />
-    <form class="relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800" @submit.prevent="submit">
-      <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
-        <h2 id="discountTitle" class="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-          <Icon name="ph:percent-bold" class="text-primary-600" /> Descuento
-        </h2>
-        <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ label }}</p>
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="discountTitle" @keydown.esc="emit('close')" @click.self="emit('close')">
+    <form class="modal-panel sm:max-w-md sm:border sm:border-gray-100 sm:shadow-2xl dark:sm:border-gray-700" @submit.prevent="submit">
+      <div class="modal-header">
+        <div class="min-w-0">
+          <h2 id="discountTitle" class="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
+            <Icon name="ph:percent-bold" class="text-primary-600" /> Descuento
+          </h2>
+          <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ label }}</p>
+        </div>
+        <button type="button" class="-mr-2 -mt-1 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200" aria-label="Cerrar" @click="emit('close')">
+          <Icon name="ph:x-bold" class="h-5 w-5" />
+        </button>
       </div>
 
-      <div v-if="!cfg" class="p-6 text-sm text-gray-500">Cargando reglas de descuento…</div>
+      <div v-if="!cfg" class="modal-body text-sm text-gray-500 dark:text-gray-400">Cargando reglas de descuento…</div>
 
-      <div v-else-if="step === 'edit'" class="space-y-4 p-6">
+      <div v-else-if="step === 'edit'" class="modal-body space-y-4">
         <div>
           <label for="discPct" class="label-base">Porcentaje</label>
           <div class="relative">
@@ -144,7 +148,7 @@ onMounted(() => nextTick(() => percentInput.value?.select()))
             <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
           </div>
           <div class="mt-2 flex gap-2">
-            <button v-for="q in quick" :key="q" type="button" class="flex-1 rounded-lg bg-gray-100 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200" @click="percent = q">{{ q }}%</button>
+            <button v-for="q in quick" :key="q" type="button" class="flex-1 rounded-lg bg-gray-100 py-2.5 sm:py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200" @click="percent = q">{{ q }}%</button>
           </div>
           <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
             Tu tope: {{ cap }}%<template v-if="cfg.allowAuthorization"> · arriba de eso, con autorización de gerente</template> · máximo {{ cfg.maxPercent }}%
@@ -152,8 +156,8 @@ onMounted(() => nextTick(() => percentInput.value?.select()))
         </div>
 
         <dl class="space-y-1 rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-900/40">
-          <div class="flex justify-between"><dt class="text-gray-500">Importe</dt><dd class="tabular-nums">{{ formatCurrency(gross) }}</dd></div>
-          <div class="flex justify-between"><dt class="text-gray-500">Descuento</dt><dd class="tabular-nums text-error-600">− {{ formatCurrency(amount) }}</dd></div>
+          <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Importe</dt><dd class="tabular-nums">{{ formatCurrency(gross) }}</dd></div>
+          <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Descuento</dt><dd class="tabular-nums text-error-600 dark:text-error-400">− {{ formatCurrency(amount) }}</dd></div>
           <div class="flex justify-between border-t border-gray-200 pt-1 font-semibold dark:border-gray-700"><dt>Queda en</dt><dd class="tabular-nums">{{ formatCurrency(net) }}</dd></div>
         </dl>
 
@@ -167,10 +171,10 @@ onMounted(() => nextTick(() => percentInput.value?.select()))
         <p v-else-if="decision?.kind === 'needs-authorization'" class="flex gap-2 rounded-lg bg-warning-500/10 p-3 text-xs text-warning-800 dark:text-warning-300">
           <Icon name="ph:shield-warning-bold" class="h-4 w-4 shrink-0" /> Supera tu tope ({{ decision.cap }}%): en el siguiente paso un gerente lo autoriza.
         </p>
-        <p v-if="serverError" class="text-xs text-error-600" role="alert">{{ serverError }}</p>
+        <p v-if="serverError" class="text-xs text-error-600 dark:text-error-400" role="alert">{{ serverError }}</p>
       </div>
 
-      <div v-else class="space-y-4 p-6">
+      <div v-else class="modal-body space-y-4">
         <p class="rounded-xl bg-warning-500/10 p-3 text-sm text-warning-900 dark:text-warning-200">
           Autorización de <strong>{{ percent }}%</strong> sobre {{ formatCurrency(gross) }}. Que el gerente escriba sus datos; no se guardan.
         </p>
@@ -182,14 +186,14 @@ onMounted(() => nextTick(() => percentInput.value?.select()))
           <label for="authPass" class="label-base">Contraseña</label>
           <input id="authPass" v-model="password" type="password" autocomplete="off" class="input-base" />
         </div>
-        <p v-if="serverError" class="text-xs text-error-600" role="alert">{{ serverError }}</p>
+        <p v-if="serverError" class="text-xs text-error-600 dark:text-error-400" role="alert">{{ serverError }}</p>
       </div>
 
-      <div class="flex flex-wrap gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/80">
-        <button v-if="currentPercent > 0 && step === 'edit'" type="button" class="mr-auto rounded-lg px-3 py-2 text-sm font-medium text-error-600 hover:bg-error-500/10" :disabled="busy" @click="removeDiscount">Quitar descuento</button>
-        <button v-if="step === 'authorize'" type="button" class="mr-auto rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" :disabled="busy" @click="step = 'edit'">Atrás</button>
-        <button type="button" class="btn-secondary" :disabled="busy" @click="emit('close')">Cancelar</button>
-        <button type="submit" class="btn-primary gap-2" :disabled="step === 'edit' ? !canContinue : busy || !login.trim() || !password">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
+        <button v-if="currentPercent > 0 && step === 'edit'" type="button" class="sm:mr-auto rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium text-error-600 hover:bg-error-500/10" :disabled="busy" @click="removeDiscount">Quitar descuento</button>
+        <button v-if="step === 'authorize'" type="button" class="sm:mr-auto rounded-lg px-3 py-2.5 sm:py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" :disabled="busy" @click="step = 'edit'">Atrás</button>
+        <button type="button" class="btn-secondary py-2.5 sm:py-2" :disabled="busy" @click="emit('close')">Cancelar</button>
+        <button type="submit" class="btn-primary gap-2 py-2.5 sm:py-2" :disabled="step === 'edit' ? !canContinue : busy || !login.trim() || !password">
           <Icon v-if="busy" name="ph:spinner-gap-bold" class="h-4 w-4 animate-spin" />
           {{ step === 'authorize' ? 'Autorizar y aplicar' : decision?.kind === 'needs-authorization' ? 'Continuar' : 'Aplicar' }}
         </button>

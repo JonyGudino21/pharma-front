@@ -9,6 +9,15 @@ se usa, qué protege y qué no hace todavía. No requieren conocimientos técnic
   remisión, y qué hacer con los avisos de "sin conexión" y "versión nueva". Imprímela y déjala en
   la caja.
 
+## Ayuda dentro del sistema
+
+En cualquier pantalla, el botón **Ayuda** (arriba a la derecha, icono de signo de interrogación)
+abre la guía de esa pantalla, con pasos, consejos y respuestas a los mensajes más comunes. Tiene un
+buscador: escribe «devolución», «corte» o «lote» y te lleva a la sección. Funciona sin internet.
+
+El sistema se usa igual en computadora, tableta o celular: en pantallas chicas el menú se abre con
+el botón ☰ y las listas se muestran como tarjetas.
+
 ## Por área
 
 | Área | Documento |

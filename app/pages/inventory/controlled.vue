@@ -1,15 +1,19 @@
 <template>
   <div class="space-y-6">
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 print:shadow-none print:border-0">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+    <div class="page-header print:shadow-none print:border-0">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon name="ph:notebook-bold" class="text-primary-600 print:hidden" /> Libro de controlados
         </h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Bitácora append-only COFEPRIS. Las devoluciones y destrucciones se registran como entradas nuevas.
         </p>
       </div>
-      <div class="flex gap-2 print:hidden">
+      <div class="page-actions print:hidden">
+        <!-- Celular: los filtros se pliegan para no ocupar toda la pantalla. -->
+        <button type="button" class="btn-secondary md:hidden" :aria-expanded="showFilters" @click="showFilters = !showFilters">
+          <Icon name="ph:funnel-bold" class="mr-2" /> Filtros<span v-if="hayFiltros" class="ml-1 text-primary-600">•</span>
+        </button>
         <button
           v-if="authStore.can('canExportControlledLog')"
           class="btn-secondary"
@@ -26,40 +30,40 @@
       </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4 print:hidden">
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4 print:hidden" :class="{ 'hidden md:block': !showFilters }">
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Folio / receta</label>
-          <input v-model="filters.prescriptionNo" type="text" class="input-base" placeholder="Folio o cédula..." @keyup.enter="buscar" />
+          <label for="ctlPrescription" class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Folio / receta</label>
+          <input id="ctlPrescription" v-model="filters.prescriptionNo" type="text" class="input-base" placeholder="Folio de la receta..." @keyup.enter="buscar" />
         </div>
         <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Cédula</label>
-          <input v-model="filters.doctorLicense" type="text" class="input-base" @keyup.enter="buscar" />
+          <label for="ctlLicense" class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Cédula</label>
+          <input id="ctlLicense" v-model="filters.doctorLicense" type="text" class="input-base" placeholder="Cédula del médico..." @keyup.enter="buscar" />
         </div>
         <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Paciente</label>
-          <input v-model="filters.patientName" type="text" class="input-base" @keyup.enter="buscar" />
+          <label for="ctlPatient" class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Paciente</label>
+          <input id="ctlPatient" v-model="filters.patientName" type="text" class="input-base" @keyup.enter="buscar" />
         </div>
         <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Tipo</label>
-          <select v-model="filters.entryType" class="input-base cursor-pointer" @change="buscar">
+          <label for="ctlType" class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Tipo</label>
+          <select id="ctlType" v-model="filters.entryType" class="input-base cursor-pointer" @change="buscar">
             <option value="">Todos</option>
-            <option value="DISPENSE">Dispensación</option>
-            <option value="RETURN">Devolución</option>
-            <option value="DESTRUCTION">Destrucción</option>
+            <option value="DISPENSE">{{ typeLabel('DISPENSE') }}</option>
+            <option value="RETURN">{{ typeLabel('RETURN') }}</option>
+            <option value="DESTRUCTION">{{ typeLabel('DESTRUCTION') }}</option>
           </select>
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Desde</label>
-          <input v-model="filters.startDate" type="date" class="input-base" @change="buscar" />
+          <label for="ctlStart" class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Desde</label>
+          <input id="ctlStart" v-model="filters.startDate" type="date" class="input-base" @change="buscar" />
         </div>
         <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Hasta</label>
-          <input v-model="filters.endDate" type="date" class="input-base" @change="buscar" />
+          <label for="ctlEnd" class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Hasta</label>
+          <input id="ctlEnd" v-model="filters.endDate" type="date" class="input-base" @change="buscar" />
         </div>
-        <div class="flex items-end">
+        <div class="flex items-end sm:col-span-2 md:col-span-1">
           <button class="btn-primary w-full" @click="buscar">
             <Icon name="ph:funnel-bold" class="mr-2" /> Aplicar
           </button>
@@ -91,43 +95,67 @@
       <div v-else-if="inventoryStore.controlledLog.length === 0" class="py-16 text-center text-gray-400">
         No hay registros con esos filtros.
       </div>
-      <div v-else class="overflow-x-auto">
-        <table class="w-full text-left whitespace-nowrap">
-          <thead>
-            <tr class="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
-              <th class="px-4 py-3">Fecha</th>
-              <th class="px-4 py-3">Tipo</th>
-              <th class="px-4 py-3">Producto</th>
-              <th class="px-4 py-3">Lote</th>
-              <th class="px-4 py-3 text-center">Cant.</th>
-              <th class="px-4 py-3">Receta</th>
-              <th class="px-4 py-3">Médico / cédula</th>
-              <th class="px-4 py-3">Paciente</th>
-              <th class="px-4 py-3">Despachó</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-            <tr v-for="row in inventoryStore.controlledLog" :key="row.id">
-              <td class="px-4 py-3 text-sm">{{ formatDateTime(row.createdAt) }}</td>
-              <td class="px-4 py-3 text-xs font-bold uppercase">{{ typeLabel(row.entryType) }}</td>
-              <td class="px-4 py-3">
-                <p class="font-bold text-sm">{{ row.product.name }}</p>
-                <p class="text-xs font-mono text-gray-500">{{ row.product.sku }}</p>
-              </td>
-              <td class="px-4 py-3 font-mono text-sm">{{ row.batch?.lotNumber ?? '—' }}</td>
-              <td class="px-4 py-3 text-center font-bold">{{ row.quantity }}</td>
-              <td class="px-4 py-3 font-mono text-sm">{{ row.prescriptionNo ?? '—' }}</td>
-              <td class="px-4 py-3 text-sm">
-                {{ row.doctorName ?? '—' }}
-                <span v-if="row.doctorLicense" class="block text-xs text-gray-500">{{ row.doctorLicense }}</span>
-              </td>
-              <td class="px-4 py-3 text-sm">{{ row.patientName ?? '—' }}</td>
-              <td class="px-4 py-3 text-sm">{{ row.soldBy.firstName }} {{ row.soldBy.lastName }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="px-4 pb-4 print:hidden">
+      <template v-else>
+        <!-- Laptop, tableta e impresión: tabla completa -->
+        <div class="table-wrap hidden @4xl:block print:block">
+          <table class="w-full text-left whitespace-nowrap">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
+                <th class="px-4 py-3">Fecha</th>
+                <th class="px-4 py-3">Tipo</th>
+                <th class="px-4 py-3">Producto</th>
+                <th class="px-4 py-3">Lote</th>
+                <th class="px-4 py-3 text-center">Cant.</th>
+                <th class="px-4 py-3">Receta</th>
+                <th class="px-4 py-3">Médico / cédula</th>
+                <th class="px-4 py-3">Paciente</th>
+                <th class="px-4 py-3">Despachó</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
+              <tr v-for="row in inventoryStore.controlledLog" :key="row.id">
+                <td class="px-4 py-3 text-sm">{{ formatDateTime(row.createdAt) }}</td>
+                <td class="px-4 py-3 text-xs font-bold uppercase">{{ typeLabel(row.entryType) }}</td>
+                <td class="px-4 py-3">
+                  <p class="font-bold text-sm text-gray-900 dark:text-white">{{ row.product.name }}</p>
+                  <p class="text-xs font-mono text-gray-500">{{ row.product.sku }}</p>
+                </td>
+                <td class="px-4 py-3 font-mono text-sm">{{ row.batch?.lotNumber ?? '—' }}</td>
+                <td class="px-4 py-3 text-center font-bold">{{ row.quantity }}</td>
+                <td class="px-4 py-3 font-mono text-sm">{{ row.prescriptionNo ?? '—' }}</td>
+                <td class="px-4 py-3 text-sm">
+                  {{ row.doctorName ?? '—' }}
+                  <span v-if="row.doctorLicense" class="block text-xs text-gray-500">{{ row.doctorLicense }}</span>
+                </td>
+                <td class="px-4 py-3 text-sm">{{ row.patientName ?? '—' }}</td>
+                <td class="px-4 py-3 text-sm">{{ row.soldBy.firstName }} {{ row.soldBy.lastName }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Celular: tarjetas con todos los datos del asiento -->
+        <ul class="card-list @4xl:hidden print:hidden" data-testid="controlled-cards">
+          <li v-for="row in inventoryStore.controlledLog" :key="row.id" class="px-4 py-3">
+            <div class="card-row">
+              <p class="min-w-0 truncate font-bold text-gray-900 dark:text-white">{{ row.product.name }}</p>
+              <p class="shrink-0 font-bold tabular-nums text-gray-900 dark:text-white">{{ row.quantity }} uds.</p>
+            </div>
+            <div class="card-row mt-0.5">
+              <p class="text-xs font-bold uppercase" :class="row.entryType === 'DISPENSE' ? 'text-primary-600 dark:text-primary-400' : row.entryType === 'RETURN' ? 'text-warning-600 dark:text-warning-400' : 'text-error-600 dark:text-error-400'">{{ typeLabel(row.entryType) }}</p>
+              <p class="shrink-0 text-xs text-gray-500">{{ formatDateTime(row.createdAt) }}</p>
+            </div>
+            <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              <div class="min-w-0"><dt class="card-label">Lote</dt><dd class="truncate font-mono text-gray-700 dark:text-gray-300">{{ row.batch?.lotNumber ?? '—' }}</dd></div>
+              <div class="min-w-0"><dt class="card-label">Receta</dt><dd class="truncate font-mono text-gray-700 dark:text-gray-300">{{ row.prescriptionNo ?? '—' }}</dd></div>
+              <div class="min-w-0"><dt class="card-label">Médico</dt><dd class="truncate text-gray-700 dark:text-gray-300">{{ row.doctorName ?? '—' }}<span v-if="row.doctorLicense" class="block text-xs text-gray-500">{{ row.doctorLicense }}</span></dd></div>
+              <div class="min-w-0"><dt class="card-label">Paciente</dt><dd class="truncate text-gray-700 dark:text-gray-300">{{ row.patientName ?? '—' }}</dd></div>
+              <div class="col-span-2 min-w-0"><dt class="card-label">Despachó</dt><dd class="truncate text-gray-700 dark:text-gray-300">{{ row.soldBy.firstName }} {{ row.soldBy.lastName }}</dd></div>
+            </dl>
+          </li>
+        </ul>
+      </template>
+      <div v-if="!inventoryStore.controlledError" class="px-3 pb-4 sm:px-4 print:hidden">
         <Pagination :pagination="inventoryStore.controlledPagination" @page-change="goToPage" />
       </div>
     </div>
@@ -135,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { useNuxtApp } from '#app'
 import { useInventoryStore, type ControlledLogEntry, type ControlledLogEntryType, type InventoryPage } from '~/stores/inventory'
 import type { ApiResponse } from '~/types/auth'
@@ -161,6 +189,10 @@ const filters = reactive({
   endDate: '',
   entryType: '' as ControlledLogEntryType | '',
 })
+
+/** Celular: filtros plegados por omisión (en laptop siempre visibles). */
+const showFilters = ref(false)
+const hayFiltros = computed(() => Object.values(filters).some((v) => v !== ''))
 
 function query() {
   return {

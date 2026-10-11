@@ -12,7 +12,7 @@ Reúne las reglas de operación de la farmacia. Casi todo se guarda en el servid
 | **Inventario** | Días para alertas de caducidad (horizonte, advertencia, crítico), si se vende hasta el día impreso, lote obligatorio para todo, existencia mínima sugerida. |
 | **Descuentos** | Activar descuentos, tope por puesto, máximo absoluto, motivo obligatorio, autorización de gerente, vender bajo costo. |
 | **Impuestos** | Tasa general (16 % u 8 % frontera), IVA para productos nuevos, desglose en el ticket; asignar IVA a toda una categoría. |
-| **Nota de remisión** | Activar, tamaño de hoja (Carta/A4), qué incluye (pagos y saldo, firmas, código, IVA), leyenda y condiciones. |
+| **Nota de remisión** | Activar, tamaño de hoja (Carta/A4), qué incluye (pagos y saldo, firmas, IVA; y bajo cada producto el código, el lote y la caducidad, cada uno por separado), leyenda y condiciones. |
 | **Dispositivos** | Nombre de esta caja, impresora térmica USB o del navegador, impresión automática, abrir cajón al cobrar en efectivo, pin del cajón. |
 | **Usuarios / Permisos** | Ver [USUARIOS_Y_PERMISOS.md](USUARIOS_Y_PERMISOS.md). |
 

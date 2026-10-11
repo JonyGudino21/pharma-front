@@ -41,7 +41,9 @@ onBeforeUnmount(() => observer?.disconnect())
 
 <template>
   <div ref="host" class="w-full">
-    <div class="mx-auto bg-white shadow-lg" :style="{ width: `${PAGE_W * scale}px`, height: `${pageH * scale}px` }">
+    <!-- overflow-hidden: `transform` no reduce la caja de maquetación del iframe
+         (816 px); sin recortar, en celular provocaba scroll horizontal. -->
+    <div class="mx-auto overflow-hidden bg-white shadow-lg" :style="{ width: `${PAGE_W * scale}px`, height: `${pageH * scale}px` }">
       <iframe
         :srcdoc="html"
         sandbox="allow-same-origin"

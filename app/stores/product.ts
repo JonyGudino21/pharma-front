@@ -3,6 +3,7 @@ import type { TaxCategory } from '~/types/settings'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
 export interface Category {
   id: number
@@ -76,6 +77,8 @@ export const useProductStore = defineStore('product', () => {
   const products = ref<Product[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
+  // Fallo de carga, distinto de "no hay productos". Ver useRequestState.
+  const listError = ref<FalloPeticion | null>(null)
 
   const filters = ref({
     query: '',
@@ -85,6 +88,7 @@ export const useProductStore = defineStore('product', () => {
   async function fetchProducts(page = 1) {
     const { $api } = useNuxtApp()
     isLoading.value = true
+    listError.value = null
 
     try {
       // 1. Si NO HAY BÚSQUEDA, usamos GET /products
@@ -100,12 +104,14 @@ export const useProductStore = defineStore('product', () => {
         products.value = res.data.products || res.data.data || []
         if (res.data.pagination) pagination.value = res.data.pagination
       } 
-      // 2. Si HAY BÚSQUEDA, usamos POST /products/search según tu contrato
+      // 2. Con búsqueda: POST /products/search (nombre o SKU parcial). El
+      //    servidor aplica Activos/Inactivos y pagina.
       else {
         const res = await $api<ApiResponse<PaginatedData<Product>>>('/products/search', {
           method: 'POST',
           body: {
             name: filters.value.query.trim(),
+            ...(filters.value.isActive !== 'all' ? { active: filters.value.isActive === 'true' } : {}),
             page,
             limit: pagination.value.limit
           }
@@ -115,6 +121,8 @@ export const useProductStore = defineStore('product', () => {
       }
     } catch (error) {
       console.error('Error fetching products:', error)
+      products.value = []
+      listError.value = describirFallo(error)
     } finally {
       isLoading.value = false
     }
@@ -188,10 +196,33 @@ export const useProductStore = defineStore('product', () => {
     }
   }
 
+  /**
+   * Búsqueda para pantallas operativas (Inventario): nombre o SKU parcial, en
+   * una sola petición. A diferencia de `searchProductsLocally`, LANZA el error
+   * para que la pantalla distinga "falló" de "no hay coincidencias".
+   */
+  async function searchByNameOrSku(term: string, limit = 10): Promise<Product[]> {
+    const { $api } = useNuxtApp()
+    const q = term.trim()
+    if (!q) return []
+    const res = await $api<ApiResponse<PaginatedData<Product>>>('/products/search', {
+      method: 'POST',
+      body: { name: q, page: 1, limit }
+    })
+    return res.data.products || res.data.data || []
+  }
+
+  function retryList() {
+    return fetchProducts(pagination.value.page)
+  }
+
   return {
     products,
     pagination,
     isLoading,
+    listError,
+    retryList,
+    searchByNameOrSku,
     filters,
     fetchProducts,
     createProduct,

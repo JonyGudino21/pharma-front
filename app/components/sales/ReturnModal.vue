@@ -1,22 +1,22 @@
 <template>
-  <div v-if="modelValue" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+  <div v-if="modelValue" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Registrar Devolución" @keydown.esc="close">
+    <div class="modal-panel sm:max-w-3xl">
 
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-        <div>
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Icon name="ph:arrow-u-up-left-bold" class="text-primary-600" /> Registrar Devolución
+      <div class="modal-header bg-gray-50 dark:bg-gray-900/50">
+        <div class="min-w-0">
+          <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Icon name="ph:arrow-u-up-left-bold" class="text-primary-600 shrink-0" /> Registrar Devolución
           </h2>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
             Venta {{ sale.invoiceNumber || `#${sale.id}` }} · {{ sale.client?.name || 'Público General' }}
           </p>
         </div>
-        <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" @click="close">
+        <button type="button" class="-mr-2 shrink-0 rounded-lg p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Cerrar" @click="close">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-6 space-y-5">
+      <div class="modal-body space-y-5">
         <div class="space-y-3">
           <div
             v-for="item in lineasDevolubles"
@@ -28,10 +28,10 @@
           >
             <div class="flex flex-col sm:flex-row sm:items-center gap-3">
               <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-900 dark:text-white truncate">
+                <p class="font-semibold text-gray-900 dark:text-white break-words sm:truncate">
                   {{ item.product?.name || `Producto #${item.productId}` }}
                 </p>
-                <p class="text-xs text-gray-500 mt-0.5">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {{ formatCurrency(Number(item.price)) }} c/u ·
                   Vendidas: {{ item.quantity }} ·
                   Devueltas: {{ devueltas(item.id) }} ·
@@ -41,12 +41,14 @@
                 </p>
               </div>
 
-              <div class="flex items-center gap-2 shrink-0">
-                <label class="text-xs font-semibold text-gray-500 uppercase">Devolver</label>
+              <div class="flex items-center justify-between gap-2 shrink-0 sm:justify-start">
+                <label :for="`devolver-${item.id}`" class="text-xs font-semibold text-gray-500 uppercase">Devolver</label>
                 <input
+                  :id="`devolver-${item.id}`"
                   :value="lineas[item.id]!.quantity"
                   type="number"
                   min="0"
+                  inputmode="numeric"
                   :max="disponibles(item.id)"
                   class="input-base w-24 text-center font-bold"
                   @input="fijarCantidad(item.id, ($event.target as HTMLInputElement).value)"
@@ -103,7 +105,7 @@
 
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
           <label class="flex items-start gap-3 cursor-pointer">
-            <input v-model="form.refundToCustomer" type="checkbox" class="mt-1 w-4 h-4 accent-primary-600" />
+            <input v-model="form.refundToCustomer" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 accent-primary-600" />
             <span>
               <span class="block text-sm font-semibold text-gray-900 dark:text-white">
                 Reintegrar el importe al cliente
@@ -119,7 +121,7 @@
             v-if="form.refundToCustomer && efectivoEstimado > 0"
             class="text-xs font-bold text-warning-600 dark:text-warning-400 flex items-center gap-1"
           >
-            <Icon name="ph:warning-circle-fill" />
+            <Icon name="ph:warning-circle-fill" class="shrink-0" />
             Saldrán hasta {{ formatCurrency(efectivoEstimado) }} en efectivo: requiere caja abierta.
           </p>
 
@@ -129,22 +131,22 @@
           </div>
         </div>
 
-        <div class="rounded-xl bg-gray-50 dark:bg-gray-900/50 p-4 flex items-center justify-between">
-          <div>
+        <div class="rounded-xl bg-gray-50 dark:bg-gray-900/50 p-4 flex items-center justify-between gap-3">
+          <div class="min-w-0">
             <p class="text-xs font-semibold text-gray-500 uppercase">Total a devolver</p>
             <p class="text-xs text-gray-500 mt-0.5">{{ unidadesSeleccionadas }} unidad(es)</p>
           </div>
-          <p class="text-2xl font-black text-gray-900 dark:text-white">
+          <p class="text-xl sm:text-2xl font-black tabular-nums text-gray-900 dark:text-white shrink-0">
             {{ formatCurrency(totalDevolucion) }}
           </p>
         </div>
 
         <p v-if="errorValidacion" class="text-sm font-semibold text-error-600 dark:text-error-400 flex items-center gap-2">
-          <Icon name="ph:warning-circle-fill" /> {{ errorValidacion }}
+          <Icon name="ph:warning-circle-fill" class="shrink-0" /> {{ errorValidacion }}
         </p>
       </div>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" class="btn-secondary" @click="close">Cancelar</button>
         <button
           type="button"

@@ -1,13 +1,13 @@
 <template>
   <div class="mx-auto max-w-lg">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Cambiar contraseña</h1>
+    <h1 class="text-xl font-bold text-gray-900 sm:text-2xl dark:text-white">Cambiar contraseña</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
       Al guardar se cerrarán <strong>todas</strong> tus sesiones abiertas, incluida ésta,
       y tendrás que entrar de nuevo con la contraseña nueva.
     </p>
 
     <form
-      class="mt-6 space-y-5 rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      class="mt-4 space-y-5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:mt-6 sm:p-6 dark:border-gray-700 dark:bg-gray-800"
       novalidate
       @submit.prevent="guardar"
     >
@@ -34,10 +34,15 @@
           :minlength="MINIMO"
           maxlength="72"
           class="input-base"
-          aria-describedby="ayuda-nueva"
+          :aria-describedby="igualActual ? 'ayuda-nueva igual-actual' : 'ayuda-nueva'"
+          :aria-invalid="igualActual || !nuevaValida"
         />
-        <p id="ayuda-nueva" class="mt-1 text-xs" :class="nuevaValida ? 'text-gray-500' : 'text-warning-600'">
+        <p id="ayuda-nueva" class="mt-1 text-xs" :class="nuevaValida ? 'text-gray-500 dark:text-gray-400' : 'text-warning-600 dark:text-warning-400'">
           Mínimo {{ MINIMO }} caracteres. Una frase de varias palabras es más fácil de recordar y más difícil de adivinar.
+        </p>
+        <!-- Sin este aviso el botón quedaba deshabilitado sin explicar por qué. -->
+        <p v-if="igualActual" id="igual-actual" class="mt-1 text-xs text-error-600 dark:text-error-400" role="alert">
+          La contraseña nueva debe ser distinta de la actual.
         </p>
       </div>
 
@@ -51,19 +56,19 @@
           required
           class="input-base"
         />
-        <p v-if="form.confirmacion && !coinciden" class="mt-1 text-xs text-error-600" role="alert">
+        <p v-if="form.confirmacion && !coinciden" class="mt-1 text-xs text-error-600 dark:text-error-400" role="alert">
           Las contraseñas no coinciden.
         </p>
       </div>
 
-      <div class="flex items-center justify-end gap-3 pt-2">
-        <NuxtLink to="/" class="rounded-md px-4 py-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300">
+      <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+        <NuxtLink to="/" class="rounded-md px-4 py-2.5 text-center text-sm text-gray-600 hover:text-gray-900 sm:py-2 dark:text-gray-300 dark:hover:text-white">
           Cancelar
         </NuxtLink>
         <button
           type="submit"
           :disabled="!puedeGuardar || guardando"
-          class="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2"
         >
           <Icon v-if="guardando" name="ph:spinner-gap-bold" class="animate-spin" />
           {{ guardando ? 'Guardando…' : 'Cambiar contraseña' }}
@@ -90,12 +95,13 @@ const guardando = ref(false)
 
 const nuevaValida = computed(() => form.nueva.length === 0 || form.nueva.length >= MINIMO)
 const coinciden = computed(() => form.nueva === form.confirmacion)
+const igualActual = computed(() => form.nueva.length > 0 && form.nueva === form.actual)
 const puedeGuardar = computed(
   () =>
     form.actual.length > 0 &&
     form.nueva.length >= MINIMO &&
     coinciden.value &&
-    form.nueva !== form.actual,
+    !igualActual.value,
 )
 
 async function guardar() {

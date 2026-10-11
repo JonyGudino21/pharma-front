@@ -26,7 +26,9 @@ const LABELS: Record<keyof RemissionSettings, string> = {
   terms: 'Condiciones',
   showSignatures: 'Líneas de firma',
   showPayments: 'Forma de pago y saldo',
-  showSku: 'Columna de código',
+  showSku: 'Código del producto',
+  showLot: 'Lote',
+  showExpiry: 'Caducidad',
   showTaxBreakdown: 'Desglose de IVA',
   density: 'Densidad de la tabla',
 }
@@ -63,7 +65,9 @@ const DENSITIES = [
 /** La vista previa puede simular una nota corta o un pedido grande. */
 const sampleLines = ref<3 | 30>(3)
 
-const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPayments', 'showSku', 'showTaxBreakdown', 'density']
+const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPayments', 'showTaxBreakdown', 'density']
+const DETAIL_KEYS: Array<keyof RemissionSettings> = ['showSku', 'showLot', 'showExpiry']
+const detailDirty = computed(() => DETAIL_KEYS.some((k) => s.isChanged(k)))
 const contentDirty = computed(() => CONTENT_KEYS.some((k) => s.isChanged(k)))
 
 /** La vista previa usa lo que está en el formulario, guardado o no: sirve para decidir. */
@@ -85,7 +89,7 @@ function format(key: string, value: unknown) {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <SettingsPageHeader
       title="Nota de remisión"
       description="Documento en hoja completa con los datos de la farmacia y del cliente, el listado de productos y el total con letra. No es una factura (CFDI): sirve para entregas a clientes, empresas y crédito."
@@ -105,7 +109,7 @@ function format(key: string, value: unknown) {
       <button type="button" class="btn-primary mx-auto mt-4 gap-2" @click="s.load()"><Icon name="ph:arrow-clockwise-bold" /> Reintentar</button>
     </div>
 
-    <div v-else-if="s.snapshot.value" class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
+    <div v-else-if="s.snapshot.value" class="grid items-start gap-4 sm:gap-6 [&>*]:min-w-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
       <div class="space-y-6">
         <SettingsCard title="Documento" description="Si la apagas, el botón desaparece del punto de venta y del historial." icon="ph:file-text-bold" :dirty="s.isChanged('enabled') || s.isChanged('paper')">
           <div class="space-y-5">
@@ -118,7 +122,6 @@ function format(key: string, value: unknown) {
           <div class="space-y-5">
             <SettingsSwitch v-model="s.form.showPayments" label="Forma de pago, pagado y saldo" description="Imprescindible para ventas a crédito: el cliente ve cuánto debe." :changed="s.isChanged('showPayments')" />
             <SettingsSwitch v-model="s.form.showSignatures" label="Líneas de firma" description="“Entregó” y “Recibí de conformidad”, para que quede constancia de la entrega." :changed="s.isChanged('showSignatures')" />
-            <SettingsSwitch v-model="s.form.showSku" label="Columna de código" description="El SKU de cada producto, útil para que el cliente concilie con su inventario." :changed="s.isChanged('showSku')" />
             <SettingsSwitch v-model="s.form.showTaxBreakdown" label="Desglose de IVA incluido" description="Muestra, bajo el total, cuánto IVA contiene la venta en cada tasa. Los precios ya lo incluyen." :changed="s.isChanged('showTaxBreakdown')" />
             <div>
               <SegmentedControl v-model="s.form.density" label="Densidad de la tabla de productos" :options="DENSITIES" />
@@ -129,12 +132,23 @@ function format(key: string, value: unknown) {
           </div>
         </SettingsCard>
 
+        <SettingsCard title="Detalle de cada producto" description="Qué aparece bajo el nombre de cada producto. El nombre, la cantidad y el precio siempre se imprimen." icon="ph:list-magnifying-glass-bold" :dirty="detailDirty">
+          <div class="space-y-5">
+            <SettingsSwitch v-model="s.form.showSku" label="Código del producto" description="El SKU, útil para que el cliente concilie con su inventario." :changed="s.isChanged('showSku')" />
+            <SettingsSwitch v-model="s.form.showLot" label="Lote" description="Número de lote del laboratorio. Sirve si hay un retiro de producto o si el cliente lleva trazabilidad." :changed="s.isChanged('showLot')" />
+            <SettingsSwitch v-model="s.form.showExpiry" label="Caducidad" description="Mes y año de caducidad de cada lote. Apágalo si prefieres no mostrarla al cliente: el sistema la sigue usando para vender primero lo que caduca antes." :changed="s.isChanged('showExpiry')" />
+            <p v-if="!s.form.showSku && !s.form.showLot && !s.form.showExpiry" class="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+              Cada producto mostrará sólo su nombre: una nota más limpia y compacta.
+            </p>
+          </div>
+        </SettingsCard>
+
         <SettingsCard title="Textos" description="Se imprimen tal cual, al pie de la hoja." icon="ph:text-aa-bold" :dirty="s.isChanged('legend') || s.isChanged('terms')">
           <div class="space-y-5">
             <div>
               <label for="legend" class="label-base">Leyenda</label>
               <textarea id="legend" v-model="s.form.legend" rows="2" class="input-base" :aria-invalid="!!s.errors.value.legend" />
-              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.legend ? 'text-error-600' : 'text-gray-500'">
+              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.legend ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'">
                 <span>{{ s.errors.value.legend || 'Por defecto aclara que no es un CFDI: déjala así salvo que tu contador indique otra cosa.' }}</span>
                 <span class="tabular-nums">{{ s.form.legend.length }}/{{ LEGEND_MAX }}</span>
               </p>
@@ -142,7 +156,7 @@ function format(key: string, value: unknown) {
             <div>
               <label for="terms" class="label-base">Condiciones (opcional)</label>
               <textarea id="terms" v-model="s.form.terms" rows="3" class="input-base" placeholder="Ej.: Cambios y devoluciones dentro de 7 días con esta nota." :aria-invalid="!!s.errors.value.terms" />
-              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.terms ? 'text-error-600' : 'text-gray-500'">
+              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.terms ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'">
                 <span>{{ s.errors.value.terms || 'Vacío = no se imprime.' }}</span>
                 <span class="tabular-nums">{{ s.form.terms.length }}/{{ TERMS_MAX }}</span>
               </p>
@@ -157,7 +171,7 @@ function format(key: string, value: unknown) {
         <div class="mb-3 flex items-center justify-between gap-3">
           <span class="text-xs text-gray-500 dark:text-gray-400">Ejemplo:</span>
           <div class="inline-flex rounded-lg border border-gray-200 p-0.5 text-xs dark:border-gray-600" role="group" aria-label="Tamaño del ejemplo">
-            <button v-for="n in [3, 30] as const" :key="n" type="button" class="rounded-md px-3 py-1 font-medium transition-colors" :class="sampleLines === n ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'" :aria-pressed="sampleLines === n" @click="sampleLines = n">
+            <button v-for="n in [3, 30] as const" :key="n" type="button" class="rounded-md px-3 py-1.5 font-medium transition-colors sm:py-1" :class="sampleLines === n ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'" :aria-pressed="sampleLines === n" @click="sampleLines = n">
               {{ n }} productos
             </button>
           </div>

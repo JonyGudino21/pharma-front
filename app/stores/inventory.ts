@@ -4,7 +4,7 @@ import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
 import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
-export type MovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'LOSS' | 'INITIAL' | 'RETURN' | 'RETURN_IN' | 'RETURN_OUT'
+export type MovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'LOSS' | 'INITIAL' | 'RETURN' | 'RETURN_IN' | 'RETURN_OUT' | 'TRANSFER'
 
 export interface InventoryMovement {
   id: number

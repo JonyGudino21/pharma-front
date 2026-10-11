@@ -98,10 +98,13 @@ export const useSupplierStore = defineStore('supplier', () => {
 
     isLoading.value = true
     try {
+      // El servidor aplica Activos/Inactivos y pagina (antes se pedían 100 y se
+      // filtraba aquí: a partir del resultado 101 se perdían proveedores).
       const params = new URLSearchParams()
       params.append('page', page.toString())
       params.append('limit', pagination.value.limit.toString())
-      
+      if (filters.value.isActive !== 'all') params.append('active', filters.value.isActive)
+
       // Enviamos el query a los 3 campos, el backend aplica OR
       params.append('name', filters.value.query)
       params.append('email', filters.value.query)
@@ -159,13 +162,23 @@ export const useSupplierStore = defineStore('supplier', () => {
   async function updateSupplier(id: number, payload: Partial<CreateSupplierPayload & { isActive: boolean }>) {
     const { $api } = useNuxtApp()
     await $api(`/suppliers/${id}`, { method: 'PATCH', body: payload })
-    await fetchSuppliers(pagination.value.page)
+    await refreshList()
+    // Renombrar, desactivar o reactivar también cambia el combo de compras.
+    await fetchSupplierOptions(true)
   }
 
   async function deactivateSupplier(id: number) {
     const { $api } = useNuxtApp()
     await $api(`/suppliers/${id}`, { method: 'DELETE' })
-    await fetchSuppliers(pagination.value.page)
+    await refreshList()
+    // Un proveedor dado de baja no debe seguir ofreciéndose al crear compras.
+    await fetchSupplierOptions(true)
+  }
+
+  /** Recarga la página actual respetando la búsqueda en curso. */
+  async function refreshList() {
+    if (filters.value.query.trim()) await searchSuppliers(pagination.value.page)
+    else await fetchSuppliers(pagination.value.page)
   }
 
   async function fetchAccountStatement(id: number): Promise<AccountStatement | null> {

@@ -298,6 +298,28 @@ mientras se escribe (para no interferir con el escáner). Atajos en uso:
 | POS | `F2` cobrar · `F3` buscar · `F4` cliente · `F9` descartar · `Esc` cerrar modal / volver al escáner · `Enter` en el escáner |
 | Configuración (todas las secciones con formulario, Ticket y Dispositivos) | `Ctrl+S` / `Cmd+S` guardar |
 
+## 11.1 Ayuda contextual y diseño responsivo (ADR-0023)
+
+**Ayuda.** Contenido como datos tipados en `utils/help/guides/*.ts` (13 guías; bloques párrafo,
+pasos, lista, consejo, advertencia y preguntas; formato en línea **negritas** y `teclas`, sin HTML).
+`utils/help/index.ts` registra las guías, `ROUTE_GUIDES` (ruta → guía y, opcional, sección),
+`searchHelp` (sin acentos, todas las palabras) y `parseInline`. Un solo `components/help/HelpPanel.vue`
+montado en `app.vue`; se abre con el botón **Ayuda** del layout o `useHelp().openHelp(guía, sección)`.
+Pantalla nueva ⇒ entrada en `ROUTE_GUIDES` y guía o sección (lo verifica `help.spec.ts`).
+
+**Responsivo.** Celular primero, escritorio intacto:
+
+- Layout: menú fijo colapsable desde `lg` (1024 px); debajo, cajón con fondo que se cierra al navegar,
+  al tocar fuera o con `Esc`. `<main>` es un **contenedor** (`@container`).
+- Listas: tabla en `.table-wrap hidden @4xl:block` y tarjetas en `.card-list @4xl:hidden`. El corte es
+  por el **ancho del contenido** (≥ 896 px), no de la pantalla: con el menú abierto en una laptop de
+  1024 px el contenido mide ~700 px y una tabla de 6 columnas no cabe.
+- Modales: `.modal-overlay` / `.modal-panel` / `.modal-header` / `.modal-body` / `.modal-footer` (hoja
+  inferior en celular con área segura; cuerpo con scroll y pie fijo).
+- Encabezados `.page-header` / `.page-actions`; `.input-base` a 16 px en celular (evita el zoom de iOS);
+  objetivos táctiles ≥ 40 px.
+- Referencias: `pages/sales/index.vue` (lista + filtros plegables) y `components/shared/ConfirmModal.vue`.
+
 ## 12. Pruebas
 
 - **Vitest** (`vitest.config.ts`): entorno `node`, incluye `app/**/*.spec.ts`. No arranca Nuxt;
@@ -306,6 +328,7 @@ mientras se escribe (para no interferir con el escáner). Atajos en uso:
   - `app/utils/amount-in-words.spec.ts` — importe con letra.
   - `app/utils/remission-html.spec.ts` — escape HTML, folio NR y documento de la nota.
   - `app/composables/useAppUpdate.spec.ts` — aviso de versión, aplazamiento y bloqueos.
+  - `app/utils/help/help.spec.ts` — catálogo de guías, ruta → guía/sección, buscador y formato.
 - `pnpm test` en local; CI lo corre entre `typecheck` y `build`.
 - Lo que depende del navegador (WebUSB, impresión, iframes) se prueba a mano.
 

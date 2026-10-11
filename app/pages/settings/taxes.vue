@@ -81,7 +81,7 @@ async function applyBulk() {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <SettingsPageHeader
       title="Impuestos"
       description="Tasa de IVA, con qué tratamiento nacen los productos y qué muestra el ticket. Los precios siempre se capturan y cobran con IVA incluido: el impuesto se desglosa hacia dentro."
@@ -101,7 +101,7 @@ async function applyBulk() {
       <button type="button" class="btn-primary mx-auto mt-4 gap-2" @click="s.load()"><Icon name="ph:arrow-clockwise-bold" /> Reintentar</button>
     </div>
 
-    <div v-else-if="s.snapshot.value" class="grid items-start gap-6 lg:grid-cols-2">
+    <div v-else-if="s.snapshot.value" class="grid items-start gap-4 sm:gap-6 [&>*]:min-w-0 lg:grid-cols-2">
       <SettingsCard title="Tasa general" description="La que se aplica a los productos marcados como General." icon="ph:scales-bold" :dirty="s.isChanged('generalRate')">
         <SegmentedControl v-model="s.form.generalRate" label="IVA general" :options="RATES" />
         <p v-if="s.form.generalRate === 8" class="mt-4 flex gap-2 rounded-lg bg-warning-500/10 p-3 text-xs text-warning-800 dark:text-warning-300">

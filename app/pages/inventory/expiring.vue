@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-6">
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+    <div class="page-header">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon name="ph:hourglass-bold" class="text-primary-600" /> Alertas de caducidad
         </h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -13,14 +13,17 @@
           <NuxtLink v-if="authStore.can('canManageSettings')" to="/settings/inventory" class="ml-1 font-medium text-primary-600 hover:underline dark:text-primary-400">Ajustar criterios</NuxtLink>
         </p>
       </div>
-      <div class="flex gap-2">
+      <!-- Horizonte: en celular los botones se reparten el ancho. -->
+      <div class="page-actions" role="group" aria-label="Horizonte de caducidad">
         <button
           v-for="option in dayOptions"
           :key="option"
-          class="px-4 py-2 rounded-xl text-sm font-semibold border transition-colors"
+          type="button"
+          class="px-4 py-2 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap"
           :class="days === option
             ? 'bg-primary-600 text-white border-primary-600'
             : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+          :aria-pressed="days === option"
           @click="changeDays(option)"
         >
           {{ option }} días
@@ -52,48 +55,81 @@
       <div v-else-if="inventoryStore.expiring.length === 0" class="py-16 text-center text-gray-400">
         No hay lotes por caducar en este horizonte.
       </div>
-      <div v-else class="overflow-x-auto">
-        <table class="w-full text-left whitespace-nowrap">
-          <thead>
-            <tr class="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
-              <th class="px-4 py-3">Producto</th>
-              <th class="px-4 py-3">Lote</th>
-              <th class="px-4 py-3">Caducidad</th>
-              <th class="px-4 py-3 text-center">Días</th>
-              <th class="px-4 py-3 text-center">Cant.</th>
-              <th class="px-4 py-3">Estado</th>
-              <th v-if="authStore.can('canAdjustInventory')" class="px-4 py-3 text-right"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-            <tr v-for="batch in inventoryStore.expiring" :key="batch.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-              <td class="px-4 py-3">
-                <p class="font-bold text-sm text-gray-900 dark:text-white">{{ batch.product.name }}</p>
-                <p class="text-xs font-mono text-gray-500">{{ batch.product.sku }}</p>
-              </td>
-              <td class="px-4 py-3 font-mono text-sm">{{ batch.lotNumber }}</td>
-              <td class="px-4 py-3 text-sm">{{ formatDate(batch.expiryDate) }}</td>
-              <td class="px-4 py-3 text-center font-bold tabular-nums">{{ batch.daysLeft }}</td>
-              <td class="px-4 py-3 text-center font-bold">{{ batch.quantity }}</td>
-              <td class="px-4 py-3">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold" :class="lightClass(batch.status)">
-                  <span class="w-2 h-2 rounded-full" :class="dotClass(batch.status)"></span>
-                  {{ lightLabel(batch.status) }}
-                </span>
-              </td>
-              <td v-if="authStore.can('canAdjustInventory')" class="px-4 py-3 text-right">
-                <button
-                  class="text-sm font-bold text-error-600 hover:text-error-700"
-                  @click="openDestroy(batch)"
-                >
-                  Merma
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="px-4 pb-4">
+      <template v-else>
+        <!-- Laptop y tableta: tabla -->
+        <div class="table-wrap hidden @4xl:block">
+          <table class="w-full text-left whitespace-nowrap">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
+                <th class="px-4 py-3">Producto</th>
+                <th class="px-4 py-3">Lote</th>
+                <th class="px-4 py-3">Caducidad</th>
+                <th class="px-4 py-3 text-center">Días</th>
+                <th class="px-4 py-3 text-center">Cant.</th>
+                <th class="px-4 py-3">Estado</th>
+                <th v-if="authStore.can('canAdjustInventory')" class="px-4 py-3 text-right"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <tr v-for="batch in inventoryStore.expiring" :key="batch.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <td class="px-4 py-3">
+                  <p class="font-bold text-sm text-gray-900 dark:text-white">{{ batch.product.name }}</p>
+                  <p class="text-xs font-mono text-gray-500">{{ batch.product.sku }}</p>
+                </td>
+                <td class="px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300">{{ batch.lotNumber }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ formatDate(batch.expiryDate) }}</td>
+                <td class="px-4 py-3 text-center font-bold tabular-nums text-gray-900 dark:text-white">{{ batch.daysLeft }}</td>
+                <td class="px-4 py-3 text-center font-bold text-gray-900 dark:text-white">{{ batch.quantity }}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold" :class="lightClass(batch.status)">
+                    <span class="w-2 h-2 rounded-full" :class="dotClass(batch.status)"></span>
+                    {{ lightLabel(batch.status) }}
+                  </span>
+                </td>
+                <td v-if="authStore.can('canAdjustInventory')" class="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    class="rounded-lg px-3 py-2 text-sm font-bold text-error-600 hover:bg-error-50 hover:text-error-700 dark:text-error-400 dark:hover:bg-error-900/30"
+                    @click="openDestroy(batch)"
+                  >
+                    Merma
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Celular: tarjetas -->
+        <ul class="card-list @4xl:hidden" data-testid="expiring-cards">
+          <li v-for="batch in inventoryStore.expiring" :key="batch.id" class="px-4 py-3">
+            <div class="card-row">
+              <p class="min-w-0 truncate font-bold text-gray-900 dark:text-white">{{ batch.product.name }}</p>
+              <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold" :class="lightClass(batch.status)">
+                <span class="w-2 h-2 rounded-full" :class="dotClass(batch.status)"></span>
+                {{ lightLabel(batch.status) }}
+              </span>
+            </div>
+            <p class="mt-0.5 text-xs font-mono text-gray-500 dark:text-gray-400">{{ batch.product.sku }} · Lote {{ batch.lotNumber }}</p>
+            <div class="card-row mt-1.5">
+              <p class="text-gray-700 dark:text-gray-300">
+                <span class="card-label">Caduca</span> {{ formatDate(batch.expiryDate) }}
+                <span class="font-bold tabular-nums">({{ batch.daysLeft }} d)</span>
+              </p>
+              <p class="shrink-0 font-bold text-gray-900 dark:text-white">{{ batch.quantity }} uds.</p>
+            </div>
+            <button
+              v-if="authStore.can('canAdjustInventory')"
+              type="button"
+              class="btn-secondary mt-3 w-full text-error-700 dark:text-error-400"
+              @click="openDestroy(batch)"
+            >
+              <Icon name="ph:trash-bold" class="mr-2" /> Registrar merma
+            </button>
+          </li>
+        </ul>
+      </template>
+      <div v-if="!inventoryStore.expiringError" class="px-3 pb-4 sm:px-4">
         <Pagination :pagination="inventoryStore.expiringPagination" @page-change="goToPage" />
       </div>
     </div>

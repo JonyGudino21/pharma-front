@@ -40,7 +40,7 @@
     <button
       v-if="fallo.reintentable"
       type="button"
-      class="mt-1 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+      class="mt-1 inline-flex min-h-10 items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
       @click="emit('reintentar')"
     >
       <Icon name="ph:arrow-clockwise-bold" />

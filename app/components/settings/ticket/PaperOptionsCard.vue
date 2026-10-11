@@ -43,7 +43,7 @@ const CHARSETS: { value: ReceiptCharset; title: string; hint: string }[] = [
           :aria-invalid="!!nameError"
           aria-describedby="tk-tpl-name-err"
         />
-        <p v-if="nameError" id="tk-tpl-name-err" class="mt-1 text-xs text-error-600">{{ nameError }}</p>
+        <p v-if="nameError" id="tk-tpl-name-err" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ nameError }}</p>
       </div>
 
       <SegmentedControl v-model="form.paperWidthMm" label="Ancho del rollo" :options="WIDTHS" />

@@ -3,7 +3,7 @@
  * Selector de una opción entre pocas, accesible como grupo de radio:
  * flechas para moverse, el foco sigue a la selección.
  */
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 
 const model = defineModel<T>({ required: true })
 
@@ -14,6 +14,12 @@ const props = defineProps<{
   label: string
   options: { value: T; title: string; hint?: string }[]
 }>()
+
+// Una fila con todas las opciones si caben (≥ 8 rem cada una); si no, se
+// acomodan en varias filas en vez de desbordar la tarjeta en celular.
+const columns = computed(
+  () => `repeat(auto-fit, minmax(min(100%, max(8rem, calc((100% - ${(props.options.length - 1) * 0.5}rem) / ${props.options.length}))), 1fr))`,
+)
 
 function onKey(e: KeyboardEvent) {
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
@@ -34,7 +40,7 @@ function onKey(e: KeyboardEvent) {
       role="radiogroup"
       :aria-labelledby="labelId"
       class="grid gap-2"
-      :style="{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }"
+      :style="{ gridTemplateColumns: columns }"
       @keydown="onKey"
     >
       <button
@@ -44,7 +50,7 @@ function onKey(e: KeyboardEvent) {
         role="radio"
         :aria-checked="model === o.value"
         :tabindex="model === o.value ? 0 : -1"
-        class="rounded-lg border px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        class="min-w-0 rounded-lg border px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         :class="
           model === o.value
             ? 'border-primary-500 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-900/30 dark:text-primary-100'
@@ -52,7 +58,7 @@ function onKey(e: KeyboardEvent) {
         "
         @click="model = o.value"
       >
-        <span class="block text-sm font-semibold">{{ o.title }}</span>
+        <span class="block break-words text-sm font-semibold">{{ o.title }}</span>
         <span v-if="o.hint" class="mt-0.5 block text-xs opacity-75">{{ o.hint }}</span>
       </button>
     </div>

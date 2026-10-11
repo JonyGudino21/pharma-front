@@ -58,6 +58,10 @@ export interface RemissionSettings {
   showSignatures: boolean
   showPayments: boolean
   showSku: boolean
+  /** Lote bajo el nombre de cada partida. */
+  showLot: boolean
+  /** Caducidad (MM/AAAA) de cada lote; sólo afecta lo impreso, no el FEFO. */
+  showExpiry: boolean
   showTaxBreakdown: boolean
   density: RemissionDensity
 }
@@ -71,6 +75,8 @@ export const DEFAULT_REMISSION_SETTINGS: RemissionSettings = {
   showSignatures: true,
   showPayments: true,
   showSku: true,
+  showLot: true,
+  showExpiry: true,
   showTaxBreakdown: false,
   density: 'AUTO',
 }
