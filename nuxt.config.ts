@@ -5,6 +5,16 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
+  // APLICACIÓN DE UNA SOLA PÁGINA (SPA) — ADR-0020.
+  //
+  // Con SSR, el primer render de un F5 ocurría en el servidor de Nuxt, que llamaba
+  // a /auth/me SIN las cookies httpOnly del navegador: 401, "no hay sesión que
+  // renovar" y se borraba la sesión. Toda recarga sacaba al cajero al login. Un
+  // POS detrás de login no gana nada con SSR (sin SEO; los datos se cargan en el
+  // navegador), y como SPA se publica como archivos estáticos: más barato y simple
+  // de instalar en la farmacia o en un CDN.
+  ssr: false,
+
   // Apuntar al CSS global
   css: ['~/assets/css/main.css'],
 
