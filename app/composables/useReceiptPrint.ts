@@ -14,6 +14,7 @@ import type { Company, PrintChannel, ReceiptSaleView, ReceiptTemplate } from '~/
 import { DEFAULT_REMISSION_SETTINGS, type RemissionSettings } from '~/types/settings'
 import { saleToRemissionView } from '~/utils/remission-view'
 import { renderRemissionHtml } from '~/utils/remission-html'
+import { remissionFontFaces } from '~/utils/remission-fonts'
 
 export function useReceiptPrint() {
   const companyStore = useCompanyStore()
@@ -225,7 +226,7 @@ export function useReceiptPrint() {
       fallbackClient: opts?.fallbackClient,
       showTaxBreakdown: cfg.showTaxBreakdown,
     })
-    return renderRemissionHtml(view, companyProfile.company, cfg)
+    return renderRemissionHtml(view, companyProfile.company, cfg, { fontFaces: remissionFontFaces() })
   }
 
   /** Mismas reglas que el ticket: ni borradores ni ventas anuladas. */

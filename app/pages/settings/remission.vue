@@ -5,6 +5,7 @@ import { useCompanyStore } from '~/stores/company'
 import type { FieldErrors, RemissionPaper, RemissionSettings } from '~/types/settings'
 import { renderRemissionHtml } from '~/utils/remission-html'
 import { sampleRemissionView } from '~/utils/remission-view'
+import { remissionFontFaces } from '~/utils/remission-fonts'
 import SettingsCard from '~/components/settings/SettingsCard.vue'
 import SettingsPageHeader from '~/components/settings/SettingsPageHeader.vue'
 import SettingsHistory from '~/components/settings/SettingsHistory.vue'
@@ -58,7 +59,7 @@ const contentDirty = computed(() => CONTENT_KEYS.some((k) => s.isChanged(k)))
 /** La vista previa usa lo que está en el formulario, guardado o no: sirve para decidir. */
 const previewHtml = computed(() =>
   s.snapshot.value
-    ? renderRemissionHtml(sampleRemissionView(), companyStore.company, { ...s.form }, { title: 'Vista previa' })
+    ? renderRemissionHtml(sampleRemissionView(), companyStore.company, { ...s.form }, { title: 'Vista previa', fontFaces: remissionFontFaces() })
     : '',
 )
 

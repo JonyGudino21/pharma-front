@@ -21,6 +21,16 @@ export interface RemissionParty {
   isGeneral: boolean
 }
 
+/** Lote surtido en una partida: trazabilidad para clínicas y devoluciones. */
+export interface RemissionLot {
+  lot: string
+  /** ISO o null si el lote no tiene caducidad. */
+  expiry: string | null
+  quantity: number
+}
+
+export type RemissionLine = ReceiptLine & { sku?: string | null; lots?: RemissionLot[] }
+
 export interface RemissionView {
   /** NR-AAAAMMDD-000123. Se deriva del folio de la venta: una venta, una nota. */
   folio: string
@@ -31,7 +41,9 @@ export interface RemissionView {
   copyNumber: number
   client: RemissionParty
   cashierName: string | null
-  items: Array<ReceiptLine & { sku?: string | null }>
+  items: RemissionLine[]
+  /** Piezas totales (suma de cantidades). */
+  pieces: number
   subtotal: number
   discountTotal: number
   taxBreakdown: ReceiptTaxRow[]
@@ -103,6 +115,17 @@ export function saleToRemissionView(
     showTaxBreakdown: opts?.showTaxBreakdown,
   })
 
+  // `toLine` conserva el orden de `sale.items`: el índice empata cada partida
+  // con sus lotes surtidos.
+  const items: RemissionLine[] = base.items.map((line, i) => ({
+    ...line,
+    lots: (sale.items?.[i]?.batches ?? []).map((b) => ({
+      lot: b.batch.lotNumber,
+      expiry: b.batch.expiryDate,
+      quantity: b.quantity,
+    })),
+  }))
+
   return {
     folio: remissionFolio(sale.invoiceNumber, sale.id),
     saleRef: sale.invoiceNumber,
@@ -110,7 +133,8 @@ export function saleToRemissionView(
     copyNumber: opts?.copyNumber ?? 0,
     client: partyOf(sale.client ?? opts?.fallbackClient),
     cashierName: base.cashierName,
-    items: base.items,
+    items,
+    pieces: items.reduce((acc, i) => acc + i.quantity, 0),
     subtotal: base.subtotal,
     discountTotal: base.discountTotal ?? 0,
     taxBreakdown: base.taxBreakdown ?? [],
@@ -126,10 +150,10 @@ export function saleToRemissionView(
 
 /** Venta de ejemplo para la vista previa de Configuración › Nota de remisión. */
 export function sampleRemissionView(): RemissionView {
-  const items = [
-    { quantity: 2, name: 'Paracetamol 500 mg c/20 tabletas', sku: 'MED-000123', unitPrice: 38.5, subtotal: 77, discountPercent: 0, discount: 0 },
-    { quantity: 1, name: 'Suero oral sabor coco 500 ml', sku: 'MED-000456', unitPrice: 29, subtotal: 26.1, discountPercent: 10, discount: 2.9 },
-    { quantity: 3, name: 'Jabón neutro 100 g', sku: 'HIG-000789', unitPrice: 18, subtotal: 54, discountPercent: 0, discount: 0 },
+  const items: RemissionLine[] = [
+    { quantity: 2, name: 'Paracetamol 500 mg c/20 tabletas', sku: 'MED-000123', unitPrice: 38.5, subtotal: 77, discountPercent: 0, discount: 0, lots: [{ lot: 'PA24117', expiry: '2027-03-31', quantity: 2 }] },
+    { quantity: 1, name: 'Suero oral sabor coco 500 ml', sku: 'MED-000456', unitPrice: 29, subtotal: 26.1, discountPercent: 10, discount: 2.9, lots: [{ lot: 'SO2408B', expiry: '2026-12-31', quantity: 1 }] },
+    { quantity: 3, name: 'Jabón neutro 100 g', sku: 'HIG-000789', unitPrice: 18, subtotal: 54, discountPercent: 0, discount: 0, lots: [] },
   ]
   const total = items.reduce((a, i) => a + i.subtotal, 0)
   return {
@@ -147,6 +171,7 @@ export function sampleRemissionView(): RemissionView {
     },
     cashierName: 'Ana López',
     items,
+    pieces: items.reduce((a, i) => a + i.quantity, 0),
     subtotal: 160,
     discountTotal: 2.9,
     taxBreakdown: [{ ratePercent: 16, base: 46.55, tax: 7.45 }],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { esc, renderRemissionHtml } from './remission-html'
+import { caducidad, esc, guillocheSvg, renderRemissionHtml } from './remission-html'
 import { remissionFolio, sampleRemissionView, type RemissionView } from './remission-view'
 import { DEFAULT_REMISSION_SETTINGS, type RemissionSettings } from '~/types/settings'
 import type { Company } from '~/types/receipt'
@@ -83,7 +83,7 @@ describe('renderRemissionHtml', () => {
     )
     expect(minimo).not.toContain('Recibí de conformidad')
     expect(minimo).not.toContain('Forma de pago')
-    expect(minimo).not.toContain('<th>Código</th>')
+    expect(minimo).not.toContain('MED-000123')
     expect(minimo).not.toContain('IVA incluido 16%')
 
     const completo = renderRemissionHtml(view(), company, cfg({ showTaxBreakdown: true, terms: 'Cambios en 7 días.' }))
@@ -121,7 +121,88 @@ describe('renderRemissionHtml', () => {
     expect(renderRemissionHtml(view(), company, cfg())).toContain('<th class="num">Desc.</th>')
   })
 
+  it('la tabla de partidas alterna el tono de los renglones (lectura con baja visión)', () => {
+    const html = renderRemissionHtml(view(), company, cfg())
+    expect(html).toContain('tbody tr:nth-child(even) td { background: var(--menta); }')
+    // Los tonos se imprimen aunque el navegador quite fondos por defecto.
+    expect(html).toContain('print-color-adjust: exact')
+  })
+
+  it('muestra lote y caducidad de cada partida', () => {
+    const html = renderRemissionHtml(view(), company, cfg())
+    expect(html).toContain('PA24117')
+    expect(html).toContain('Cad. 03/2027')
+  })
+
+  it('con varios lotes en una partida indica cuántas piezas de cada uno', () => {
+    const v = view({
+      items: [{ quantity: 3, name: 'A', unitPrice: 1, subtotal: 3, lots: [{ lot: 'L1', expiry: null, quantity: 2 }, { lot: 'L2', expiry: '2027-01-31', quantity: 1 }] }],
+    })
+    const html = renderRemissionHtml(v, company, cfg())
+    expect(html).toContain('L1</span> ×2')
+    expect(html).toContain('L2</span> · Cad. 01/2027 ×1')
+  })
+
+  it('resume partidas y piezas', () => {
+    expect(renderRemissionHtml(view(), company, cfg())).toContain('3 partidas · 6 piezas')
+  })
+
+  it('sin logo usa la marca de botica; con logo, la imagen', () => {
+    expect(renderRemissionHtml(view(), company, cfg())).toContain('class="mark"')
+    const conLogo = renderRemissionHtml(view(), { ...company, logoUrl: 'https://x.test/logo.png' }, cfg())
+    expect(conLogo).toContain('<img src="https://x.test/logo.png"')
+  })
+
+  it('el folio del pie de página no puede romper el CSS', () => {
+    const html = renderRemissionHtml(view({ folio: 'NR-1"; } body{display:none} /*' }), company, cfg())
+    const pie = /@bottom-left { content: "([^"]*)"/.exec(html)
+    // Sin comillas, llaves ni punto y coma: el texto no puede salir de la cadena CSS.
+    expect(pie?.[1]).toBe('NR-1  bodydisplaynone /')
+    const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'))
+    expect(css).not.toContain('display:none')
+  })
+
+  it('incluye las fuentes locales cuando se le pasan', () => {
+    const html = renderRemissionHtml(view(), company, cfg(), { fontFaces: '@font-face{font-family:X}' })
+    expect(html).toContain('@font-face{font-family:X}')
+  })
+
   it('sin ficha de la farmacia no rompe', () => {
     expect(() => renderRemissionHtml(view(), null, cfg())).not.toThrow()
+  })
+})
+
+describe('caducidad', () => {
+  it('formatea MM/AAAA en UTC (como la caja del medicamento)', () => {
+    expect(caducidad('2027-03-31')).toBe('03/2027')
+    expect(caducidad('2027-03-31T00:00:00.000Z')).toBe('03/2027')
+  })
+  it('sin fecha o inválida no imprime nada', () => {
+    expect(caducidad(null)).toBe('')
+    expect(caducidad('x')).toBe('')
+  })
+})
+
+describe('guillocheSvg', () => {
+  it('es determinista: vista previa e impresión idénticas', () => {
+    expect(guillocheSvg()).toBe(guillocheSvg())
+    expect(guillocheSvg()).toMatch(/^<svg class="guilloche"/)
+  })
+})
+
+describe('forma de pago en "Datos de la venta"', () => {
+  const company = null
+  const cfg = DEFAULT_REMISSION_SETTINGS
+  it('a crédito con abono: método + crédito', () => {
+    const v = { ...sampleRemissionView(), payments: [{ method: 'Efectivo', amount: 60 }], paidAmount: 60, balance: 75.5 }
+    expect(renderRemissionHtml(v, company, cfg)).toContain('<dt>Pago</dt><dd>Efectivo + crédito</dd>')
+  })
+  it('a crédito sin abono: crédito', () => {
+    const v = { ...sampleRemissionView(), payments: [], paidAmount: 0, balance: 157.1 }
+    expect(renderRemissionHtml(v, company, cfg)).toContain('<dt>Pago</dt><dd>Crédito</dd>')
+  })
+  it('pagada: sólo los métodos', () => {
+    const v = { ...sampleRemissionView(), payments: [{ method: 'Tarjeta', amount: 157.1 }], paidAmount: 157.1, balance: 0 }
+    expect(renderRemissionHtml(v, company, cfg)).toContain('<dt>Pago</dt><dd>Tarjeta</dd>')
   })
 })
