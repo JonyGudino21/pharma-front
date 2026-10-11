@@ -74,23 +74,43 @@ Winbond, NXP.
 
 Documento **no fiscal** en hoja Carta/A4 para entregas a clientes, empresas y ventas a crédito.
 
+### Diseño ("botica", rediseño 10/10/2026)
+
+- **Paleta legible en impresora de un solo color:** tinta `#14231C`, verde botica `#1E6B52` (único
+  acento), menta `#E3EFE8` (renglones alternos), ámbar `#A8551A` (saldo y copias), líneas `#C9D3CE`.
+- **Tipografía local** (sin internet; `utils/remission-fonts.ts` declara las @font-face con URL
+  absoluta del mismo origen): Literata para el nombre de la farmacia y el total, IBM Plex Sans para el
+  cuerpo (10.5 pt), IBM Plex Mono para folio, SKU, lote y RFC. Sin ellas, fuentes del sistema.
+- **Sello visual:** banda de guilloché (trazo de papel de seguridad) en el encabezado, generada de forma
+  determinista (`guillocheSvg`). Sin logo, una cruz de botica como marca.
+- **Accesibilidad (baja visión):** la tabla de partidas alterna renglones blanco / menta
+  (`print-color-adjust: exact` para que se impriman), encabezado oscuro de alto contraste, cifras
+  tabulares a la derecha y menos columnas: código, **lote con caducidad (MM/AAAA)** y descuento van en
+  una línea secundaria bajo el nombre del producto. Debajo: "N partidas · M piezas".
+- La vista previa (`RemissionSheet`) usa `sandbox="allow-same-origin"` **sin** `allow-scripts`: el
+  documento no ejecuta nada, pero conserva el origen para cargar las fuentes locales.
+
 ### Contenido
 
-- Encabezado: logo (si carga; si no, se quita), nombre comercial, razón social (si difiere), RFC,
-  domicilio, teléfono/correo; a la derecha "NOTA DE REMISIÓN", folio, fecha/hora y sello:
+- Encabezado: logo (si carga; si no, la cruz de botica), nombre comercial, razón social (si difiere),
+  RFC, domicilio, teléfono/correo; a la derecha "NOTA DE REMISIÓN", folio, fecha/hora y sello:
   `VISTA PREVIA` (copia 0), `ORIGINAL` (1) o `COPIA N`.
 - Cliente ("Público en general" sin datos de contacto, o nombre, RFC, domicilio, teléfono y
   correo) y datos de la venta (ticket `FAC-…`, quién atendió, estado **PAGADA** o
   **A CRÉDITO / PENDIENTE**).
-- Partidas: #, código (opcional), descripción (con "Descuento N%"), cantidad, precio unitario,
-  descuento (columna sólo si alguna línea lo tiene) e importe.
+- Partidas: #, descripción (con línea secundaria: código opcional, lote · caducidad y "Descuento N%"),
+  cantidad, precio unitario, descuento (columna sólo si alguna línea lo tiene) e importe.
+- "Pago": métodos usados; con saldo pendiente, "Efectivo + crédito" (o "Crédito" sin abono).
 - Totales: subtotal, descuento, IVA incluido por tasa (opcional), TOTAL, pagado y saldo
   (opcional).
 - Importe con letra ("MIL DOSCIENTOS TREINTA Y CUATRO PESOS 50/100 M.N.").
 - Formas de pago (opcional), aviso de devoluciones si las hay ("los importes corresponden a la
   venta original"), observaciones de la venta, condiciones, líneas de firma "Entregó" / "Recibí
   de conformidad" (opcional) y leyenda.
-- Pie de página "Página X de Y" en impresión.
+- Pie de página en impresión: folio a la izquierda y "Hoja X de Y" a la derecha (Chrome/Edge 131+).
+- Botón **Imprimir o guardar PDF**: el diálogo del navegador ofrece "Guardar como PDF" para descargarla.
+- El encabezado del modal anuncia la siguiente copia con el número que REGISTRÓ el servidor (antes se
+  contaba dos veces y anunciaba "COPIA 5" tras dos impresiones).
 
 ### Folio
 

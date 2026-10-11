@@ -32,9 +32,11 @@ por qué. Lo específico de cada pantalla está en [`modulos/`](modulos).
 ```
 
 - **Nuxt 4** con el directorio `app/` (convención de Nuxt 4). Enrutado por archivos.
-- **SSR activo** (no hay `ssr: false` en `nuxt.config.ts`). Todo lo que depende del navegador
-  (WebUSB, `localStorage`, `sessionStorage`, `window`) se protege con `import.meta.client` o se
-  ejecuta en `onMounted`, y los plugins de conexión y actualización son `*.client.ts`.
+- **SPA, sin SSR** (`ssr: false`, ADR-0020). Con SSR, el primer render de un F5 llamaba a
+  `/auth/me` desde el servidor de Nuxt **sin las cookies httpOnly** del navegador y la sesión se
+  cerraba en cada recarga. Como SPA, toda llamada al API sale del navegador y el build se publica
+  como **archivos estáticos** (`.output/public` o `nuxt generate`): Nginx/IIS local o un CDN.
+  Lo que depende del navegador sigue protegido con `import.meta.client` por compatibilidad.
 - **Pinia** con *setup stores*. `nuxt.config.ts` agrega `stores/` a los auto-imports, aunque el
   código importa los stores explícitamente.
 - **Tailwind v4** vía plugin de Vite; el tema (colores `primary`, `success`, `warning`, `error`)
