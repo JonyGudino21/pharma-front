@@ -17,6 +17,7 @@ import PosPrescriptionModal from '~/components/pos/PosPrescriptionModal.vue'
 import PosDiscountModal from '~/components/pos/PosDiscountModal.vue'
 import { useSettingsStore } from '~/stores/settings'
 import RemissionModal from '~/components/receipt/RemissionModal.vue'
+import ConfirmModal from '~/components/shared/ConfirmModal.vue'
 import type { SaleItem, DiscountRequest } from '~/stores/sales'
 import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
 import { useCompanyStore } from '~/stores/company'
@@ -138,7 +139,11 @@ useUpdateHold('pos', () =>
       : null,
 )
 
-const anyModalOpen = computed(() => showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
+// Confirmación propia (no `confirm()` del navegador): se ve igual en celular
+// y en laptop, y respeta el tema claro/oscuro.
+const confirmDiscard = ref(false)
+const isDiscarding = ref(false)
+const anyModalOpen = computed(() => confirmDiscard.value || showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
 
 function focusScanner() {
@@ -284,14 +289,24 @@ function newSale() {
   focusScanner()
 }
 
-async function discard() {
+function discard() {
   if (isEmpty.value && !sales.sale) return
-  if (!confirm('¿Descartar la venta actual? Esta acción no se puede deshacer.')) return
-  await sales.discardSale()
-  focusScanner()
+  confirmDiscard.value = true
+}
+
+async function executeDiscard() {
+  isDiscarding.value = true
+  try {
+    await sales.discardSale()
+  } finally {
+    isDiscarding.value = false
+    confirmDiscard.value = false
+    focusScanner()
+  }
 }
 
 function handleEscape() {
+  if (confirmDiscard.value) { if (!isDiscarding.value) { confirmDiscard.value = false; focusScanner() } return }
   if (discountTarget.value) { discountTarget.value = null; focusScanner(); return }
   if (showSearch.value) { showSearch.value = false; focusScanner(); return }
   if (showClient.value) { showClient.value = false; focusScanner(); return }
@@ -686,5 +701,17 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="confirmDiscard"
+      title="Descartar venta"
+      message="Se quitarán todos los productos, el cliente y la receta de esta venta. No se puede deshacer."
+      confirm-text="Descartar"
+      cancel-text="Seguir vendiendo"
+      type="danger"
+      :is-loading="isDiscarding"
+      @confirm="executeDiscard"
+      @cancel="confirmDiscard = false; focusScanner()"
+    />
   </div>
 </template>
