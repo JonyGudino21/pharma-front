@@ -43,6 +43,8 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
   filtros de fecha para quien no ve analítica.
 - **Contraseña**: avisa si la nueva es igual a la actual. Toasts de información con icono.
 - Controlado con existencia sin lote: el mensaje indica **Inventario › Asignar lote**.
+- **Descartar venta** usa la confirmación de la app (antes el diálogo del navegador).
+- **Buscar cliente** en el POS y el directorio: el servidor rechazaba `page`/`limit` (corregido en el backend).
 
 ### Identidad única y densidad adaptativa (ADR-0021)
 
