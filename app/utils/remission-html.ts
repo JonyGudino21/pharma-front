@@ -267,15 +267,23 @@ function stampOf(copy: number): string {
   return `<span class="stamp copy">COPIA ${copy}</span>`
 }
 
-/** Línea secundaria de una partida: código, lotes con caducidad y descuento. */
-function subLine(i: RemissionLine, showSku: boolean): string {
+/**
+ * Línea secundaria de una partida. Cada dato es opcional (Configuración › Nota
+ * de remisión): código, lote y caducidad. Con los tres apagados el renglón queda
+ * sólo con el nombre. El descuento siempre se muestra: es parte del importe.
+ */
+function subLine(i: RemissionLine, cfg: Pick<RemissionSettings, 'showSku' | 'showLot' | 'showExpiry'>): string {
   const partes: string[] = []
-  if (showSku && i.sku) partes.push(`<span class="mono">${esc(i.sku)}</span>`)
+  if (cfg.showSku && i.sku) partes.push(`<span class="mono">${esc(i.sku)}</span>`)
   const lotes = i.lots ?? []
-  for (const l of lotes) {
-    const cad = caducidad(l.expiry)
-    const piezas = lotes.length > 1 ? ` ×${esc(l.quantity)}` : ''
-    partes.push(`Lote <span class="mono">${esc(l.lot)}</span>${cad ? ` · Cad. ${cad}` : ''}${piezas}`)
+  if (cfg.showLot || cfg.showExpiry) {
+    for (const l of lotes) {
+      const cad = cfg.showExpiry ? caducidad(l.expiry) : ''
+      const piezas = lotes.length > 1 ? ` ×${esc(l.quantity)}` : ''
+      const lote = cfg.showLot ? `Lote <span class="mono">${esc(l.lot)}</span>` : ''
+      const texto = [lote, cad && `Cad. ${cad}`].filter(Boolean).join(' · ')
+      if (texto) partes.push(`${texto}${piezas}`)
+    }
   }
   if ((i.discount ?? 0) > 0) partes.push(`<span class="disc">Descuento ${esc(i.discountPercent)}%</span>`)
   return partes.length ? `<span class="sub">${partes.join(' &nbsp;·&nbsp; ')}</span>` : ''
@@ -310,7 +318,7 @@ export function renderRemissionHtml(
     .map(
       (i, idx) => `<tr>
         <td class="idx">${String(idx + 1).padStart(2, '0')}</td>
-        <td><span class="prod">${esc(i.name)}</span>${subLine(i, cfg.showSku)}</td>
+        <td><span class="prod">${esc(i.name)}</span>${subLine(i, cfg)}</td>
         <td class="num qty">${esc(i.quantity)}</td>
         <td class="num">${money(i.unitPrice)}</td>
         ${hayDescuento ? `<td class="num">${(i.discount ?? 0) > 0 ? `−${money(i.discount ?? 0)}` : '—'}</td>` : ''}

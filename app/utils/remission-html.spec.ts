@@ -226,3 +226,33 @@ describe('densidad de la tabla', () => {
     expect(largo).toContain('30 partidas')
   })
 })
+
+describe('detalle de cada partida (interruptores)', () => {
+  const base = { ...sampleRemissionView(3) }
+  const html = (over: Partial<typeof DEFAULT_REMISSION_SETTINGS>) =>
+    renderRemissionHtml(base, null, { ...DEFAULT_REMISSION_SETTINGS, ...over })
+
+  it('de fábrica: código, lote y caducidad', () => {
+    const h = html({})
+    expect(h).toContain('MED-000123')
+    expect(h).toContain('PA24117')
+    expect(h).toContain('Cad. 03/2027')
+  })
+  it('sin caducidad: se ve el lote pero no la fecha', () => {
+    const h = html({ showExpiry: false })
+    expect(h).toContain('PA24117')
+    expect(h).not.toContain('Cad. 03/2027')
+  })
+  it('sin lote: se ve la caducidad sola', () => {
+    const h = html({ showLot: false })
+    expect(h).not.toContain('PA24117')
+    expect(h).toContain('Cad. 03/2027')
+  })
+  it('todo apagado: sólo el nombre (el descuento sigue, es parte del importe)', () => {
+    const h = html({ showSku: false, showLot: false, showExpiry: false })
+    expect(h).not.toContain('MED-000123')
+    expect(h).not.toContain('PA24117')
+    expect(h).not.toContain('Cad.')
+    expect(h).toContain('Descuento 10%')
+  })
+})

@@ -26,7 +26,9 @@ const LABELS: Record<keyof RemissionSettings, string> = {
   terms: 'Condiciones',
   showSignatures: 'Líneas de firma',
   showPayments: 'Forma de pago y saldo',
-  showSku: 'Columna de código',
+  showSku: 'Código del producto',
+  showLot: 'Lote',
+  showExpiry: 'Caducidad',
   showTaxBreakdown: 'Desglose de IVA',
   density: 'Densidad de la tabla',
 }
@@ -63,7 +65,9 @@ const DENSITIES = [
 /** La vista previa puede simular una nota corta o un pedido grande. */
 const sampleLines = ref<3 | 30>(3)
 
-const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPayments', 'showSku', 'showTaxBreakdown', 'density']
+const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPayments', 'showTaxBreakdown', 'density']
+const DETAIL_KEYS: Array<keyof RemissionSettings> = ['showSku', 'showLot', 'showExpiry']
+const detailDirty = computed(() => DETAIL_KEYS.some((k) => s.isChanged(k)))
 const contentDirty = computed(() => CONTENT_KEYS.some((k) => s.isChanged(k)))
 
 /** La vista previa usa lo que está en el formulario, guardado o no: sirve para decidir. */
@@ -118,7 +122,6 @@ function format(key: string, value: unknown) {
           <div class="space-y-5">
             <SettingsSwitch v-model="s.form.showPayments" label="Forma de pago, pagado y saldo" description="Imprescindible para ventas a crédito: el cliente ve cuánto debe." :changed="s.isChanged('showPayments')" />
             <SettingsSwitch v-model="s.form.showSignatures" label="Líneas de firma" description="“Entregó” y “Recibí de conformidad”, para que quede constancia de la entrega." :changed="s.isChanged('showSignatures')" />
-            <SettingsSwitch v-model="s.form.showSku" label="Columna de código" description="El SKU de cada producto, útil para que el cliente concilie con su inventario." :changed="s.isChanged('showSku')" />
             <SettingsSwitch v-model="s.form.showTaxBreakdown" label="Desglose de IVA incluido" description="Muestra, bajo el total, cuánto IVA contiene la venta en cada tasa. Los precios ya lo incluyen." :changed="s.isChanged('showTaxBreakdown')" />
             <div>
               <SegmentedControl v-model="s.form.density" label="Densidad de la tabla de productos" :options="DENSITIES" />
@@ -126,6 +129,17 @@ function format(key: string, value: unknown) {
                 Automática: renglones amplios hasta 7 productos (caben en una hoja); con más, renglones de una línea: unos 22 productos caben en una sola hoja con totales y firmas, y un pedido de 50 ocupa 2 hojas en lugar de 4. Cambia el ejemplo de la vista previa a 30 productos para verla.
               </p>
             </div>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Detalle de cada producto" description="Qué aparece bajo el nombre de cada producto. El nombre, la cantidad y el precio siempre se imprimen." icon="ph:list-magnifying-glass-bold" :dirty="detailDirty">
+          <div class="space-y-5">
+            <SettingsSwitch v-model="s.form.showSku" label="Código del producto" description="El SKU, útil para que el cliente concilie con su inventario." :changed="s.isChanged('showSku')" />
+            <SettingsSwitch v-model="s.form.showLot" label="Lote" description="Número de lote del laboratorio. Sirve si hay un retiro de producto o si el cliente lleva trazabilidad." :changed="s.isChanged('showLot')" />
+            <SettingsSwitch v-model="s.form.showExpiry" label="Caducidad" description="Mes y año de caducidad de cada lote. Apágalo si prefieres no mostrarla al cliente: el sistema la sigue usando para vender primero lo que caduca antes." :changed="s.isChanged('showExpiry')" />
+            <p v-if="!s.form.showSku && !s.form.showLot && !s.form.showExpiry" class="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+              Cada producto mostrará sólo su nombre: una nota más limpia y compacta.
+            </p>
           </div>
         </SettingsCard>
 
