@@ -34,17 +34,17 @@ function actualizar() {
   >
     <div
       v-if="visible"
-      class="fixed bottom-4 right-4 z-40 w-[min(24rem,calc(100vw-2rem))] rounded-xl border bg-white shadow-xl dark:bg-gray-800"
+      class="fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))_+_var(--pp-bottom-stack,0px))] z-40 rounded-xl border bg-white shadow-xl sm:inset-x-auto sm:right-4 sm:w-[min(24rem,calc(100vw-2rem))] lg:bottom-4 dark:bg-gray-800"
       :class="urgente ? 'border-warning-500' : 'border-primary-500'"
       role="status"
       aria-live="polite"
       data-testid="app-update-banner"
     >
-      <div class="flex items-start gap-3 p-4">
+      <div class="flex items-start gap-3 p-3 sm:p-4">
         <Icon
           :name="urgente ? 'ph:warning-fill' : 'ph:arrow-circle-up-fill'"
           class="mt-0.5 shrink-0 text-2xl"
-          :class="urgente ? 'text-warning-500' : 'text-primary-600'"
+          :class="urgente ? 'text-warning-500' : 'text-primary-600 dark:text-primary-400'"
         />
 
         <div class="min-w-0 flex-1">
@@ -70,7 +70,7 @@ function actualizar() {
           <div class="mt-3 flex gap-2">
             <button
               type="button"
-              class="btn-primary flex-1 gap-2 py-1.5 text-sm"
+              class="btn-primary flex-1 gap-2 py-2 text-sm sm:py-1.5"
               :disabled="!!update.blockedBy.value"
               data-testid="app-update-apply"
               @click="actualizar"
@@ -81,7 +81,7 @@ function actualizar() {
             <button
               v-if="!urgente"
               type="button"
-              class="btn-secondary py-1.5 text-sm"
+              class="btn-secondary py-2 text-sm sm:py-1.5"
               data-testid="app-update-later"
               @click="update.snooze()"
             >

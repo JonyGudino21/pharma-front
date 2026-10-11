@@ -1,22 +1,23 @@
 <template>
-  <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-      
-      <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
-        <div>
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <!-- Celular: hoja a casi toda la altura; el cuerpo se desplaza y el pie con los botones queda fijo. -->
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="productFormTitle">
+    <div class="modal-panel h-[92dvh] sm:h-auto sm:max-w-4xl">
+
+      <div class="modal-header">
+        <div class="min-w-0">
+          <h2 id="productFormTitle" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Icon :name="isEditing ? 'ph:package-bold' : 'ph:plus-circle-bold'" class="text-primary-600" />
             {{ isEditing ? 'Editar Producto' : 'Registrar Nuevo Producto' }}
           </h2>
-          <p v-if="isEditing" class="text-sm text-gray-500 font-mono mt-1">SKU: {{ productToEdit?.sku }}</p>
+          <p v-if="isEditing" class="text-sm text-gray-500 font-mono mt-1 break-all">SKU: {{ productToEdit?.sku }}</p>
         </div>
-        <button @click="$emit('close')" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <button type="button" aria-label="Cerrar" @click="$emit('close')" class="shrink-0 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="p-6 overflow-y-auto flex-1">
-        <form id="productForm" @submit.prevent="handleSubmit" class="space-y-6">
+      <div class="modal-body">
+        <form id="productForm" @submit.prevent="handleSubmit" class="space-y-5 sm:space-y-6">
           
           <div class="bg-gray-50 dark:bg-gray-900/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
             <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4 flex items-center gap-2">
@@ -59,8 +60,8 @@
               </div>
             </div>
             
-            <div class="flex items-center gap-2 p-4 bg-error-50 dark:bg-error-900/10 rounded-lg border border-error-100 dark:border-error-800/30 h-[42px] self-end mb-[2px]">
-              <input v-model="form.controlled" type="checkbox" id="controlled" class="w-4 h-4 text-error-600 rounded border-error-300" />
+            <div class="flex items-center gap-2 px-4 py-2.5 bg-error-50 dark:bg-error-900/10 rounded-lg border border-error-100 dark:border-error-800/30 min-h-[42px] md:self-end md:mb-[2px]">
+              <input v-model="form.controlled" type="checkbox" id="controlled" class="w-5 h-5 shrink-0 text-error-600 rounded border-error-300" />
               <label for="controlled" class="text-sm font-bold text-error-700 dark:text-error-400 cursor-pointer">
                 Medicamento Controlado (Receta Obligatoria)
               </label>
@@ -118,7 +119,7 @@
                   <span v-else-if="requireLotForAll" class="text-error-600">(obligatorio: lo exige la configuración de inventario)</span>
                   <span v-else class="font-normal text-gray-500">(recomendado)</span>
                 </legend>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label for="initialLot" class="label-base">Número de lote{{ lotRequired ? ' *' : '' }}</label>
                     <input
@@ -202,9 +203,9 @@
         </form>
       </div>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3 shrink-0">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="$emit('close')" class="btn-secondary">Cancelar</button>
-        <button type="submit" form="productForm" :disabled="isSubmitting" class="btn-primary min-w-[140px]">
+        <button type="submit" form="productForm" :disabled="isSubmitting" class="btn-primary sm:min-w-[140px]">
           <Icon v-if="isSubmitting" name="ph:spinner-gap-bold" class="animate-spin mr-2" />
           {{ isSubmitting ? 'Guardando...' : 'Guardar Producto' }}
         </button>

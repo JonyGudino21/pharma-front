@@ -328,6 +328,18 @@ export const useSalesStore = defineStore('sales', () => {
     const live = await inventoryStore.fetchStock(product.id)
     const available = live?.sellable ?? product.stock
     if (available <= 0) {
+      // Controlado con piezas SIN lote: hay existencia, pero no se puede vender
+      // hasta asignarle lote. Decir "no tiene existencias" mandaba al cajero a
+      // buscar un faltante que no existe; se da el mismo mensaje accionable que
+      // el servidor.
+      const controlado = live?.controlled ?? product.controlled
+      if (controlado && (live?.unbatched ?? 0) > 0) {
+        toast.warning(
+          `"${product.name}" es un medicamento controlado y no tiene lotes vigentes. ` +
+            'Asígnale lote y caducidad en Inventario › Asignar lote antes de venderlo.',
+        )
+        return false
+      }
       toast.warning(
         live && live.expired > 0
           ? `"${product.name}" no tiene lotes vigentes (${live.expired} uds. caducadas).`

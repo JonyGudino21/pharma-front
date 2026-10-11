@@ -53,6 +53,9 @@ export const useClientStore = defineStore('client', () => {
   const isLoading = ref(false)
   const isActionLoading = ref(false)
   const debtors = ref<Debtor[]>([])
+  // Paginación propia de Deudores: compartir la del directorio hacía que el
+  // contador de deudores mostrara el total de clientes (y viceversa).
+  const debtorsPagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const totalCompanyDebt = ref<string | number>(0)
 
   const filters = ref({
@@ -179,12 +182,12 @@ export const useClientStore = defineStore('client', () => {
     try {
       const params = new URLSearchParams()
       params.append('page', page.toString())
-      params.append('limit', pagination.value.limit.toString())
+      params.append('limit', debtorsPagination.value.limit.toString())
 
       const res = await $api<ApiResponse<any>>(`/client/debtors?${params.toString()}`)
       debtors.value = res.data.debtors || []
       totalCompanyDebt.value = res.data.totalCompanyDebt || 0
-      if (res.data.pagination) pagination.value = res.data.pagination
+      if (res.data.pagination) debtorsPagination.value = res.data.pagination
     } catch (error) {
       console.error('Error fetching debtors:', error)
     } finally {
@@ -223,6 +226,7 @@ export const useClientStore = defineStore('client', () => {
   return {
     clients,
     pagination,
+    debtorsPagination,
     isLoading,
     isActionLoading,
     filters,

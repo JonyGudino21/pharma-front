@@ -97,32 +97,33 @@ function onKey(e: KeyboardEvent) {
 
 <template>
   <div
-    class="fixed inset-0 z-60 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm"
+    class="modal-overlay z-60 bg-gray-900/60"
     role="dialog"
     aria-modal="true"
     aria-labelledby="remission-title"
     data-testid="remission-modal"
     @click.self="emit('close')"
   >
-    <div class="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
-      <header class="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-        <div>
+    <!-- Celular: hoja a pantalla completa (la vista previa necesita todo el alto). -->
+    <div class="modal-panel h-dvh max-h-dvh rounded-none shadow-2xl sm:h-auto sm:max-h-[94vh] sm:max-w-4xl sm:rounded-2xl">
+      <header class="modal-header border-gray-200 dark:border-gray-700">
+        <div class="min-w-0">
           <h2 id="remission-title" class="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
             <Icon name="ph:file-text-bold" class="h-5 w-5 text-primary-600" />
             Nota de remisión
           </h2>
-          <p class="mt-0.5 text-xs text-gray-500">
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
             Hoja {{ cfg.paper === 'A4' ? 'A4' : 'Carta' }} · se imprimirá como
             <strong>{{ nextCopy === 1 ? 'ORIGINAL' : `COPIA ${nextCopy}` }}</strong>.
             Para descargarla, elige “Guardar como PDF” como impresora en el diálogo.
           </p>
         </div>
-        <button type="button" class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Cerrar" @click="emit('close')">
+        <button type="button" class="-mr-2 shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" aria-label="Cerrar" @click="emit('close')">
           <Icon name="ph:x-bold" class="h-5 w-5" />
         </button>
       </header>
 
-      <div class="min-h-0 flex-1 overflow-y-auto bg-gray-100 p-4 dark:bg-gray-900">
+      <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 p-2 sm:p-4 dark:bg-gray-900">
         <div v-if="loading" class="py-24 text-center text-sm text-gray-500" aria-busy="true">
           <Icon name="ph:spinner-gap-bold" class="mx-auto mb-2 h-8 w-8 animate-spin" />
           Preparando la nota…
@@ -140,7 +141,7 @@ function onKey(e: KeyboardEvent) {
         <RemissionSheet v-else :html="html" :paper="cfg.paper" />
       </div>
 
-      <footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+      <footer class="modal-footer border-gray-200 dark:border-gray-700">
         <button type="button" class="btn-secondary" @click="emit('close')">Cerrar</button>
         <button
           type="button"

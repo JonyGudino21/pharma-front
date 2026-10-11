@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSalesStore, type Sale } from '~/stores/sales'
 import type { Product } from '~/stores/product'
@@ -191,16 +191,51 @@ function openPayment() {
   // (incluido el cliente) antes de que el comprobante lo necesite.
   clientAtCheckout.value = selectedClient.value
   if (hasControlledItems.value && !sales.prescription) {
+    prescriptionThenPay.value = true
     showPrescription.value = true
     return
   }
   showPayment.value = true
 }
 
+/**
+ * La receta capturada se puede revisar y corregir antes de cobrar. Antes, una
+ * vez capturada se quedaba hasta terminar la venta: si el folio tenía un error,
+ * cancelar el cobro y volver a F2 ya no reabría el formulario.
+ */
+const prescriptionThenPay = ref(true)
+function editPrescription() {
+  if (busy.value) return
+  prescriptionThenPay.value = false
+  showPrescription.value = true
+}
+
 function onPrescriptionConfirmed() {
   showPrescription.value = false
-  showPayment.value = true
+  if (prescriptionThenPay.value) {
+    showPayment.value = true
+    return
+  }
+  toast.success('Receta actualizada')
+  focusScanner()
 }
+
+// Celular: placeholder corto del escáner (el largo se cortaba a la mitad).
+const isCompact = ref(false)
+let compactMq: MediaQueryList | null = null
+const syncCompact = () => { isCompact.value = !!compactMq?.matches }
+onMounted(() => {
+  compactMq = window.matchMedia('(max-width: 639px)')
+  syncCompact()
+  compactMq.addEventListener('change', syncCompact)
+})
+onBeforeUnmount(() => compactMq?.removeEventListener('change', syncCompact))
+const scannerPlaceholder = computed(() => {
+  if (busy.value) return 'Procesando...'
+  return isCompact.value
+    ? 'Escanea o escribe un código (3* = ×3)'
+    : 'Escanea un código de barras o escribe 3* para multiplicar cantidad...'
+})
 
 function openSearch() { showSearch.value = true }
 function openClient() {
@@ -326,14 +361,23 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-8rem)] flex flex-col">
+  <!--
+    RESPONSIVO.
+    - Laptop (≥ 1024 px): dos columnas a altura fija, como siempre.
+    - Celular y tableta: una columna que fluye con la página y una barra fija
+      abajo con el total y "Cobrar", siempre a la mano (el panel de resumen
+      quedaba debajo del carrito, fuera de la vista). `pb-*` deja espacio para
+      que la barra no tape lo último del resumen.
+  -->
+  <div class="flex flex-col pb-24 lg:h-[calc(100vh-8rem)] lg:pb-0">
     <!-- Barra superior -->
-    <div class="flex items-center justify-between mb-4">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Punto de Venta</h1>
+    <div class="flex items-center justify-between mb-3 sm:mb-4">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Punto de Venta</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400">Escanea, busca y cobra rápido</p>
       </div>
-      <div class="hidden md:flex items-center gap-2 text-xs text-gray-400">
+      <!-- Atajos de teclado: sólo en laptop (en pantallas táctiles no aplican). -->
+      <div class="hidden lg:flex items-center gap-2 text-xs text-gray-400">
         <kbd class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">F2</kbd> Cobrar
         <kbd class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">F3</kbd> Buscar
         <kbd class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">F4</kbd> Cliente
@@ -341,11 +385,11 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 lg:flex-1 lg:min-h-0">
       <!-- Panel izquierdo: escáner + carrito -->
-      <section class="lg:col-span-8 flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex gap-2">
-          <div class="relative flex-1">
+      <section class="lg:col-span-8 flex flex-col lg:min-h-0 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700 flex gap-2">
+          <div class="relative min-w-0 flex-1">
             <Icon name="ph:barcode-bold" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <!--
               El input se DESHABILITA mientras haya una operación en vuelo.
@@ -358,10 +402,12 @@ onMounted(async () => {
               v-model="scannerValue"
               type="text"
               :disabled="busy"
-              :placeholder="busy
-                ? 'Procesando...'
-                : 'Escanea un código de barras o escribe 3* para multiplicar cantidad...'"
-              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-wait"
+              :placeholder="scannerPlaceholder"
+              aria-label="Código de barras"
+              autocomplete="off"
+              enterkeyhint="enter"
+              data-testid="pos-scanner"
+              class="w-full pl-10 pr-10 py-3 text-base rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60 disabled:cursor-wait"
               @keyup.enter="onScan"
             />
             <Icon
@@ -371,7 +417,8 @@ onMounted(async () => {
             />
           </div>
           <button
-            class="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+            class="shrink-0 px-3.5 sm:px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+            aria-label="Buscar producto"
             @click="openSearch"
           >
             <Icon name="ph:magnifying-glass-bold" class="w-5 h-5" />
@@ -392,9 +439,9 @@ onMounted(async () => {
       </section>
 
       <!-- Panel derecho: resumen y cobro -->
-      <aside class="lg:col-span-4 flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <aside class="lg:col-span-4 flex flex-col lg:min-h-0 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <!-- Cliente -->
-        <div class="p-4 border-b border-gray-100 dark:border-gray-700">
+        <div class="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700 space-y-2">
           <button
             class="w-full flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
             :disabled="!canChangeClient"
@@ -408,16 +455,39 @@ onMounted(async () => {
                 {{ selectedClient?.name ?? 'Público General' }}
               </p>
               <p class="text-xs text-gray-400">
-                {{ selectedClient ? 'Cliente asignado · toca para cambiar' : 'Toca para asignar cliente (F4)' }}
+                {{ selectedClient ? 'Cliente asignado · toca para cambiar' : 'Toca para asignar cliente' }}<span v-if="!selectedClient" class="hidden lg:inline"> (F4)</span>
               </p>
             </div>
-            <Icon v-if="canChangeClient" name="ph:caret-right-bold" class="w-4 h-4 text-gray-400" />
-            <Icon v-else name="ph:lock-simple-bold" class="w-4 h-4 text-gray-400" />
+            <Icon v-if="canChangeClient" name="ph:caret-right-bold" class="w-4 h-4 shrink-0 text-gray-400" />
+            <Icon v-else name="ph:lock-simple-bold" class="w-4 h-4 shrink-0 text-gray-400" />
           </button>
+
+          <!-- Receta de controlados: visible y corregible antes de cobrar. -->
+          <button
+            v-if="hasControlledItems && sales.prescription"
+            type="button"
+            class="w-full flex items-center gap-2 rounded-xl border border-error-200 bg-error-50 px-3 py-2.5 text-left text-sm text-error-800 transition-colors hover:bg-error-100 disabled:opacity-60 dark:border-error-800/40 dark:bg-error-900/20 dark:text-error-200 dark:hover:bg-error-900/30"
+            :disabled="busy"
+            data-testid="pos-prescription-chip"
+            @click="editPrescription"
+          >
+            <Icon name="ph:prescription-bold" class="h-5 w-5 shrink-0" />
+            <span class="min-w-0 flex-1 truncate">
+              Receta: <strong>{{ sales.prescription.prescriptionNo }}</strong> · {{ sales.prescription.patientName }}
+            </span>
+            <span class="shrink-0 font-semibold underline-offset-2 hover:underline">Editar</span>
+          </button>
+          <p
+            v-else-if="hasControlledItems"
+            class="flex items-center gap-2 rounded-xl bg-error-50 px-3 py-2 text-xs text-error-800 dark:bg-error-900/20 dark:text-error-200"
+          >
+            <Icon name="ph:prescription-bold" class="h-4 w-4 shrink-0" />
+            Hay medicamento controlado: se pedirá la receta al cobrar.
+          </p>
         </div>
 
         <!-- Totales -->
-        <div class="flex-1 flex flex-col justify-end p-5 space-y-3 min-h-0">
+        <div class="flex-1 flex flex-col justify-end p-4 sm:p-5 space-y-3 lg:min-h-0">
           <div class="hidden xl:flex justify-center overflow-y-auto max-h-56 mb-2">
             <ReceiptPreview
               :sale="liveTicket"
@@ -442,7 +512,7 @@ onMounted(async () => {
           </template>
           <div class="flex justify-between items-end">
             <span class="text-gray-500 dark:text-gray-400">Total</span>
-            <span class="text-4xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ formatCurrency(total) }}</span>
+            <span class="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ formatCurrency(total) }}</span>
           </div>
           <p v-if="taxTotal > 0" class="text-right text-xs text-gray-400 tabular-nums">IVA incluido: {{ formatCurrency(taxTotal) }}</p>
           <!-- Abonos ya registrados en esta venta (p. ej. un cobro cuyo cierre
@@ -469,7 +539,7 @@ onMounted(async () => {
           <button
             v-if="canDiscount && !isEmpty"
             type="button"
-            class="w-full rounded-lg border border-dashed border-gray-300 py-2 text-sm font-medium text-primary-700 hover:border-primary-400 hover:bg-primary-50/50 disabled:opacity-40 dark:border-gray-600 dark:text-primary-300 dark:hover:bg-primary-900/10"
+            class="w-full rounded-lg border border-dashed border-gray-300 py-2.5 lg:py-2 text-sm font-medium text-primary-700 hover:border-primary-400 hover:bg-primary-50/50 disabled:opacity-40 dark:border-gray-600 dark:text-primary-300 dark:hover:bg-primary-900/10"
             :disabled="busy || discountsLocked"
             @click="openDiscount(null)"
           >
@@ -478,9 +548,10 @@ onMounted(async () => {
         </div>
 
         <!-- Acciones -->
-        <div class="p-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
+        <div class="p-3 sm:p-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
+          <!-- En celular y tableta "Cobrar" vive en la barra fija de abajo. -->
           <button
-            class="w-full py-4 rounded-xl bg-primary-600 text-white text-lg font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            class="hidden lg:flex w-full py-4 rounded-xl bg-primary-600 text-white text-lg font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors items-center justify-center gap-2"
             :disabled="isEmpty || busy || !connectivity.canOperate.value"
             :title="connectivity.canOperate.value ? undefined : 'Sin conexión con el servidor'"
             @click="openPayment"
@@ -493,10 +564,36 @@ onMounted(async () => {
             :disabled="isEmpty || busy"
             @click="discard"
           >
-            Descartar venta (F9)
+            Descartar venta<span class="hidden lg:inline"> (F9)</span>
           </button>
         </div>
       </aside>
+    </div>
+
+    <!-- Celular y tableta: barra fija de cobro (total + Cobrar siempre a la mano). -->
+    <div
+      class="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden dark:border-gray-700 dark:bg-gray-800/95"
+      data-testid="pos-checkout-bar"
+    >
+      <div class="mx-auto flex max-w-3xl items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{ paidAmount > 0 ? 'Por cobrar' : 'Total' }} · {{ itemCount }} {{ itemCount === 1 ? 'artículo' : 'artículos' }}
+          </p>
+          <p class="truncate text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+            {{ formatCurrency(paidAmount > 0 ? Math.max(0, balance) : total) }}
+          </p>
+        </div>
+        <button
+          class="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3.5 text-lg font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+          :disabled="isEmpty || busy || !connectivity.canOperate.value"
+          :title="connectivity.canOperate.value ? undefined : 'Sin conexión con el servidor'"
+          @click="openPayment"
+        >
+          <Icon :name="busy ? 'ph:spinner-gap-bold' : 'ph:money-bold'" class="h-6 w-6" :class="{ 'animate-spin': busy }" />
+          Cobrar
+        </button>
+      </div>
     </div>
 
     <!-- Modales -->
@@ -504,6 +601,7 @@ onMounted(async () => {
     <PosClientModal v-if="showClient" @close="handleEscape" @select="onClientSelected" />
     <PosPrescriptionModal
       v-if="showPrescription"
+      :editing="!prescriptionThenPay"
       @close="handleEscape"
       @confirmed="onPrescriptionConfirmed"
     />
@@ -532,19 +630,27 @@ onMounted(async () => {
     />
 
     <!-- Comprobante -->
-    <div v-if="showReceipt && completedSale && completedTicket" class="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <!-- Hoja inferior en celular (botones siempre visibles en el pie); centrado en laptop. -->
+    <div
+      v-if="showReceipt && completedSale && completedTicket"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="receiptTitle"
+      @click.self="newSale"
+    >
       <!-- Identidad de la app (azul PharmaPOS, claro/oscuro). Antes era un verde
            y dorado fijos que no correspondían con ninguna otra pantalla. -->
-      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="newSale"></div>
-      <div class="relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 text-center shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+      <div class="modal-panel text-center sm:max-w-md sm:border sm:border-gray-100 sm:shadow-2xl dark:sm:border-gray-700">
+        <div class="modal-body sm:px-5 sm:py-5">
         <div class="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
           <Icon name="ph:check-circle-fill" class="h-7 w-7" />
         </div>
-        <p class="text-xl font-bold text-gray-900 dark:text-white">Venta cobrada</p>
+        <p id="receiptTitle" class="text-xl font-bold text-gray-900 dark:text-white">Venta cobrada</p>
         <p class="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-primary-600 dark:text-primary-400">
           {{ completedSale.invoiceNumber ?? '#' + completedSale.id }}
         </p>
-        <div ref="ticketEl" class="flex max-h-[52vh] justify-center overflow-y-auto rounded-xl bg-gray-100 px-3 pb-3 pt-4 dark:bg-gray-900">
+        <div ref="ticketEl" class="flex max-h-[40dvh] sm:max-h-[52vh] justify-center overflow-y-auto rounded-xl bg-gray-100 px-3 pb-3 pt-4 dark:bg-gray-900">
           <ReceiptPreview
             :sale="completedTicket"
             :company="companyStore.company"
@@ -560,9 +666,11 @@ onMounted(async () => {
           <Icon name="ph:file-text-bold" class="w-5 h-5" />
           Nota de remisión (hoja carta)
         </button>
-        <div class="flex gap-3 mt-3">
+        </div>
+        <!-- Celular: "Nueva venta" arriba (flex-col-reverse del pie). -->
+        <div class="modal-footer sm:gap-3 sm:border-t-0 sm:px-5 sm:pt-0 sm:pb-5">
           <button
-            class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            class="flex items-center justify-center gap-2 rounded-xl border border-gray-200 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 sm:flex-1 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
             :disabled="isPrinting"
             @click="printReceipt"
           >
@@ -570,7 +678,7 @@ onMounted(async () => {
             {{ isPrinting ? 'Imprimiendo…' : 'Imprimir' }}
           </button>
           <button
-            class="flex-1 rounded-xl bg-primary-600 py-3 font-semibold text-white transition-colors hover:bg-primary-700"
+            class="rounded-xl bg-primary-600 py-3 font-semibold text-white transition-colors hover:bg-primary-700 sm:flex-1"
             @click="newSale"
           >
             Nueva venta

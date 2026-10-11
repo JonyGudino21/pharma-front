@@ -63,7 +63,7 @@ function format(key: string, value: unknown) {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <SettingsPageHeader
       title="Descuentos"
       description="Cuánto puede descontar cada rol, cuándo hace falta autorización de gerente y qué se exige en cada descuento. Todo queda registrado en la venta."
@@ -83,7 +83,7 @@ function format(key: string, value: unknown) {
       <button type="button" class="btn-primary mx-auto mt-4 gap-2" @click="s.load()"><Icon name="ph:arrow-clockwise-bold" /> Reintentar</button>
     </div>
 
-    <div v-else-if="s.snapshot.value" class="grid items-start gap-6 lg:grid-cols-2">
+    <div v-else-if="s.snapshot.value" class="grid items-start gap-4 sm:gap-6 [&>*]:min-w-0 lg:grid-cols-2">
       <SettingsCard
         class="lg:col-span-2"
         title="Topes por rol"

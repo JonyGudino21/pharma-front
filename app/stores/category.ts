@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
 export interface Category {
   id: number
@@ -22,6 +23,8 @@ export const useCategoryStore = defineStore('category', () => {
   const categories = ref<Category[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
+  // Fallo de carga, distinto de "no hay categorías". Ver useRequestState.
+  const listError = ref<FalloPeticion | null>(null)
 
   // Estado de las OPCIONES, separado del de la tabla: son dos consultas con
   // propósitos distintos y mezclarlas fue justo el origen del bug.
@@ -37,6 +40,7 @@ export const useCategoryStore = defineStore('category', () => {
   async function fetchCategories(page = 1) {
     const { $api } = useNuxtApp()
     isLoading.value = true
+    listError.value = null
 
     try {
       const params = new URLSearchParams()
@@ -60,6 +64,8 @@ export const useCategoryStore = defineStore('category', () => {
       }
     } catch (error) {
       console.error('Error fetching categories:', error)
+      categories.value = []
+      listError.value = describirFallo(error)
     } finally {
       isLoading.value = false
     }
@@ -125,6 +131,8 @@ export const useCategoryStore = defineStore('category', () => {
     categories,
     pagination,
     isLoading,
+    listError,
+    retryList: () => fetchCategories(pagination.value.page),
     filters,
     fetchCategories,
     createCategory,

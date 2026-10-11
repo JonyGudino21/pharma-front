@@ -41,7 +41,8 @@ export const useUserManagementStore = defineStore('userManagement', () => {
   const loadError = ref<FalloPeticion | null>(null)
 
   const filters = ref({
-    query: '', // userName o email
+    // Texto libre: el servidor lo busca en correo, usuario, nombre y apellido.
+    query: '',
     isActive: 'true', // 'true', 'false' o '' (todos)
     page: 1,
   })

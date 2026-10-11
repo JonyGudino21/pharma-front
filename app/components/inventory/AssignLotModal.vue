@@ -88,26 +88,26 @@ async function submit() {
 </script>
 
 <template>
-  <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="assign-lot-title" @keydown.esc="close">
-    <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800">
-      <div class="flex items-start justify-between gap-4 border-b border-gray-100 p-6 dark:border-gray-700">
-        <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/15 dark:text-primary-300">
+  <div v-if="modelValue" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="assign-lot-title" @keydown.esc="close">
+    <div class="modal-panel sm:max-w-lg">
+      <div class="modal-header">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/15 dark:text-primary-300">
             <Icon name="ph:barcode-bold" class="h-5 w-5" />
           </div>
-          <div>
+          <div class="min-w-0">
             <h2 id="assign-lot-title" class="text-lg font-bold text-gray-900 dark:text-white">Asignar lote</h2>
-            <p class="text-xs text-gray-500">Para mercancía que ya tenías antes de usar lotes</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Para mercancía que ya tenías antes de usar lotes</p>
           </div>
         </div>
-        <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Cerrar" @click="close">
+        <button type="button" class="shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200" aria-label="Cerrar" @click="close">
           <Icon name="ph:x-bold" class="h-6 w-6" />
         </button>
       </div>
 
-      <div class="space-y-5 p-6">
+      <div class="modal-body space-y-5">
         <div v-if="product" class="rounded-xl border border-gray-100 p-4 dark:border-gray-700">
-          <p class="font-bold text-gray-900 dark:text-white">{{ product.name }}</p>
+          <p class="font-bold break-words text-gray-900 dark:text-white">{{ product.name }}</p>
           <p class="mt-0.5 font-mono text-xs text-gray-500">SKU {{ product.sku }}</p>
           <div v-if="loading" class="mt-3 h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-700" />
           <dl v-else-if="snapshot" class="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -150,11 +150,11 @@ async function submit() {
             <input id="lotQty" v-model.number="form.quantity" type="number" min="1" :max="sinLote" step="1" class="input-base" />
             <p class="mt-1 text-xs text-gray-500">La existencia total no cambia: sólo se registra de qué lote es cada pieza.</p>
           </div>
-          <p v-if="error && (form.lotNumber || form.expiryDate)" class="text-xs text-error-600" role="alert">{{ error }}</p>
+          <p v-if="error && (form.lotNumber || form.expiryDate)" class="text-xs text-error-600 dark:text-error-400" role="alert">{{ error }}</p>
         </form>
       </div>
 
-      <div class="flex justify-end gap-3 border-t border-gray-100 p-4 dark:border-gray-700">
+      <div class="modal-footer">
         <button type="button" class="btn-secondary" @click="close">{{ sinLote === 0 ? 'Cerrar' : 'Cancelar' }}</button>
         <button v-if="sinLote > 0" type="submit" form="assignLotForm" class="btn-primary gap-2" :disabled="!!error || saving">
           <Icon :name="saving ? 'ph:spinner-gap-bold' : 'ph:check-bold'" :class="{ 'animate-spin': saving }" />

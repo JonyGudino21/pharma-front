@@ -100,7 +100,7 @@ function onDragEnd() {
         @drop.prevent="onDrop(b)"
         @dragend="onDragEnd"
       >
-        <div class="flex items-center gap-3 px-3 py-2.5">
+        <div class="flex items-center gap-2 px-2.5 py-2.5 sm:gap-3 sm:px-3">
           <span
             class="flex w-5 shrink-0 justify-center"
             :class="on(b) ? 'cursor-grab text-gray-400 active:cursor-grabbing' : 'text-gray-300 dark:text-gray-600'"
@@ -126,10 +126,10 @@ function onDragEnd() {
             <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ META[b].detail }}</p>
           </div>
 
-          <div v-if="on(b)" class="flex shrink-0 items-center opacity-60 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <div v-if="on(b)" class="flex shrink-0 items-center transition-opacity sm:opacity-60 group-hover:opacity-100 group-focus-within:opacity-100">
             <button
               type="button"
-              class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+              class="rounded-md p-2 text-gray-500 hover:bg-gray-100 sm:p-1.5 hover:text-gray-800 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-100"
               :disabled="position(b) === 0"
               :aria-label="`Subir ${META[b].title}`"
               @click="emit('move', b, -1)"
@@ -138,7 +138,7 @@ function onDragEnd() {
             </button>
             <button
               type="button"
-              class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+              class="rounded-md p-2 text-gray-500 hover:bg-gray-100 sm:p-1.5 hover:text-gray-800 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-100"
               :disabled="position(b) === form.blocks.length - 1"
               :aria-label="`Bajar ${META[b].title}`"
               @click="emit('move', b, 1)"
@@ -168,12 +168,12 @@ function onDragEnd() {
         <!-- Opciones del encabezado, justo donde se entiende a qué afectan. -->
         <div
           v-if="b === 'header' && on(b)"
-          class="flex flex-wrap gap-2 border-t border-gray-100 px-3 py-2.5 pl-[4.25rem] dark:border-gray-700"
+          class="flex flex-wrap gap-2 border-t border-gray-100 px-3 py-2.5 sm:pl-[4.25rem] dark:border-gray-700"
         >
           <label
             v-for="opt in HEADER_OPTIONS"
             :key="opt.key"
-            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors focus-within:ring-2 focus-within:ring-primary-500"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs sm:px-2.5 sm:py-1 transition-colors focus-within:ring-2 focus-within:ring-primary-500"
             :class="
               form[opt.key]
                 ? 'border-primary-200 bg-primary-50 text-primary-800 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-100'

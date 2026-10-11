@@ -52,7 +52,7 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
   <article
     class="pharma-ticket"
     :class="{ 'pharma-ticket--compact': compact }"
-    :style="{ width: `${widthPx}px`, fontSize: `${fontPx}px` }"
+    :style="{ width: `${widthPx}px`, maxWidth: '100%', fontSize: `${fontPx}px` }"
   >
     <div class="pharma-ticket__serration" aria-hidden="true" />
 

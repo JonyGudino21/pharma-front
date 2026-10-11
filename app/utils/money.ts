@@ -28,6 +28,11 @@ export function aPesos(centavos: number): number {
   return centavos / 100
 }
 
+/** a + b, exacto (sumas de importes sin errores de punto flotante). */
+export function sumar(a: string | number, b: string | number): number {
+  return aPesos(aCentavos(a) + aCentavos(b))
+}
+
 /** a - b, exacto. */
 export function restar(a: string | number, b: string | number): number {
   return aPesos(aCentavos(a) - aCentavos(b))

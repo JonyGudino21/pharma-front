@@ -31,7 +31,7 @@ const FOOTER_MAX = 500
           :aria-invalid="!!errors.tradeName"
           aria-describedby="tk-trade-err"
         />
-        <p v-if="errors.tradeName" id="tk-trade-err" class="mt-1 text-xs text-error-600">{{ errors.tradeName }}</p>
+        <p v-if="errors.tradeName" id="tk-trade-err" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.tradeName }}</p>
       </div>
 
       <div>
@@ -44,7 +44,7 @@ const FOOTER_MAX = 500
           :aria-invalid="!!errors.legalName"
           aria-describedby="tk-legal-err"
         />
-        <p v-if="errors.legalName" id="tk-legal-err" class="mt-1 text-xs text-error-600">{{ errors.legalName }}</p>
+        <p v-if="errors.legalName" id="tk-legal-err" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.legalName }}</p>
       </div>
 
       <div>
@@ -61,8 +61,8 @@ const FOOTER_MAX = 500
           aria-describedby="tk-rfc-help"
           @input="form.rfc = ($event.target as HTMLInputElement).value.toUpperCase().replace(/\s/g, '')"
         />
-        <p v-if="errors.rfc" id="tk-rfc-help" class="mt-1 text-xs text-error-600">{{ errors.rfc }}</p>
-        <p v-else id="tk-rfc-help" class="mt-1 text-xs text-gray-400">12 caracteres si es empresa, 13 si es persona física.</p>
+        <p v-if="errors.rfc" id="tk-rfc-help" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.rfc }}</p>
+        <p v-else id="tk-rfc-help" class="mt-1 text-xs text-gray-400 dark:text-gray-500">12 caracteres si es empresa, 13 si es persona física.</p>
       </div>
 
       <div>
@@ -74,7 +74,7 @@ const FOOTER_MAX = 500
           placeholder="612 · Personas Físicas con Actividades Empresariales"
           class="input-base"
         />
-        <p class="mt-1 text-xs text-gray-400">Sale debajo del RFC.</p>
+        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Sale debajo del RFC.</p>
       </div>
 
       <div class="md:col-span-2">
@@ -98,7 +98,7 @@ const FOOTER_MAX = 500
           :aria-invalid="!!errors.email"
           aria-describedby="tk-email-err"
         />
-        <p v-if="errors.email" id="tk-email-err" class="mt-1 text-xs text-error-600">{{ errors.email }}</p>
+        <p v-if="errors.email" id="tk-email-err" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.email }}</p>
       </div>
 
       <div class="md:col-span-2">
@@ -112,8 +112,8 @@ const FOOTER_MAX = 500
           :aria-invalid="!!errors.logoUrl"
           aria-describedby="tk-logo-help"
         />
-        <p v-if="errors.logoUrl" id="tk-logo-help" class="mt-1 text-xs text-error-600">{{ errors.logoUrl }}</p>
-        <p v-else id="tk-logo-help" class="mt-1 text-xs text-gray-400">Sólo se imprime desde el navegador. Sin logo se usa la cruz verde.</p>
+        <p v-if="errors.logoUrl" id="tk-logo-help" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.logoUrl }}</p>
+        <p v-else id="tk-logo-help" class="mt-1 text-xs text-gray-400 dark:text-gray-500">Sólo se imprime desde el navegador. Sin logo se usa la cruz verde.</p>
       </div>
 
       <div class="md:col-span-2">

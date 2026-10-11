@@ -89,7 +89,7 @@ function format(key: string, value: unknown) {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <SettingsPageHeader
       title="Nota de remisión"
       description="Documento en hoja completa con los datos de la farmacia y del cliente, el listado de productos y el total con letra. No es una factura (CFDI): sirve para entregas a clientes, empresas y crédito."
@@ -109,7 +109,7 @@ function format(key: string, value: unknown) {
       <button type="button" class="btn-primary mx-auto mt-4 gap-2" @click="s.load()"><Icon name="ph:arrow-clockwise-bold" /> Reintentar</button>
     </div>
 
-    <div v-else-if="s.snapshot.value" class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
+    <div v-else-if="s.snapshot.value" class="grid items-start gap-4 sm:gap-6 [&>*]:min-w-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
       <div class="space-y-6">
         <SettingsCard title="Documento" description="Si la apagas, el botón desaparece del punto de venta y del historial." icon="ph:file-text-bold" :dirty="s.isChanged('enabled') || s.isChanged('paper')">
           <div class="space-y-5">
@@ -148,7 +148,7 @@ function format(key: string, value: unknown) {
             <div>
               <label for="legend" class="label-base">Leyenda</label>
               <textarea id="legend" v-model="s.form.legend" rows="2" class="input-base" :aria-invalid="!!s.errors.value.legend" />
-              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.legend ? 'text-error-600' : 'text-gray-500'">
+              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.legend ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'">
                 <span>{{ s.errors.value.legend || 'Por defecto aclara que no es un CFDI: déjala así salvo que tu contador indique otra cosa.' }}</span>
                 <span class="tabular-nums">{{ s.form.legend.length }}/{{ LEGEND_MAX }}</span>
               </p>
@@ -156,7 +156,7 @@ function format(key: string, value: unknown) {
             <div>
               <label for="terms" class="label-base">Condiciones (opcional)</label>
               <textarea id="terms" v-model="s.form.terms" rows="3" class="input-base" placeholder="Ej.: Cambios y devoluciones dentro de 7 días con esta nota." :aria-invalid="!!s.errors.value.terms" />
-              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.terms ? 'text-error-600' : 'text-gray-500'">
+              <p class="mt-1 flex justify-between gap-3 text-xs" :class="s.errors.value.terms ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'">
                 <span>{{ s.errors.value.terms || 'Vacío = no se imprime.' }}</span>
                 <span class="tabular-nums">{{ s.form.terms.length }}/{{ TERMS_MAX }}</span>
               </p>
@@ -171,7 +171,7 @@ function format(key: string, value: unknown) {
         <div class="mb-3 flex items-center justify-between gap-3">
           <span class="text-xs text-gray-500 dark:text-gray-400">Ejemplo:</span>
           <div class="inline-flex rounded-lg border border-gray-200 p-0.5 text-xs dark:border-gray-600" role="group" aria-label="Tamaño del ejemplo">
-            <button v-for="n in [3, 30] as const" :key="n" type="button" class="rounded-md px-3 py-1 font-medium transition-colors" :class="sampleLines === n ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'" :aria-pressed="sampleLines === n" @click="sampleLines = n">
+            <button v-for="n in [3, 30] as const" :key="n" type="button" class="rounded-md px-3 py-1.5 font-medium transition-colors sm:py-1" :class="sampleLines === n ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'" :aria-pressed="sampleLines === n" @click="sampleLines = n">
               {{ n }} productos
             </button>
           </div>

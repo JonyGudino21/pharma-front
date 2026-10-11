@@ -115,52 +115,52 @@ async function handleSubmit() {
 
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
+    class="modal-overlay"
     role="dialog"
     aria-modal="true"
     aria-labelledby="userFormTitle"
     @keydown.esc="emit('close')"
   >
-    <div class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800">
-      <div class="flex items-center justify-between border-b border-gray-100 p-6 dark:border-gray-700">
-        <h2 id="userFormTitle" class="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
-          <Icon :name="isEditing ? 'ph:user-gear-bold' : 'ph:user-plus-bold'" class="text-primary-600" />
+    <div class="modal-panel sm:max-w-2xl">
+      <div class="modal-header items-center">
+        <h2 id="userFormTitle" class="flex items-center gap-2 text-lg font-bold sm:text-xl text-gray-900 dark:text-white">
+          <Icon :name="isEditing ? 'ph:user-gear-bold' : 'ph:user-plus-bold'" class="shrink-0 text-primary-600 dark:text-primary-400" />
           {{ isEditing ? 'Editar usuario' : 'Nuevo usuario' }}
         </h2>
-        <button type="button" class="rounded-lg p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Cerrar" @click="emit('close')">
+        <button type="button" class="-mr-2 rounded-lg p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Cerrar" @click="emit('close')">
           <Icon name="ph:x-bold" class="h-6 w-6" />
         </button>
       </div>
 
-      <form id="userForm" class="flex-1 space-y-6 overflow-y-auto p-6" novalidate @submit.prevent="handleSubmit">
+      <form id="userForm" class="modal-body space-y-5 sm:space-y-6" novalidate @submit.prevent="handleSubmit">
         <fieldset class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <legend class="sr-only">Datos personales</legend>
           <div>
             <label for="u-first" class="label-base">Nombre(s)</label>
             <input id="u-first" v-model="form.firstName" type="text" maxlength="60" autocomplete="off" class="input-base" :aria-invalid="!!show('firstName')" />
-            <p v-if="show('firstName')" class="mt-1 text-xs text-error-600">{{ show('firstName') }}</p>
+            <p v-if="show('firstName')" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ show('firstName') }}</p>
           </div>
           <div>
             <label for="u-last" class="label-base">Apellidos</label>
             <input id="u-last" v-model="form.lastName" type="text" maxlength="60" autocomplete="off" class="input-base" :aria-invalid="!!show('lastName')" />
-            <p v-if="show('lastName')" class="mt-1 text-xs text-error-600">{{ show('lastName') }}</p>
+            <p v-if="show('lastName')" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ show('lastName') }}</p>
           </div>
           <div>
             <label for="u-user" class="label-base">Usuario para iniciar sesión</label>
             <input id="u-user" v-model="form.userName" type="text" maxlength="30" autocomplete="off" autocapitalize="none" spellcheck="false" class="input-base font-mono" placeholder="jperez" :aria-invalid="!!show('userName')" />
-            <p v-if="show('userName')" class="mt-1 text-xs text-error-600">{{ show('userName') }}</p>
+            <p v-if="show('userName')" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ show('userName') }}</p>
           </div>
           <div>
             <label for="u-email" class="label-base">Correo electrónico</label>
             <input id="u-email" v-model="form.email" type="email" maxlength="120" autocomplete="off" class="input-base" placeholder="juan@farmacia.mx" :aria-invalid="!!show('email')" />
-            <p v-if="show('email')" class="mt-1 text-xs text-error-600">{{ show('email') }}</p>
+            <p v-if="show('email')" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ show('email') }}</p>
           </div>
         </fieldset>
 
         <fieldset>
           <legend class="label-base">Rol</legend>
-          <p v-if="isSelf" class="mb-2 flex items-center gap-1.5 text-xs text-gray-500">
-            <Icon name="ph:lock-simple" class="h-3.5 w-3.5" /> No puedes cambiar tu propio rol: pídeselo a otro administrador.
+          <p v-if="isSelf" class="mb-2 flex items-start gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <Icon name="ph:lock-simple" class="mt-px h-3.5 w-3.5 shrink-0" /> No puedes cambiar tu propio rol: pídeselo a otro administrador.
           </p>
           <div class="grid gap-2 sm:grid-cols-2">
             <label
@@ -173,7 +173,7 @@ async function handleSubmit() {
               ]"
             >
               <input v-model="form.role" type="radio" name="role" :value="r" class="sr-only" :disabled="isSelf" />
-              <Icon :name="ROLE_META[r].icon" class="mt-0.5 h-5 w-5 shrink-0" :class="form.role === r ? 'text-primary-600' : 'text-gray-400'" />
+              <Icon :name="ROLE_META[r].icon" class="mt-0.5 h-5 w-5 shrink-0" :class="form.role === r ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'" />
               <span>
                 <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ ROLE_META[r].label }}</span>
                 <span class="block text-xs text-gray-500 dark:text-gray-400">{{ ROLE_META[r].summary }}</span>
@@ -195,13 +195,13 @@ async function handleSubmit() {
             :aria-invalid="!!show('password')"
             aria-describedby="u-pass-hint"
           />
-          <p id="u-pass-hint" class="mt-1 text-xs" :class="show('password') ? 'text-error-600' : 'text-gray-500 dark:text-gray-400'">
+          <p id="u-pass-hint" class="mt-1 text-xs" :class="show('password') ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'">
             {{ show('password') || `De ${PASSWORD_MIN} a ${PASSWORD_MAX} caracteres. Compártela en persona, nunca por mensaje.` }}
           </p>
         </div>
 
         <div v-if="isEditing && !isSelf" class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/50">
-          <input id="u-active" v-model="form.isActive" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
+          <input id="u-active" v-model="form.isActive" type="checkbox" class="h-5 w-5 shrink-0 rounded border-gray-300 text-primary-600 sm:h-4 sm:w-4 dark:border-gray-500" />
           <label for="u-active" class="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
             Usuario activo (puede iniciar sesión)
           </label>
@@ -213,7 +213,7 @@ async function handleSubmit() {
         </p>
       </form>
 
-      <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/80">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" class="btn-secondary" @click="emit('close')">Cancelar</button>
         <button type="submit" form="userForm" :disabled="isSubmitting" class="btn-primary">
           <Icon v-if="isSubmitting" name="ph:spinner-gap-bold" class="mr-2 animate-spin" />

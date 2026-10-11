@@ -26,20 +26,20 @@ const emit = defineEmits<{ save: []; discard: [] }>()
   >
     <div
       v-if="visible"
-      class="sticky bottom-4 z-30 mx-auto mt-6 flex max-w-3xl flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
+      class="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto mt-6 flex max-w-3xl flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
       role="region"
       aria-label="Cambios sin guardar"
     >
       <span class="h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
-      <p class="min-w-0 flex-1 text-sm text-gray-700 dark:text-gray-200">
+      <p class="min-w-0 flex-1 basis-48 text-sm text-gray-700 dark:text-gray-200">
         Cambios sin guardar en
         <strong class="font-semibold">{{ scopes.join(' y ') }}</strong>.
-        <span v-if="!canSave" class="text-error-600">Corrige los campos marcados.</span>
+        <span v-if="!canSave" class="text-error-600 dark:text-error-400">Corrige los campos marcados.</span>
       </p>
-      <div class="flex items-center gap-2">
+      <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
         <button
           type="button"
-          class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-700"
+          class="min-h-10 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 sm:min-h-0 sm:border-0 dark:border-gray-600 hover:text-gray-900 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-700"
           :disabled="saving"
           @click="emit('discard')"
         >

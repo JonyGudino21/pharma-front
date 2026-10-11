@@ -1,85 +1,99 @@
 <template>
-  <div v-if="modelValue" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-      
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <div v-if="modelValue" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="purchaseItemTitle">
+    <div class="modal-panel sm:max-w-md">
+
+      <div class="modal-header">
+        <h2 id="purchaseItemTitle" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon name="ph:package-bold" class="text-primary-600" />
           {{ isEditing ? 'Editar Partida' : 'Agregar Producto' }}
         </h2>
+        <button type="button" aria-label="Cerrar" @click="close" class="shrink-0 p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+          <Icon name="ph:x-bold" class="w-6 h-6" />
+        </button>
       </div>
 
-      <form @submit.prevent="handleSubmit" id="itemForm" class="p-6 space-y-5">
-        
+      <form @submit.prevent="handleSubmit" id="itemForm" novalidate class="modal-body space-y-5">
+
         <div v-if="!isEditing" class="relative">
-          <label class="label-base">Buscar Producto *</label>
+          <label for="purchaseItemSearch" class="label-base">Buscar Producto *</label>
           <div class="relative">
             <Icon name="ph:magnifying-glass-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              v-model="searchQuery" 
+            <input
+              id="purchaseItemSearch"
+              v-model="searchQuery"
               @input="handleSearch"
-              type="text" 
-              required
-              placeholder="Nombre o SKU..." 
+              type="search"
+              autocomplete="off"
+              placeholder="Nombre del producto..."
               class="input-base pl-10"
             />
           </div>
-          <div v-if="searchResults.length > 0" class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
-            <button 
+          <div v-if="searchResults.length > 0" class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-h-56 overflow-y-auto">
+            <button
               v-for="product in searchResults" :key="product.id"
               @click="selectProduct(product)"
               type="button"
               class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
             >
               <p class="font-bold text-gray-900 dark:text-white">{{ product.name }}</p>
-              <p class="text-xs text-gray-500">SKU: {{ product.sku }} | Costo: {{ formatCurrency(Number(product.cost)) }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ product.sku }} | Costo: {{ formatCurrency(Number(product.cost)) }}</p>
             </button>
           </div>
         </div>
 
-        <div v-if="selectedProduct || isEditing" class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30">
-          <p class="font-bold text-blue-900 dark:text-blue-100">{{ isEditing ? itemToEdit?.product.name : selectedProduct?.name }}</p>
-          <p class="text-xs font-mono text-blue-600 dark:text-blue-400">SKU: {{ isEditing ? itemToEdit?.product.sku : selectedProduct?.sku }}</p>
+        <div v-if="selectedProduct || isEditing" class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl border border-primary-100 dark:border-primary-800/30">
+          <p class="font-bold break-words text-primary-900 dark:text-primary-100">{{ isEditing ? itemToEdit?.product.name : selectedProduct?.name }}</p>
+          <p class="text-xs font-mono text-primary-600 dark:text-primary-400">SKU: {{ isEditing ? itemToEdit?.product.sku : selectedProduct?.sku }}</p>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label class="label-base">Cantidad *</label>
-            <input v-model.number="form.quantity" type="number" min="1" required class="input-base text-center font-bold" />
+            <label for="purchaseItemQty" class="label-base">Cantidad *</label>
+            <input id="purchaseItemQty" v-model.number="form.quantity" type="number" inputmode="numeric" min="1" step="1" required class="input-base text-center font-bold" :aria-invalid="!!qtyError" />
           </div>
           <div>
-            <label class="label-base">Costo Unitario *</label>
+            <label for="purchaseItemCost" class="label-base">Costo Unitario *</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-              <input v-model.number="form.cost" type="number" step="0.01" min="0.01" required class="input-base pl-8" />
+              <input id="purchaseItemCost" v-model.number="form.cost" type="number" inputmode="decimal" step="0.01" :min="MIN_ITEM_COST" required class="input-base pl-8" :aria-invalid="!!costError" aria-describedby="purchaseItemCostError" />
             </div>
           </div>
         </div>
+        <p v-if="submitted && (qtyError || costError)" id="purchaseItemCostError" class="-mt-3 text-xs text-error-600 dark:text-error-400" role="alert">
+          {{ qtyError || costError }}
+        </p>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label class="label-base">{{ lotRequired ? 'Lote *' : 'Lote' }}</label>
-            <input v-model="form.lotNumber" type="text" maxlength="40" class="input-base uppercase" :required="lotRequired" placeholder="FAB-2026-01" />
+            <label for="purchaseItemLot" class="label-base">{{ lotRequired ? 'Lote *' : 'Lote' }}</label>
+            <input id="purchaseItemLot" v-model="form.lotNumber" type="text" maxlength="40" autocomplete="off" class="input-base uppercase font-mono" placeholder="FAB-2026-01" :aria-invalid="!!lotError" aria-describedby="purchaseItemLotHelp" />
           </div>
           <div>
-            <label class="label-base">{{ lotRequired ? 'Caducidad *' : 'Caducidad' }}</label>
-            <input v-model="form.expiryDate" type="date" class="input-base" :required="lotRequired" />
+            <label for="purchaseItemExpiry" class="label-base">{{ lotRequired ? 'Caducidad *' : 'Caducidad' }}</label>
+            <input id="purchaseItemExpiry" v-model="form.expiryDate" type="date" class="input-base" :aria-invalid="!!lotError" aria-describedby="purchaseItemLotHelp" />
           </div>
         </div>
-        <p v-if="isControlled" class="text-xs text-error-600 font-medium">
+        <!-- Un solo mensaje para el par lote/caducidad (antes, si faltaba uno, ambos se descartaban sin aviso). -->
+        <p v-if="shownLotError" id="purchaseItemLotHelp" class="-mt-3 text-xs font-medium text-error-600 dark:text-error-400" role="alert">
+          {{ shownLotError }}
+        </p>
+        <p v-else-if="isControlled" id="purchaseItemLotHelp" class="-mt-3 text-xs text-error-600 dark:text-error-400 font-medium">
           Medicamento controlado: lote y caducidad son obligatorios para recibirlo.
         </p>
-        <p v-else-if="requireLotForAll" class="text-xs text-error-600 font-medium">
+        <p v-else-if="requireLotForAll" id="purchaseItemLotHelp" class="-mt-3 text-xs text-error-600 dark:text-error-400 font-medium">
           La configuración de inventario exige lote y caducidad en toda entrada: sin ellos la compra no se podrá recibir.
         </p>
+        <p v-else id="purchaseItemLotHelp" class="-mt-3 text-xs text-gray-500 dark:text-gray-400">
+          Opcionales, pero van juntos: captura ambos o ninguno.
+        </p>
 
-        <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg flex justify-between items-center border border-gray-100 dark:border-gray-700">
+        <div class="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg flex justify-between items-center gap-3 border border-gray-100 dark:border-gray-700">
           <span class="text-sm font-semibold text-gray-600 dark:text-gray-400">Subtotal de Partida</span>
-          <span class="text-lg font-black text-gray-900 dark:text-white">{{ formatCurrency(form.quantity * form.cost) }}</span>
+          <span class="text-lg font-black text-gray-900 dark:text-white tabular-nums">{{ formatCurrency((Number(form.quantity) || 0) * (Number(form.cost) || 0)) }}</span>
         </div>
       </form>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="close" class="btn-secondary">Cancelar</button>
         <button type="submit" form="itemForm" :disabled="isLoading || (!isEditing && !selectedProduct)" class="btn-primary">
           <Icon v-if="isLoading" name="ph:spinner-gap-bold" class="animate-spin mr-2" />
@@ -92,7 +106,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
-import { usePurchaseStore, type PurchaseItem } from '~/stores/purchase'
+import { usePurchaseStore, lotPairError, MIN_ITEM_COST, type PurchaseItem } from '~/stores/purchase'
 import { useProductStore, type Product } from '~/stores/product'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
@@ -108,6 +122,8 @@ const toast = useToast()
 
 const isLoading = ref(false)
 const isEditing = computed(() => !!props.itemToEdit)
+/** Los errores de "falta" se muestran tras el primer intento de guardar. */
+const submitted = ref(false)
 
 // Búsqueda
 const searchQuery = ref('')
@@ -126,8 +142,32 @@ const settingsStore = useSettingsStore()
 const requireLotForAll = computed(() => settingsStore.valuesOf('inventory')?.requireLotForAll ?? false)
 const lotRequired = computed(() => isControlled.value || requireLotForAll.value)
 
+const qtyError = computed(() =>
+  Number.isInteger(form.quantity) && form.quantity >= 1 ? '' : 'La cantidad debe ser un número entero de al menos 1.',
+)
+// Mismo mínimo que la captura de la orden nueva (create.vue) y que el servidor.
+const costError = computed(() =>
+  Number(form.cost) >= MIN_ITEM_COST ? '' : `El costo unitario debe ser de al menos ${formatCurrency(MIN_ITEM_COST)}.`,
+)
+/** Mismas reglas que create.vue: el par va junto, y obligatorio si así se exige. */
+const lotError = computed(() => {
+  const pair = lotPairError(form.lotNumber, form.expiryDate)
+  if (pair) return pair
+  if (lotRequired.value && !form.lotNumber.trim() && !form.expiryDate) {
+    return isControlled.value
+      ? 'El medicamento controlado requiere lote y caducidad.'
+      : 'La configuración de inventario exige lote y caducidad en toda entrada.'
+  }
+  return ''
+})
+// El par incompleto se avisa al momento; el "falta" obligatorio, al intentar guardar.
+const shownLotError = computed(() =>
+  lotPairError(form.lotNumber, form.expiryDate) || (submitted.value ? lotError.value : ''),
+)
+
 watch(() => props.modelValue, (val) => {
   if (val) {
+    submitted.value = false
     void settingsStore.fetch('inventory').catch(() => null)
     if (props.itemToEdit) {
       form.quantity = props.itemToEdit.quantity
@@ -148,6 +188,8 @@ watch(() => props.modelValue, (val) => {
 
 const handleSearch = () => {
   clearTimeout(searchTimeout)
+  // Si se edita el texto tras elegir, la selección deja de ser válida.
+  if (selectedProduct.value && searchQuery.value !== selectedProduct.value.name) selectedProduct.value = null
   if (!searchQuery.value.trim()) { searchResults.value = []; return }
   searchTimeout = setTimeout(async () => {
     searchResults.value = await productStore.searchProductsLocally({ name: searchQuery.value, limit: 5 })
@@ -162,17 +204,16 @@ const selectProduct = (p: Product) => {
 }
 
 const handleSubmit = async () => {
-  if (form.quantity <= 0 || form.cost < 0) return
-  if (lotRequired.value && (!form.lotNumber.trim() || !form.expiryDate)) {
-    toast.error(isControlled.value
-      ? 'El medicamento controlado requiere lote y caducidad.'
-      : 'La configuración de inventario exige lote y caducidad en toda entrada.')
+  submitted.value = true
+  if (!isEditing.value && !selectedProduct.value) {
+    toast.warning('Elige un producto de la lista.')
     return
   }
+  if (qtyError.value || costError.value || lotError.value) return
   isLoading.value = true
 
   const lotPayload = form.lotNumber.trim() && form.expiryDate
-    ? { lotNumber: form.lotNumber.trim(), expiryDate: form.expiryDate }
+    ? { lotNumber: form.lotNumber.trim().toUpperCase(), expiryDate: form.expiryDate }
     : { lotNumber: undefined, expiryDate: undefined }
 
   try {

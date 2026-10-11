@@ -18,6 +18,77 @@ export interface CashTransaction {
   createdAt: string
 }
 
+export type SaleStatusCode = 'PENDING' | 'PARTIAL' | 'COMPLETED' | 'CANCELLED' | 'REFUNDED'
+
+// ── Etiquetas legibles (enums de prisma/schema.prisma del backend) ─────────
+export const SHIFT_STATUS_LABEL: Record<ShiftStatus, string> = {
+  OPEN: 'Abierto',
+  CLOSED: 'Cerrado',
+  AUDIT_REQUIRED: 'Requiere auditoría',
+}
+
+/**
+ * Cada tipo de movimiento con su sentido para el cajón: `in` entra efectivo,
+ * `out` sale. Antes la pantalla usaba una lista fija de "entradas" y todo lo
+ * demás salía con "−", así que un reembolso de proveedor (REFUND_IN, dinero que
+ * ENTRA) aparecía restando.
+ */
+export const CASH_TRANSACTION_META: Record<CashTransactionType, { label: string; direction: 'in' | 'out' }> = {
+  SALE_INCOME: { label: 'Venta en efectivo', direction: 'in' },
+  CREDIT_PAYMENT: { label: 'Abono de cliente (crédito)', direction: 'in' },
+  MANUAL_ADD: { label: 'Ingreso manual', direction: 'in' },
+  REFUND_IN: { label: 'Reembolso de proveedor', direction: 'in' },
+  MANUAL_WITHDRAW: { label: 'Retiro (sangría)', direction: 'out' },
+  EXPENSE: { label: 'Gasto', direction: 'out' },
+  REFUND_OUT: { label: 'Devolución a cliente', direction: 'out' },
+  PURCHASE_PAYMENT: { label: 'Pago a proveedor', direction: 'out' },
+}
+
+export function cashTransactionMeta(type: string): { label: string; direction: 'in' | 'out' } {
+  return CASH_TRANSACTION_META[type as CashTransactionType] ?? { label: 'Movimiento', direction: 'out' }
+}
+
+export const SALE_STATUS_LABEL: Record<SaleStatusCode, string> = {
+  PENDING: 'Pendiente',
+  PARTIAL: 'Parcial',
+  COMPLETED: 'Completada',
+  CANCELLED: 'Anulada',
+  REFUNDED: 'Devuelta',
+}
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  TRANSFER: 'Transferencia',
+}
+
+export type DrawerEventKind = 'MANUAL' | 'TEST'
+
+export const DRAWER_EVENT_KIND_LABEL: Record<DrawerEventKind, string> = {
+  MANUAL: 'Manual',
+  TEST: 'Prueba',
+}
+
+/** Apertura del cajón SIN venta (bitácora `cashDrawerEvent` del backend). */
+export interface CashDrawerEvent {
+  id: number
+  kind: DrawerEventKind
+  reason: string
+  terminal: string | null
+  userId: number
+  shiftId: number | null
+  createdAt: string
+  user?: { id: number, firstName: string, lastName: string }
+}
+
+export interface CashShiftSaleSummary {
+  id: number
+  total: string | number
+  status: SaleStatusCode
+  paymentMethod: string | null
+  createdAt: string
+}
+
 export interface CashShift {
   id: number
   userId: number
@@ -34,7 +105,9 @@ export interface CashShift {
   /** Sólo en el turno actual: estado del cajón según Configuración › Caja. */
   drawer?: DrawerStatus
   transactions?: CashTransaction[]
-  sales?: any[]
+  /** Sólo en el detalle (GET /cash-shift/:id): aperturas del cajón sin venta. */
+  drawerEvents?: CashDrawerEvent[]
+  sales?: CashShiftSaleSummary[]
 }
 
 export interface DrawerStatus {
@@ -75,6 +148,12 @@ export const useCashShiftStore = defineStore('cashShift', () => {
   const isActionLoading = ref(false)
   /** Falló la consulta del turno ≠ "no tengo turno". */
   const currentShiftError = ref<FalloPeticion | null>(null)
+  /**
+   * Falló la consulta del historial ≠ "no hay turnos". Antes el error se
+   * tragaba y la pantalla decía "No se encontraron turnos.".
+   */
+  const listError = ref<FalloPeticion | null>(null)
+  let lastListPage = 1
 
   const filters = ref({
     status: '' as ShiftStatus | '',
@@ -149,6 +228,8 @@ export const useCashShiftStore = defineStore('cashShift', () => {
   async function fetchShifts(page = 1) {
     const { $api } = useNuxtApp()
     isLoading.value = true
+    listError.value = null
+    lastListPage = page
 
     try {
       const params = new URLSearchParams()
@@ -164,10 +245,15 @@ export const useCashShiftStore = defineStore('cashShift', () => {
       shifts.value = res.data.shifts || res.data.data || [] 
       if (res.data.pagination) pagination.value = res.data.pagination
     } catch (error) {
-      console.error('Error fetching shifts:', error)
+      listError.value = describirFallo(error)
     } finally {
       isLoading.value = false
     }
+  }
+
+  /** Repite la última consulta del historial (misma página y filtros). */
+  function retryList() {
+    return fetchShifts(lastListPage)
   }
 
   // 6. Obtener detalle de un turno (AUDITORÍA)
@@ -188,6 +274,7 @@ export const useCashShiftStore = defineStore('cashShift', () => {
   return {
     currentShift,
     currentShiftError,
+    listError,
     shifts,
     pagination,
     isLoading,
@@ -198,6 +285,7 @@ export const useCashShiftStore = defineStore('cashShift', () => {
     closeShift,
     registerOperation,
     fetchShifts,
+    retryList,
     fetchShiftById
   }
 })

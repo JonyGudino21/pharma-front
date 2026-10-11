@@ -60,7 +60,9 @@ const ticks = computed(() => {
   --ink: #111418;
   --ink-soft: #5b6470;
   font-family: var(--font-ticket);
-  font-size: 12.5px;
+  /* En celular la letra se reduce para que el rollo de 48 columnas quepa sin
+     desplazamiento lateral (1ch ≈ 0.6em; 7rem = márgenes de página y equipo). */
+  font-size: clamp(8.5px, calc((100vw - 7rem) / (var(--cols) * 0.6 + 4)), 12.5px);
   line-height: 1.5;
   width: calc(var(--cols) * 1ch + 2.5rem);
   max-width: 100%;
