@@ -39,6 +39,8 @@ estados de error, atajos de teclado y decisiones relevantes.
 
 - [CHANGELOG.md](CHANGELOG.md) — cambios.
 - [../README.md](../README.md) — instalación, variables de entorno y scripts.
+- **Producción e instalación en farmacias:** `pharma-back/docs/produccion/README.md` (guía única
+  para front y back; el front se publica con su `Dockerfile` o como ZIP de `.output/public`).
 - [../CONTRIBUTING.md](../CONTRIBUTING.md) — flujo de trabajo (ramas, commits, PRs, versionado).
 - Backend: `pharma-back/docs/` (contrato del API en `API_CONTRACT.md`, matriz de permisos en
   `PERMISSIONS_MATRIX.md`, módulos del servidor).

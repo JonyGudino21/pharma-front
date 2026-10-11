@@ -6,6 +6,12 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Producción (ADR-0024, 11/10/2026)
+
+- `Dockerfile`: compila la SPA con la API relativa (`/api`) y la sirve con Caddy; el mismo build
+  sirve para cualquier farmacia.
+- `pnpm generate` documentado como el build de producción; `.env.example` y `.nvmrc`.
+
 ### Ayuda contextual y diseño responsivo (ADR-0023, 11/10/2026)
 
 - **Botón Ayuda en todas las pantallas**: abre la guía de la pantalla (y la sección de la
@@ -43,6 +49,8 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
   filtros de fecha para quien no ve analítica.
 - **Contraseña**: avisa si la nueva es igual a la actual. Toasts de información con icono.
 - Controlado con existencia sin lote: el mensaje indica **Inventario › Asignar lote**.
+- **Compras › Editar partida**: dejar lote y caducidad vacíos ahora quita el lote (antes se conservaba
+  el anterior sin aviso). El formulario lo explica.
 - **Descartar venta** usa la confirmación de la app (antes el diálogo del navegador).
 - **Buscar cliente** en el POS y el directorio: el servidor rechazaba `page`/`limit` (corregido en el backend).
 

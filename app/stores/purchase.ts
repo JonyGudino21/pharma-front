@@ -238,7 +238,7 @@ export const usePurchaseStore = defineStore('purchase', () => {
     }
   }
 
-  async function updateItem(purchaseId: number, itemId: number, payload: { quantity: number, cost: number, lotNumber?: string, expiryDate?: string }) {
+  async function updateItem(purchaseId: number, itemId: number, payload: { quantity: number, cost: number, lotNumber?: string | null, expiryDate?: string | null }) {
     const { $api } = useNuxtApp()
     isActionLoading.value = true
     try {
