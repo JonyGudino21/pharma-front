@@ -1,0 +1,217 @@
+<template>
+  <div class="space-y-6">
+    <div class="page-header">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <Icon name="ph:hourglass-bold" class="text-primary-600" /> Alertas de caducidad
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Lotes vigentes y vencidos.
+          <template v-if="criteria">
+            Semáforo: rojo &lt; {{ criteria.critical }} días, amarillo {{ criteria.critical }}–{{ criteria.warning }}, verde &gt; {{ criteria.warning }}.
+          </template>
+          <NuxtLink v-if="authStore.can('canManageSettings')" to="/settings/inventory" class="ml-1 font-medium text-primary-600 hover:underline dark:text-primary-400">Ajustar criterios</NuxtLink>
+        </p>
+      </div>
+      <!-- Horizonte: en celular los botones se reparten el ancho. -->
+      <div class="page-actions" role="group" aria-label="Horizonte de caducidad">
+        <button
+          v-for="option in dayOptions"
+          :key="option"
+          type="button"
+          class="px-4 py-2 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap"
+          :class="days === option
+            ? 'bg-primary-600 text-white border-primary-600'
+            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+          :aria-pressed="days === option"
+          @click="changeDays(option)"
+        >
+          {{ option }} días
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div v-if="inventoryStore.isLoadingExpiring" class="py-16 text-center text-gray-400">
+        <Icon name="ph:spinner-gap-bold" class="w-8 h-8 animate-spin mx-auto" />
+      </div>
+      <!--
+        Falló la consulta ≠ no hay datos. Antes esta rama no existía y un error
+        del servidor se pintaba con el mensaje de "vacío" de abajo.
+      -->
+      <div v-else-if="inventoryStore.expiringError" class="py-12 px-6 text-center" role="alert">
+        <Icon name="ph:cloud-slash-fill" class="w-10 h-10 mx-auto text-error-500" />
+        <p class="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-100">{{ inventoryStore.expiringError.mensaje }}</p>
+        <p class="mt-1 text-xs text-gray-500">Esto NO significa que no haya lotes por caducar: no pudimos consultarlos. No vendas productos dudosos hasta confirmar.</p>
+        <button
+          v-if="inventoryStore.expiringError.reintentable"
+          type="button"
+          class="mt-3 inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+          @click="reload()"
+        >
+          <Icon name="ph:arrow-clockwise-bold" /> Reintentar
+        </button>
+      </div>
+      <div v-else-if="inventoryStore.expiring.length === 0" class="py-16 text-center text-gray-400">
+        No hay lotes por caducar en este horizonte.
+      </div>
+      <template v-else>
+        <!-- Laptop y tableta: tabla -->
+        <div class="table-wrap hidden @4xl:block">
+          <table class="w-full text-left whitespace-nowrap">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
+                <th class="px-4 py-3">Producto</th>
+                <th class="px-4 py-3">Lote</th>
+                <th class="px-4 py-3">Caducidad</th>
+                <th class="px-4 py-3 text-center">Días</th>
+                <th class="px-4 py-3 text-center">Cant.</th>
+                <th class="px-4 py-3">Estado</th>
+                <th v-if="authStore.can('canAdjustInventory')" class="px-4 py-3 text-right"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <tr v-for="batch in inventoryStore.expiring" :key="batch.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <td class="px-4 py-3">
+                  <p class="font-bold text-sm text-gray-900 dark:text-white">{{ batch.product.name }}</p>
+                  <p class="text-xs font-mono text-gray-500">{{ batch.product.sku }}</p>
+                </td>
+                <td class="px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300">{{ batch.lotNumber }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ formatDate(batch.expiryDate) }}</td>
+                <td class="px-4 py-3 text-center font-bold tabular-nums text-gray-900 dark:text-white">{{ batch.daysLeft }}</td>
+                <td class="px-4 py-3 text-center font-bold text-gray-900 dark:text-white">{{ batch.quantity }}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold" :class="lightClass(batch.status)">
+                    <span class="w-2 h-2 rounded-full" :class="dotClass(batch.status)"></span>
+                    {{ lightLabel(batch.status) }}
+                  </span>
+                </td>
+                <td v-if="authStore.can('canAdjustInventory')" class="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    class="rounded-lg px-3 py-2 text-sm font-bold text-error-600 hover:bg-error-50 hover:text-error-700 dark:text-error-400 dark:hover:bg-error-900/30"
+                    @click="openDestroy(batch)"
+                  >
+                    Merma
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Celular: tarjetas -->
+        <ul class="card-list @4xl:hidden" data-testid="expiring-cards">
+          <li v-for="batch in inventoryStore.expiring" :key="batch.id" class="px-4 py-3">
+            <div class="card-row">
+              <p class="min-w-0 truncate font-bold text-gray-900 dark:text-white">{{ batch.product.name }}</p>
+              <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold" :class="lightClass(batch.status)">
+                <span class="w-2 h-2 rounded-full" :class="dotClass(batch.status)"></span>
+                {{ lightLabel(batch.status) }}
+              </span>
+            </div>
+            <p class="mt-0.5 text-xs font-mono text-gray-500 dark:text-gray-400">{{ batch.product.sku }} · Lote {{ batch.lotNumber }}</p>
+            <div class="card-row mt-1.5">
+              <p class="text-gray-700 dark:text-gray-300">
+                <span class="card-label">Caduca</span> {{ formatDate(batch.expiryDate) }}
+                <span class="font-bold tabular-nums">({{ batch.daysLeft }} d)</span>
+              </p>
+              <p class="shrink-0 font-bold text-gray-900 dark:text-white">{{ batch.quantity }} uds.</p>
+            </div>
+            <button
+              v-if="authStore.can('canAdjustInventory')"
+              type="button"
+              class="btn-secondary mt-3 w-full text-error-700 dark:text-error-400"
+              @click="openDestroy(batch)"
+            >
+              <Icon name="ph:trash-bold" class="mr-2" /> Registrar merma
+            </button>
+          </li>
+        </ul>
+      </template>
+      <div v-if="!inventoryStore.expiringError" class="px-3 pb-4 sm:px-4">
+        <Pagination :pagination="inventoryStore.expiringPagination" @page-change="goToPage" />
+      </div>
+    </div>
+
+    <DestroyBatchModal
+      v-model="showDestroy"
+      :batch="selectedBatch"
+      @success="reload"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, onMounted } from 'vue'
+import { useInventoryStore, type ExpiringBatch, type ExpiryStatus } from '~/stores/inventory'
+import { useAuthStore } from '~/stores/auth'
+import { useDate } from '~/composables/useDate'
+import Pagination from '~/components/shared/Pagination.vue'
+import DestroyBatchModal from '~/components/inventory/DestroyBatchModal.vue'
+
+definePageMeta({ requiredPermission: 'canViewExpiringBatches' })
+
+const inventoryStore = useInventoryStore()
+const authStore = useAuthStore()
+const { formatDate } = useDate()
+
+// null hasta la primera respuesta: el servidor decide el horizonte configurado.
+const days = ref<number | null>(null)
+const criteria = computed(() => inventoryStore.expiringCriteria)
+
+/** 30/60/90 más el horizonte configurado, si es otro. */
+const dayOptions = computed(() => {
+  const set = new Set([30, 60, 90])
+  if (criteria.value) set.add(criteria.value.days)
+  return [...set].sort((a, b) => a - b)
+})
+const page = ref(1)
+const showDestroy = ref(false)
+const selectedBatch = ref<ExpiringBatch | null>(null)
+
+function lightClass(status: ExpiryStatus) {
+  if (status === 'EXPIRED' || status === 'CRITICAL') return 'bg-error-50 text-error-700 dark:bg-error-900/30 dark:text-error-300'
+  if (status === 'WARNING') return 'bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300'
+  return 'bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300'
+}
+
+function dotClass(status: ExpiryStatus) {
+  if (status === 'EXPIRED' || status === 'CRITICAL') return 'bg-error-500'
+  if (status === 'WARNING') return 'bg-warning-500'
+  return 'bg-success-500'
+}
+
+function lightLabel(status: ExpiryStatus) {
+  if (status === 'EXPIRED') return 'Caducado'
+  if (status === 'CRITICAL') return 'Crítico'
+  if (status === 'WARNING') return 'Próximo'
+  return 'Vigente'
+}
+
+async function reload() {
+  await inventoryStore.fetchExpiring({ days: days.value ?? undefined, page: page.value })
+  // La primera carga adopta el horizonte con el que respondió el servidor.
+  if (days.value === null && inventoryStore.expiringCriteria) {
+    days.value = inventoryStore.expiringCriteria.days
+  }
+}
+
+function changeDays(value: number) {
+  days.value = value
+  page.value = 1
+  reload()
+}
+
+function goToPage(next: number) {
+  page.value = next
+  reload()
+}
+
+function openDestroy(batch: ExpiringBatch) {
+  selectedBatch.value = batch
+  showDestroy.value = true
+}
+
+onMounted(reload)
+</script>

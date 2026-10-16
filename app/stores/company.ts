@@ -6,6 +6,7 @@ import type {
   Company,
   CompanyProfile,
   PrintChannel,
+  PrintDocument,
   ReceiptTemplate,
   SaleReceiptPrint,
 } from '~/types/receipt'
@@ -113,11 +114,12 @@ export const useCompanyStore = defineStore('company', () => {
     saleId: number,
     channel: PrintChannel,
     templateId?: number,
+    document: PrintDocument = 'TICKET',
   ) {
     const { $api } = useNuxtApp()
     const res = await $api<ApiResponse<SaleReceiptPrint>>(`/sales/${saleId}/prints`, {
       method: 'POST',
-      body: { channel, templateId },
+      body: { channel, templateId, document },
     })
     return res.data
   }
@@ -149,6 +151,8 @@ function normalizeTemplate(t: ReceiptTemplate): ReceiptTemplate {
       blocks: Array.isArray(blocks) && blocks.length > 0
         ? blocks
         : [...DEFAULT_RECEIPT_LAYOUT.blocks],
+      // Las plantillas anteriores a la opción de charset no la traen.
+      charset: t.layout?.charset === 'cp850' ? 'cp850' : 'ascii',
     },
   }
 }

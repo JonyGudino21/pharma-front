@@ -1,18 +1,18 @@
 <template>
-  <div v-if="modelValue" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]">
-      
-      <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <div v-if="modelValue" class="modal-overlay" role="dialog" aria-modal="true" :aria-label="isEditing ? 'Editar Cliente' : 'Nuevo Cliente'" @keydown.esc="close">
+    <div class="modal-panel sm:max-w-2xl">
+
+      <div class="modal-header items-center">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon :name="isEditing ? 'ph:users-bold' : 'ph:user-plus-bold'" class="text-primary-600" />
           {{ isEditing ? 'Editar Cliente' : 'Nuevo Cliente' }}
         </h2>
-        <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg transition-colors">
+        <button type="button" aria-label="Cerrar" @click="close" class="-mr-2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg transition-colors">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="p-6 overflow-y-auto flex-1">
+      <div class="modal-body">
         <form id="clientForm" @submit.prevent="handleSubmit" class="space-y-5">
           
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -54,7 +54,7 @@
           </div>
 
           <div v-if="isEditing" class="flex items-center gap-2 mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
-            <input v-model="form.isActive" type="checkbox" id="isActiveClient" class="w-4 h-4 text-primary-600 rounded border-gray-300" />
+            <input v-model="form.isActive" type="checkbox" id="isActiveClient" class="w-5 h-5 text-primary-600 rounded border-gray-300" />
             <label for="isActiveClient" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
               Cliente Activo
             </label>
@@ -63,9 +63,9 @@
         </form>
       </div>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3 shrink-0">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="close" class="btn-secondary">Cancelar</button>
-        <button type="submit" form="clientForm" :disabled="store.isActionLoading" class="btn-primary min-w-[140px]">
+        <button type="submit" form="clientForm" :disabled="store.isActionLoading" class="btn-primary sm:min-w-[140px]">
           <Icon v-if="store.isActionLoading" name="ph:spinner-gap-bold" class="animate-spin mr-2" />
           {{ store.isActionLoading ? 'Guardando...' : 'Guardar' }}
         </button>
@@ -128,11 +128,11 @@ async function handleSubmit() {
       rfc: form.rfc.trim().toUpperCase() || undefined,
       curp: form.curp.trim().toUpperCase() || undefined,
       address: form.address.trim() || undefined,
-      // isActive: form.isActive
     }
 
     if (isEditing.value && props.clientToEdit) {
-      await store.updateClient(props.clientToEdit.id, payload)
+      // UpdateClientDto acepta isActive: sin enviarlo no había forma de reactivar a un cliente dado de baja.
+      await store.updateClient(props.clientToEdit.id, { ...payload, isActive: form.isActive })
       toast.success('Cliente actualizado exitosamente.')
     } else {
       await store.createClient(payload)

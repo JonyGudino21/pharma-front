@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { ApiResponse } from '~/types/auth'
+import { describirFallo } from '~/composables/useRequestState'
 
 // Interfaces exactas según el Payload del Backend
 export interface KPIs {
@@ -44,6 +45,8 @@ export interface DashboardData {
 
 export const useAnalyticsStore = defineStore('analytics', () => {
   const data = ref<DashboardData | null>(null)
+  /** Motivo del último fallo de carga, en palabras del usuario; null si cargó bien. */
+  const error = ref<string | null>(null)
   const isLoading = ref(false)
   const filters = ref({ startDate: '', endDate: '' })
 
@@ -61,9 +64,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
       // La API responde con { success, message, data: DashboardData }
       const response = await $api<ApiResponse<DashboardData>>(url)
       data.value = response.data
-    } catch (error) {
-      console.error('Error fetching analytics:', error)
-      data.value = null // Limpiamos si hay error (ej. 403 Sin permisos)
+      error.value = null
+    } catch (e) {
+      // Antes se ponía `data = null` y la pantalla quedaba en blanco, sin decir
+      // qué pasó ni ofrecer reintento. Ahora se conserva lo último que sí cargó
+      // (si lo hay) y se expone el motivo para mostrarlo.
+      error.value = describirFallo(e).mensaje
     } finally {
       isLoading.value = false
     }
@@ -92,6 +98,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   return {
     data,
+    error,
     isLoading,
     filters,
     fetchDashboard,

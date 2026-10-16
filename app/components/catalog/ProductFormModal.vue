@@ -1,22 +1,23 @@
 <template>
-  <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-      
-      <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
-        <div>
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <!-- Celular: hoja a casi toda la altura; el cuerpo se desplaza y el pie con los botones queda fijo. -->
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="productFormTitle">
+    <div class="modal-panel h-[92dvh] sm:h-auto sm:max-w-4xl">
+
+      <div class="modal-header">
+        <div class="min-w-0">
+          <h2 id="productFormTitle" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Icon :name="isEditing ? 'ph:package-bold' : 'ph:plus-circle-bold'" class="text-primary-600" />
             {{ isEditing ? 'Editar Producto' : 'Registrar Nuevo Producto' }}
           </h2>
-          <p v-if="isEditing" class="text-sm text-gray-500 font-mono mt-1">SKU: {{ productToEdit?.sku }}</p>
+          <p v-if="isEditing" class="text-sm text-gray-500 font-mono mt-1 break-all">SKU: {{ productToEdit?.sku }}</p>
         </div>
-        <button @click="$emit('close')" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <button type="button" aria-label="Cerrar" @click="$emit('close')" class="shrink-0 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="p-6 overflow-y-auto flex-1">
-        <form id="productForm" @submit.prevent="handleSubmit" class="space-y-6">
+      <div class="modal-body">
+        <form id="productForm" @submit.prevent="handleSubmit" class="space-y-5 sm:space-y-6">
           
           <div class="bg-gray-50 dark:bg-gray-900/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
             <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4 flex items-center gap-2">
@@ -59,8 +60,8 @@
               </div>
             </div>
             
-            <div class="flex items-center gap-2 p-4 bg-error-50 dark:bg-error-900/10 rounded-lg border border-error-100 dark:border-error-800/30 h-[42px] self-end mb-[2px]">
-              <input v-model="form.controlled" type="checkbox" id="controlled" class="w-4 h-4 text-error-600 rounded border-error-300" />
+            <div class="flex items-center gap-2 px-4 py-2.5 bg-error-50 dark:bg-error-900/10 rounded-lg border border-error-100 dark:border-error-800/30 min-h-[42px] md:self-end md:mb-[2px]">
+              <input v-model="form.controlled" type="checkbox" id="controlled" class="w-5 h-5 shrink-0 text-error-600 rounded border-error-300" />
               <label for="controlled" class="text-sm font-bold text-error-700 dark:text-error-400 cursor-pointer">
                 Medicamento Controlado (Receta Obligatoria)
               </label>
@@ -75,11 +76,20 @@
             </div>
 
             <div>
-              <label class="label-base">Precio de Venta * <span class="text-xs text-gray-400">(MXN)</span></label>
+              <label class="label-base">Precio de Venta * <span class="text-xs text-gray-400">(MXN, IVA incluido)</span></label>
               <div class="relative">
                 <Icon name="ph:tag-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input v-model.number="form.price" type="number" step="0.01" min="0.01" required class="input-base pl-10" />
               </div>
+              <p v-if="taxHint" class="mt-1 text-xs text-gray-500">{{ taxHint }}</p>
+            </div>
+
+            <div>
+              <label for="taxCategory" class="label-base">IVA</label>
+              <select id="taxCategory" v-model="form.taxCategory" class="input-base" :disabled="taxLocked">
+                <option v-for="(meta, key) in TAX_CATEGORY_META" :key="key" :value="key">{{ meta.label }} — {{ meta.hint }}</option>
+              </select>
+              <p v-if="taxLocked" class="mt-1 text-xs text-gray-500">Sólo gerencia cambia el tratamiento de IVA.</p>
             </div>
           </div>
 
@@ -87,8 +97,60 @@
             <div class="space-y-4">
               <div v-if="!isEditing">
                 <label class="label-base text-success-600 dark:text-success-400">Stock Inicial Físico <span class="text-xs">(Generará movimiento)</span></label>
-                <input v-model.number="form.stock" type="number" min="0" class="input-base border-success-200 focus:ring-success-500" />
+                <input v-model.number="form.stock" type="number" min="0" step="1" class="input-base border-success-200 focus:ring-success-500" />
+                <!-- La caducidad es del LOTE, no del producto: sin piezas no hay lote
+                     que registrar. Antes no se explicaba y parecía que el sistema no
+                     pedía caducidad. -->
+                <p v-if="!hasInitialStock" class="mt-1 flex gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  <Icon name="ph:info-bold" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  La caducidad se registra por lote: escribe aquí las piezas que ya tienes y te pediremos su lote y caducidad. Si llega después, se capturan al recibir la compra.
+                </p>
               </div>
+
+              <!--
+                Lote y caducidad del inventario inicial. La caducidad es del LOTE,
+                no del producto: sin estos datos las unidades quedaban fuera del
+                FEFO y de la alerta de caducidad. Obligatorio en controlados.
+              -->
+              <fieldset v-if="!isEditing && hasInitialStock" class="rounded-lg border border-success-200 dark:border-success-500/30 p-3 space-y-3">
+                <legend class="px-1 text-xs font-semibold text-success-700 dark:text-success-400">
+                  Lote del inventario inicial
+                  <span v-if="form.controlled" class="text-error-600">(obligatorio en controlados)</span>
+                  <span v-else-if="requireLotForAll" class="text-error-600">(obligatorio: lo exige la configuración de inventario)</span>
+                  <span v-else class="font-normal text-gray-500">(recomendado)</span>
+                </legend>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label for="initialLot" class="label-base">Número de lote{{ lotRequired ? ' *' : '' }}</label>
+                    <input
+                      id="initialLot"
+                      v-model="form.lotNumber"
+                      type="text"
+                      maxlength="40"
+                      autocomplete="off"
+                      class="input-base font-mono uppercase"
+                      :aria-invalid="!!lotError"
+                      aria-describedby="initialLotHelp"
+                      placeholder="Ej. B23K041"
+                    />
+                  </div>
+                  <div>
+                    <label for="initialExpiry" class="label-base">Caducidad{{ lotRequired ? ' *' : '' }}</label>
+                    <input
+                      id="initialExpiry"
+                      v-model="form.expiryDate"
+                      type="date"
+                      :min="today"
+                      class="input-base"
+                      :aria-invalid="!!lotError"
+                      aria-describedby="initialLotHelp"
+                    />
+                  </div>
+                </div>
+                <p id="initialLotHelp" class="text-xs" :class="lotError ? 'text-error-600' : 'text-gray-500'" :role="lotError ? 'alert' : undefined">
+                  {{ lotError || 'Viene impreso en la caja. Las siguientes entradas se registran con su lote desde Compras.' }}
+                </p>
+              </fieldset>
               <div v-else class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <p class="text-xs text-gray-500">Stock Actual en Sistema</p>
                 <p class="text-xl font-bold text-gray-900 dark:text-white">{{ productToEdit?.stock || 0 }} unidades</p>
@@ -103,17 +165,31 @@
 
             <div>
               <label class="label-base">Clasificación (Categorías)</label>
+              <!--
+                Se pinta desde `categoryStore.options`, NO desde `categories`.
+                `categories` es la tabla de administración, paginada de 10 en 10:
+                usándola aquí, a partir de la categoría 11 no había forma de
+                asignarla a un producto y la lista no daba ninguna señal.
+              -->
               <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 h-40 overflow-y-auto bg-white dark:bg-gray-800">
-                <div v-if="categoryStore.categories.length === 0" class="text-sm text-gray-500 text-center py-4">
+                <div v-if="categoryStore.isLoadingOptions" class="text-sm text-gray-500 text-center py-4">
+                  Cargando categorías…
+                </div>
+                <div v-else-if="categoryStore.options.length === 0" class="text-sm text-gray-500 text-center py-4">
                   No hay categorías activas. Crea una primero.
                 </div>
                 <div v-else class="space-y-2">
-                  <label v-for="cat in categoryStore.categories" :key="cat.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors">
+                  <label v-for="cat in categoryStore.options" :key="cat.id" class="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors">
                     <input v-model="form.categories" :value="cat.id" type="checkbox" class="w-4 h-4 text-primary-600 rounded border-gray-300" />
                     <span class="text-sm text-gray-700 dark:text-gray-200">{{ cat.name }}</span>
                   </label>
                 </div>
               </div>
+              <!-- Si el catálogo excede el tope, se dice. Nunca se oculta. -->
+              <p v-if="categoryStore.optionsTruncated" class="mt-1 text-xs text-warning-600">
+                La lista está recortada: hay más categorías de las que caben aquí.
+                Contacta a soporte para habilitar la búsqueda.
+              </p>
             </div>
           </div>
 
@@ -127,9 +203,9 @@
         </form>
       </div>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3 shrink-0">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="$emit('close')" class="btn-secondary">Cancelar</button>
-        <button type="submit" form="productForm" :disabled="isSubmitting" class="btn-primary min-w-[140px]">
+        <button type="submit" form="productForm" :disabled="isSubmitting" class="btn-primary sm:min-w-[140px]">
           <Icon v-if="isSubmitting" name="ph:spinner-gap-bold" class="animate-spin mr-2" />
           {{ isSubmitting ? 'Guardando...' : 'Guardar Producto' }}
         </button>
@@ -140,11 +216,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useProductStore } from '~/stores/product'
 import { useCategoryStore } from '~/stores/category'
 import { useToast } from '~/composables/useToast'
-import type { Product } from '~/stores/product'
+import { useSettingsStore } from '~/stores/settings'
+import { useAuthStore } from '~/stores/auth'
+import { TAX_CATEGORY_META } from '~/utils/tax-categories'
+import type { TaxCategory } from '~/types/settings'
+import type { CreateProductPayload, Product } from '~/stores/product'
 
 const props = defineProps<{ productToEdit?: Product | null }>()
 const emit = defineEmits(['close'])
@@ -156,6 +236,9 @@ const toast = useToast()
 const isEditing = ref(false)
 const isSubmitting = ref(false)
 
+/** IVA con el que se abrió el producto en edición: sólo se envía si cambió. */
+const taxBaseline = ref<TaxCategory | null>(null)
+
 const form = reactive({
   name: '',
   description: '',
@@ -166,18 +249,69 @@ const form = reactive({
   categories: [] as number[],
   controlled: false,
   stock: 0,
+  lotNumber: '',
+  expiryDate: '',
   minStock: 5,
   price: '' as number | string, // Permite que el input empiece vacío
   cost: '' as number | string,
-  isActive: true
+  isActive: true,
+  taxCategory: 'ZERO' as TaxCategory,
+})
+
+// IVA: decisión fiscal. Al editar, sólo gerencia lo cambia (el servidor lo exige).
+const authStore = useAuthStore()
+const esGerencia = computed(() => authStore.user?.role === 'MANAGER' || authStore.user?.role === 'ADMIN')
+const taxLocked = computed(() => isEditing.value && !esGerencia.value)
+const taxHint = computed(() => {
+  const price = Number(form.price)
+  if (form.taxCategory !== 'GENERAL' || !(price > 0)) return ''
+  const rate = settingsStore.valuesOf('taxes')?.generalRate ?? 16
+  const iva = Math.round((price - price / (1 + rate / 100)) * 100) / 100
+  return `Contiene ${iva.toFixed(2)} de IVA (${rate}%).`
+})
+
+/** Hoy en la zona de la farmacia (YYYY-MM-DD): el mismo corte que usa el servidor. */
+const today = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Mexico_City',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date())
+
+const hasInitialStock = computed(() => Number(form.stock) > 0)
+
+// Configuración › Inventario. Si no se pudo leer, rigen las reglas de siempre
+// (lote obligatorio sólo en controlados): el servidor decide de todos modos.
+const settingsStore = useSettingsStore()
+const requireLotForAll = computed(() => settingsStore.valuesOf('inventory')?.requireLotForAll ?? false)
+const lotRequired = computed(() => form.controlled || requireLotForAll.value)
+
+/** Mismas reglas que `ProductService.resolveInitialLot` en el backend. */
+const lotError = computed(() => {
+  if (isEditing.value || !hasInitialStock.value) return ''
+  const lot = form.lotNumber.trim()
+  const expiry = form.expiryDate
+  if (!lot && !expiry) {
+    if (form.controlled) return 'Un medicamento controlado necesita lote y caducidad para registrar su inventario inicial.'
+    if (requireLotForAll.value) return 'La configuración de inventario exige lote y caducidad en toda entrada de mercancía.'
+    return ''
+  }
+  if (!lot || !expiry) return 'El número de lote y la caducidad van juntos.'
+  if (expiry < today) return 'Esa caducidad ya pasó: no se puede dar de alta inventario caducado.'
+  return ''
 })
 
 onMounted(async () => {
-  // Cargamos categorías activas para el selector
-  if (categoryStore.categories.length === 0) {
-    categoryStore.filters.isActive = 'true'
-    await categoryStore.fetchCategories(1)
-  }
+  // Opciones del selector, no la tabla paginada. Antes esto llamaba a
+  // `fetchCategories(1)`, que trae 10 registros y además PISABA los filtros de
+  // la pantalla de categorías que hubiera detrás del modal.
+  // `fetchCategoryOptions` cachea: abrir el modal diez veces no son diez
+  // peticiones.
+  await Promise.all([
+    categoryStore.fetchCategoryOptions(),
+    settingsStore.fetch('inventory').catch(() => null),
+    settingsStore.fetch('taxes').catch(() => null),
+  ])
 
   if (props.productToEdit) {
     isEditing.value = true
@@ -192,9 +326,18 @@ onMounted(async () => {
     form.minStock = p.minStock
     form.price = Number(p.price)
     form.cost = Number(p.cost)
+    form.taxCategory = p.taxCategory ?? 'ZERO'
+    taxBaseline.value = form.taxCategory
     form.isActive = p.isActive
 
     form.categories = p.categories.map(c => c.category.id)
+  } else {
+    // Alta: se propone el stock mínimo que definió gerencia.
+    const cfg = settingsStore.valuesOf('inventory')
+    if (cfg) form.minStock = cfg.defaultMinStock
+    // …y el tratamiento de IVA con que nacen los productos (Configuración › Impuestos).
+    const taxes = settingsStore.valuesOf('taxes')
+    if (taxes) form.taxCategory = taxes.defaultCategory
   }
 })
 
@@ -225,8 +368,18 @@ async function handleSubmit() {
       minStock: form.minStock,
       price: priceNum,
       cost: costNum,
+      // Al EDITAR, el IVA sólo viaja si el usuario lo cambió. Antes se mandaba
+      // siempre y, si el producto llegaba sin el dato, como 'ZERO': un gerente
+      // podía cambiar el IVA sin darse cuenta y un farmacéutico recibía 403 al
+      // guardar un simple cambio de nombre.
+      taxCategory: isEditing.value && form.taxCategory === taxBaseline.value ? undefined : form.taxCategory,
       categories: form.categories,
       isActive: form.isActive 
+    }
+
+    if (lotError.value) {
+      toast.warning(lotError.value)
+      return
     }
 
     if (isEditing.value && props.productToEdit) {
@@ -235,8 +388,15 @@ async function handleSubmit() {
       toast.success('Producto actualizado exitosamente.')
     } else {
       // Regla de Negocio: En POST sí mandamos stock inicial si existe
-      const createPayload = { ...payload, stock: form.stock }
-      await store.createProduct(createPayload as any)
+      const stock = Number(form.stock) || 0
+      const lot = form.lotNumber.trim().toUpperCase()
+      const createPayload: CreateProductPayload = {
+        ...payload,
+        stock,
+        // Sin stock el lote no aplica: el servidor lo rechazaría.
+        ...(stock > 0 && lot && form.expiryDate ? { lotNumber: lot, expiryDate: form.expiryDate } : {}),
+      }
+      await store.createProduct(createPayload)
       toast.success('Producto registrado exitosamente. SKU generado.')
     }
     emit('close')

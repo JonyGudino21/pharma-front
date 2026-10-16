@@ -1,18 +1,18 @@
 <template>
-  <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-      
-      <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="categoryFormTitle">
+    <div class="modal-panel sm:max-w-md">
+
+      <div class="modal-header">
+        <h2 id="categoryFormTitle" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon :name="isEditing ? 'ph:tag-duotone' : 'ph:tag-plus-duotone'" class="text-primary-600" />
           {{ isEditing ? 'Editar Categoría' : 'Nueva Categoría' }}
         </h2>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <button type="button" aria-label="Cerrar" @click="$emit('close')" class="shrink-0 p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="p-6 overflow-y-auto">
+      <div class="modal-body">
         <form id="categoryForm" @submit.prevent="handleSubmit" class="space-y-4">
           <div>
             <label class="label-base">Nombre de la Categoría *</label>
@@ -41,7 +41,7 @@
           </div>
 
           <div class="flex items-center gap-2 mt-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
-            <input v-model="form.isActive" type="checkbox" id="isActiveCat" class="w-4 h-4 text-primary-600 rounded border-gray-300" />
+            <input v-model="form.isActive" type="checkbox" id="isActiveCat" class="w-5 h-5 shrink-0 text-primary-600 rounded border-gray-300" />
             <label for="isActiveCat" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
               Categoría Activa (Visible en catálogo)
             </label>
@@ -49,7 +49,7 @@
         </form>
       </div>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="$emit('close')" class="btn-secondary">Cancelar</button>
         <button 
           type="submit" 

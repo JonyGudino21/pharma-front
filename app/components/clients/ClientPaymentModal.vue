@@ -1,21 +1,22 @@
 <template>
-  <div v-if="modelValue" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-      
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <div v-if="modelValue" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Registrar Abono" @keydown.esc="close">
+    <div class="modal-panel sm:max-w-md">
+
+      <div class="modal-header items-center bg-gray-50 dark:bg-gray-900/50">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon name="ph:money-bold" class="text-success-600" />
           Registrar Abono
         </h2>
-        <button @click="close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <button type="button" aria-label="Cerrar" @click="close" class="-mr-2 p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <form @submit.prevent="handleSubmit" id="paymentForm" class="p-6 space-y-5">
+      <form @submit.prevent="handleSubmit" id="paymentForm" class="modal-body space-y-5">
         <div class="bg-error-50 dark:bg-error-900/20 p-4 rounded-xl border border-error-100 dark:border-error-800/30">
           <p class="text-sm font-medium text-error-800 dark:text-error-300">Deuda Total Actual</p>
-          <p class="text-2xl font-black text-error-900 dark:text-error-100">{{ formatCurrency(Number(client?.currentDebt || 0)) }}</p>
+          <p class="text-2xl font-black text-error-900 dark:text-error-100 break-words">{{ formatCurrency(Number(client?.currentDebt || 0)) }}</p>
+          <p v-if="client?.name" class="text-xs text-error-700 dark:text-error-300 mt-1 truncate">{{ client.name }}</p>
         </div>
 
         <div>
@@ -25,8 +26,8 @@
             <option value="TRANSFER">Transferencia Bancaria</option>
             <option value="CARD">Tarjeta de Crédito / Débito</option>
           </select>
-          <p v-if="form.method === 'CASH'" class="text-xs text-warning-600 font-bold mt-2 flex items-center gap-1">
-            <Icon name="ph:warning-circle-fill" /> El efectivo ingresará directamente a tu caja activa.
+          <p v-if="form.method === 'CASH'" class="text-xs text-warning-600 dark:text-warning-400 font-bold mt-2 flex items-center gap-1">
+            <Icon name="ph:warning-circle-fill" class="shrink-0" /> El efectivo ingresará directamente a tu caja activa.
           </p>
         </div>
 
@@ -34,17 +35,18 @@
           <label class="label-base">Monto a Abonar *</label>
           <div class="relative">
             <Icon name="ph:currency-dollar-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              v-model.number="form.amount" 
-              type="number" 
-              step="0.01" 
-              min="0.01" 
-              required 
-              class="input-base pl-10 text-lg font-bold" 
+            <input
+              v-model.number="form.amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              inputmode="decimal"
+              class="input-base pl-10 text-lg font-bold"
               placeholder="0.00"
             />
           </div>
-          <p class="text-[10px] text-gray-500 mt-1">Si el monto supera la deuda, el excedente no se registrará como saldo a favor.</p>
+          <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Si el monto supera la deuda, el excedente no se registrará como saldo a favor.</p>
         </div>
 
         <div>
@@ -53,7 +55,7 @@
         </div>
       </form>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="close" class="btn-secondary">Cancelar</button>
         <button type="submit" form="paymentForm" :disabled="store.isActionLoading" class="btn-primary bg-success-600 hover:bg-success-700 focus:ring-success-500">
           <Icon v-if="store.isActionLoading" name="ph:spinner-gap-bold" class="animate-spin mr-2" />
@@ -91,7 +93,7 @@ watch(() => props.modelValue, (val) => {
 
 const handleSubmit = async () => {
   if (!props.client || Number(form.amount) <= 0) return
-  
+
   try {
     const response = await store.registerPayment(props.client.id, {
       method: form.method,

@@ -1,44 +1,39 @@
+import { dateParts } from '~/utils/dates'
+
+/**
+ * Formato de fechas para pantalla (es-MX, DD/MM/AAAA).
+ * Momentos (createdAt…) en hora local; fechas de calendario (caducidades) tal
+ * cual el día guardado. La regla vive en `utils/dates.ts`.
+ */
 export const useDate = () => {
-  // Función auxiliar para corregir la zona horaria antes de extraer días/meses
-  const parseSafeDate = (date: string | Date): Date => {
-    const d = typeof date === 'string' ? new Date(date) : date
-    const userTimezoneOffset = d.getTimezoneOffset() * 60000
-    return new Date(d.getTime() + userTimezoneOffset)
-  }
+  const pad = (n: number) => String(n).padStart(2, '0')
 
   const formatDate = (date: string | Date): string => {
     if (!date) return ''
-    const d = parseSafeDate(date)
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    return `${day}/${month}/${year}`
+    const p = dateParts(date)
+    if (!p.valid) return ''
+    return `${pad(p.day)}/${pad(p.month)}/${p.year}`
   }
 
   const formatDateTime = (date: string | Date): string => {
     if (!date) return ''
-    const d = parseSafeDate(date)
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    return `${day}/${month}/${year} ${hours}:${minutes}`
+    const p = dateParts(date)
+    if (!p.valid) return ''
+    return `${pad(p.day)}/${pad(p.month)}/${p.year} ${pad(p.hours)}:${pad(p.minutes)}`
   }
 
   const formatTime = (date: string | Date): string => {
     if (!date) return ''
-    const d = parseSafeDate(date)
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    return `${hours}:${minutes}`
+    const p = dateParts(date)
+    if (!p.valid) return ''
+    return `${pad(p.hours)}:${pad(p.minutes)}`
   }
 
   const getRelativeTime = (date: string | Date): string => {
     if (!date) return ''
-    const d = parseSafeDate(date)
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
+    const p = dateParts(date)
+    if (!p.valid) return ''
+    const diffMs = Date.now() - p.time
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
@@ -48,7 +43,7 @@ export const useDate = () => {
     if (diffHours < 24) return `Hace ${diffHours} h`
     if (diffDays < 7) return `Hace ${diffDays} días`
 
-    return formatDate(d)
+    return formatDate(date)
   }
 
   return { formatDate, formatDateTime, formatTime, getRelativeTime }

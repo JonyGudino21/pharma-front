@@ -4,6 +4,7 @@ import { useSalesStore, type PaymentMethod, type Sale } from '~/stores/sales'
 import type { Client } from '~/stores/client'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
+import { alcanza, restar, sumar } from '~/utils/money'
 
 const props = defineProps<{
   client: Client | null
@@ -26,20 +27,42 @@ const cashInput = ref<HTMLInputElement | null>(null)
 
 const totalDue = computed(() => sales.balance)
 const clientCanCredit = computed(() => !!props.client?.hasCredit)
+// Dinero en CENTAVOS ENTEROS (utils/money.ts). Con `Number` a secas,
+// 1000.10 - 1000.00 daba 0.0999999…: un crédito que alcanzaba justo se
+// rechazaba, y el cambio podía mostrarse un centavo por debajo.
 const creditAvailable = computed(() => {
   if (!props.client) return 0
-  return Number(props.client.creditLimit) - Number(props.client.currentDebt)
+  return Math.max(0, restar(props.client.creditLimit, props.client.currentDebt))
+})
+
+/** Parte de la venta que irá a crédito: el saldo menos el abono inicial. */
+const montoACredito = computed(() => {
+  const abono = Math.max(0, received.value ?? 0)
+  return Math.max(0, restar(totalDue.value, abono))
 })
 
 const change = computed(() => {
   if (onCredit.value || method.value !== 'CASH' || received.value == null) return 0
-  return Math.max(0, received.value - totalDue.value)
+  return Math.max(0, restar(received.value, totalDue.value))
 })
+
+/**
+ * Lo pagado supera el total (venta anterior a la guarda del servidor que lo
+ * impide). Cerrarla así dejaría dinero de más sin cambio registrado.
+ */
+const sobrepagada = computed(() => totalDue.value < 0)
+
+/** Ya se pagó todo en un intento anterior: sólo falta cerrar la venta. */
+const pagoCubierto = computed(() => totalDue.value === 0 && sales.paidAmount > 0)
 
 const canConfirm = computed(() => {
   if (isProcessing.value) return false
-  if (onCredit.value) return totalDue.value <= creditAvailable.value
-  if (method.value === 'CASH') return (received.value ?? 0) >= totalDue.value
+  if (sobrepagada.value) return false
+  if (pagoCubierto.value) return true
+  // A crédito sólo se carga lo que queda DESPUÉS del abono inicial (así lo
+  // valida el servidor al cerrar): exigir el total bloqueaba ventas válidas.
+  if (onCredit.value) return alcanza(creditAvailable.value, montoACredito.value)
+  if (method.value === 'CASH') return alcanza(received.value ?? 0, totalDue.value)
   return true // tarjeta/transferencia: se asume monto exacto
 })
 
@@ -65,9 +88,21 @@ function selectMethod(m: PaymentMethod) {
 }
 
 async function confirm() {
-  if (!canConfirm.value) return
+  // Enter en "Efectivo recibido" también cobra: la guarda explícita evita un
+  // segundo cobro si el cajero pulsa Enter (o el botón) dos veces seguidas.
+  if (isProcessing.value || !canConfirm.value) return
   isProcessing.value = true
   try {
+    // PAGO YA REGISTRADO EN UN INTENTO ANTERIOR. Si el pago entró pero el
+    // cierre falló, el saldo queda en 0: volver a "pagar" mandaba un pago de $0
+    // que el servidor rechaza, y la venta nunca se cerraba. Con saldo cubierto
+    // se va directo a cerrar.
+    if (pagoCubierto.value) {
+      const completed = await sales.completeSale()
+      if (completed) emit('completed', completed)
+      return
+    }
+
     if (onCredit.value) {
       // Venta a crédito: opcionalmente registramos un abono inicial
       if (received.value && received.value > 0) {
@@ -92,18 +127,49 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center px-4" @keydown.esc="emit('close')">
-    <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" @click="emit('close')"></div>
-
-    <div class="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+  <div
+    class="modal-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="paymentTitle"
+    @keydown.esc="emit('close')"
+    @click.self="emit('close')"
+  >
+    <div class="modal-panel sm:max-w-md sm:border sm:border-gray-100 sm:shadow-2xl dark:sm:border-gray-700">
       <!-- Header con total -->
-      <div class="px-6 py-5 bg-primary-600 text-white">
-        <p class="text-sm text-primary-100">Total a cobrar</p>
-        <p class="text-4xl font-bold tabular-nums">{{ formatCurrency(totalDue) }}</p>
-        <p v-if="client" class="text-sm text-primary-100 mt-1">Cliente: {{ client.name }}</p>
+      <div class="shrink-0 px-4 py-4 sm:px-6 sm:py-5 bg-primary-600 text-white">
+        <p id="paymentTitle" class="text-sm text-primary-100">Total a cobrar</p>
+        <p class="text-3xl sm:text-4xl font-bold tabular-nums">{{ formatCurrency(totalDue) }}</p>
+        <p v-if="client" class="text-sm text-primary-100 mt-1 truncate">Cliente: {{ client.name }}</p>
       </div>
 
-      <div class="p-6 space-y-5">
+      <div class="modal-body space-y-5">
+        <div
+          v-if="sobrepagada"
+          class="flex gap-3 rounded-xl border border-error-500/40 bg-error-500/10 p-4 text-sm text-error-800 dark:text-error-300"
+          role="alert"
+        >
+          <Icon name="ph:warning-bold" class="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            Lo pagado ({{ formatCurrency(sales.paidAmount) }}) supera el total de la venta.
+            Agrega los productos que faltan o descarta la venta para devolver el dinero.
+          </p>
+        </div>
+
+        <!-- Pago ya registrado en un intento anterior: sólo falta cerrar -->
+        <div
+          v-else-if="pagoCubierto"
+          class="flex gap-3 rounded-xl border border-success-500/40 bg-success-500/10 p-4 text-sm text-success-800 dark:text-success-300"
+          role="status"
+        >
+          <Icon name="ph:check-circle-fill" class="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            El pago de esta venta <strong>ya está registrado</strong> ({{ formatCurrency(sales.paidAmount) }}).
+            Sólo falta cerrarla: no se volverá a cobrar.
+          </p>
+        </div>
+
+        <template v-else>
         <!-- Métodos -->
         <div class="grid grid-cols-3 gap-2">
           <button
@@ -125,14 +191,14 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           v-if="clientCanCredit"
           class="w-full flex items-center justify-between py-3 px-4 rounded-xl border-2 transition-colors"
           :class="onCredit
-            ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+            ? 'border-warning-500 bg-warning-50 dark:bg-warning-900/20 text-warning-800 dark:text-warning-300'
             : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-300'"
           @click="onCredit = !onCredit"
         >
           <span class="flex items-center gap-2 text-sm font-medium">
-            <Icon name="ph:credit-card-bold" class="w-5 h-5" /> Cargar a crédito
+            <Icon name="ph:credit-card-bold" class="w-5 h-5 shrink-0" /> Cargar a crédito
           </span>
-          <span class="text-xs">Disponible: {{ formatCurrency(creditAvailable) }}</span>
+          <span class="text-xs text-right">Disponible: {{ formatCurrency(creditAvailable) }}</span>
         </button>
 
         <!-- Efectivo recibido -->
@@ -141,17 +207,22 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           <input
             ref="cashInput"
             v-model.number="received"
+            @keydown.enter.prevent="confirm"
             type="number"
+            inputmode="decimal"
+            enterkeyhint="done"
             min="0"
             step="0.01"
             placeholder="0.00"
+            aria-label="Efectivo recibido"
             class="w-full px-4 py-3 text-lg font-semibold rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500"
           />
-          <div class="flex gap-2 mt-2">
+          <div class="grid grid-cols-2 gap-2 mt-2 sm:flex">
             <button
               v-for="amt in quickAmounts"
               :key="amt"
-              class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              type="button"
+              class="flex-1 py-2.5 sm:py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               @click="received = amt"
             >
               {{ formatCurrency(amt) }}
@@ -169,31 +240,47 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           <input
             v-model.number="received"
             type="number"
+            inputmode="decimal"
             min="0"
             step="0.01"
             placeholder="0.00"
-            class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-amber-500"
+            aria-label="Abono inicial"
+            class="w-full px-4 py-3 text-base rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-warning-500"
           />
+          <div class="flex justify-between items-center mt-3 px-1" data-testid="pos-credit-amount">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Se carga a crédito</span>
+            <span
+              class="text-lg font-bold tabular-nums"
+              :class="canConfirm ? 'text-gray-900 dark:text-white' : 'text-error-600 dark:text-error-400'"
+            >{{ formatCurrency(montoACredito) }}</span>
+          </div>
+          <p v-if="!alcanza(creditAvailable, montoACredito)" class="mt-1 px-1 text-xs text-error-600 dark:text-error-400">
+            El crédito disponible no alcanza. Aumenta el abono a por lo menos {{ formatCurrency(sumar(restar(montoACredito, creditAvailable), received ?? 0)) }}.
+          </p>
         </div>
 
-        <!-- Acciones -->
-        <div class="flex gap-3 pt-1">
+        </template>
+      </div>
+
+      <!-- Acciones (pie fijo; en celular el principal arriba y a todo el ancho) -->
+      <div class="modal-footer sm:gap-3">
           <button
-            class="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            type="button"
+            class="sm:flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             @click="emit('close')"
           >
             Cancelar
           </button>
           <button
-            class="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            type="button"
+            class="sm:flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             :disabled="!canConfirm"
             @click="confirm"
           >
             <Icon v-if="isProcessing" name="ph:spinner-gap-bold" class="w-5 h-5 animate-spin" />
             <Icon v-else name="ph:check-circle-bold" class="w-5 h-5" />
-            {{ isProcessing ? 'Procesando...' : 'Cobrar' }}
+            {{ isProcessing ? 'Procesando...' : pagoCubierto ? 'Cerrar venta' : 'Cobrar' }}
           </button>
-        </div>
       </div>
     </div>
   </div>

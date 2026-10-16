@@ -1,18 +1,18 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
+  <div class="min-h-screen min-h-dvh flex items-center justify-center px-4 py-8 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12 lg:px-8">
+    <div class="max-w-md w-full space-y-6 sm:space-y-8 bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
       
       <div class="text-center">
         <div class="mx-auto w-16 h-16 bg-primary-600 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-primary-500/30">
           <Icon name="ph:pill-bold" class="w-8 h-8 text-white" />
         </div>
-        <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100">PharmaPOS</h2>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">PharmaPOS</h1>
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
           Inicia sesión para acceder al sistema
         </p>
       </div>
       
-      <form class="mt-8 space-y-6" @submit.prevent="handleSubmit">
+      <form class="mt-6 sm:mt-8 space-y-6" @submit.prevent="handleSubmit">
         <div class="space-y-4">
           <div>
             <label for="email" class="label-base">Correo Electrónico</label>
@@ -20,6 +20,10 @@
               id="email"
               v-model="form.email"
               type="email"
+              autocomplete="username"
+              inputmode="email"
+              autocapitalize="none"
+              spellcheck="false"
               required
               class="input-base"
               placeholder="admin@farmacia.com"
@@ -33,14 +37,17 @@
                 id="password"
                 v-model="form.password"
                 :type="showPassword ? 'text' : 'password'"
+                autocomplete="current-password"
                 required
-                class="input-base pr-10"
+                class="input-base pr-11"
                 placeholder="••••••••"
               />
               <button
                 type="button"
                 @click="showPassword = !showPassword"
-                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:text-gray-200"
+                :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                :aria-pressed="showPassword"
               >
                 <Icon :name="showPassword ? 'ph:eye-slash' : 'ph:eye'" class="w-5 h-5" />
               </button>
@@ -53,9 +60,9 @@
                 id="rememberMe"
                 v-model="form.rememberMe"
                 type="checkbox"
-                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                class="h-5 w-5 sm:h-4 sm:w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-500 rounded"
               />
-              <label for="rememberMe" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+              <label for="rememberMe" class="ml-2 block cursor-pointer py-1 text-sm text-gray-700 dark:text-gray-300">
                 Recordar sesión
               </label>
             </div>
@@ -65,7 +72,7 @@
         <button
           type="submit"
           :disabled="isLoading"
-          class="btn-primary w-full"
+          class="btn-primary w-full py-2.5 sm:py-2"
         >
           <Icon v-if="isLoading" name="ph:spinner-gap-bold" class="w-5 h-5 mr-2 animate-spin" />
           {{ isLoading ? 'Autenticando...' : 'Ingresar' }}

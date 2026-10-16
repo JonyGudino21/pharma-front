@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
+import type { TaxCategory } from '~/types/settings'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
 export interface Category {
   id: number
@@ -38,7 +40,10 @@ export interface Product {
   cost: number | string
   isActive: boolean
   categories: ProductCategory[]
+  taxCategory?: TaxCategory
 }
+
+export type { TaxCategory }
 
 export interface CreateProductPayload {
   name: string
@@ -50,10 +55,15 @@ export interface CreateProductPayload {
   categories?: number[] // Array de IDs numéricos
   controlled: boolean
   stock?: number
+  /** Lote y caducidad (YYYY-MM-DD) del inventario inicial. Sólo en el alta. */
+  lotNumber?: string
+  expiryDate?: string
   minStock: number
   price: number
   cost: number
   isActive?: boolean
+  /** Tratamiento de IVA. Sin valor, el de Configuración › Impuestos. */
+  taxCategory?: TaxCategory
 }
 
 export interface SearchProductPayload {
@@ -67,6 +77,8 @@ export const useProductStore = defineStore('product', () => {
   const products = ref<Product[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
+  // Fallo de carga, distinto de "no hay productos". Ver useRequestState.
+  const listError = ref<FalloPeticion | null>(null)
 
   const filters = ref({
     query: '',
@@ -76,6 +88,7 @@ export const useProductStore = defineStore('product', () => {
   async function fetchProducts(page = 1) {
     const { $api } = useNuxtApp()
     isLoading.value = true
+    listError.value = null
 
     try {
       // 1. Si NO HAY BÚSQUEDA, usamos GET /products
@@ -91,12 +104,14 @@ export const useProductStore = defineStore('product', () => {
         products.value = res.data.products || res.data.data || []
         if (res.data.pagination) pagination.value = res.data.pagination
       } 
-      // 2. Si HAY BÚSQUEDA, usamos POST /products/search según tu contrato
+      // 2. Con búsqueda: POST /products/search (nombre o SKU parcial). El
+      //    servidor aplica Activos/Inactivos y pagina.
       else {
         const res = await $api<ApiResponse<PaginatedData<Product>>>('/products/search', {
           method: 'POST',
           body: {
             name: filters.value.query.trim(),
+            ...(filters.value.isActive !== 'all' ? { active: filters.value.isActive === 'true' } : {}),
             page,
             limit: pagination.value.limit
           }
@@ -106,6 +121,8 @@ export const useProductStore = defineStore('product', () => {
       }
     } catch (error) {
       console.error('Error fetching products:', error)
+      products.value = []
+      listError.value = describirFallo(error)
     } finally {
       isLoading.value = false
     }
@@ -122,10 +139,22 @@ export const useProductStore = defineStore('product', () => {
     const { $api } = useNuxtApp()
     // Protegemos el stock. La actualización manual de stock no se recomienda aquí.
     const safePayload = { ...payload }
-    delete safePayload.stock 
+    delete safePayload.stock
+    delete safePayload.lotNumber
+    delete safePayload.expiryDate
     
     await $api(`/products/${id}`, { method: 'PATCH', body: safePayload })
     await fetchProducts(pagination.value.page)
+  }
+
+  /**
+   * Tratamiento de IVA en bloque (gerencia). Una categoría O una lista de ids.
+   * @returns cuántos productos cambiaron
+   */
+  async function setTaxCategory(payload: { taxCategory: TaxCategory; categoryId?: number; productIds?: number[] }): Promise<number> {
+    const { $api } = useNuxtApp()
+    const res = await $api<ApiResponse<{ updated: number }>>('/products/tax-category', { method: 'PATCH', body: payload })
+    return res.data.updated
   }
 
   async function deactivateProduct(id: number) {
@@ -138,7 +167,9 @@ export const useProductStore = defineStore('product', () => {
   async function fetchByBarcode(barcode: string) {
     const { $api } = useNuxtApp()
     try {
-      const res = await $api<ApiResponse<Product>>(`/products/barcode/${barcode}`)
+      // encodeURIComponent: un código con "/", "#" o "?" (lectores mal configurados,
+      // códigos internos) cambiaba la ruta y buscaba otra cosa o daba 404.
+      const res = await $api<ApiResponse<Product>>(`/products/barcode/${encodeURIComponent(barcode)}`)
       return res.data
     } catch (error) {
       return null
@@ -165,15 +196,39 @@ export const useProductStore = defineStore('product', () => {
     }
   }
 
+  /**
+   * Búsqueda para pantallas operativas (Inventario): nombre o SKU parcial, en
+   * una sola petición. A diferencia de `searchProductsLocally`, LANZA el error
+   * para que la pantalla distinga "falló" de "no hay coincidencias".
+   */
+  async function searchByNameOrSku(term: string, limit = 10): Promise<Product[]> {
+    const { $api } = useNuxtApp()
+    const q = term.trim()
+    if (!q) return []
+    const res = await $api<ApiResponse<PaginatedData<Product>>>('/products/search', {
+      method: 'POST',
+      body: { name: q, page: 1, limit }
+    })
+    return res.data.products || res.data.data || []
+  }
+
+  function retryList() {
+    return fetchProducts(pagination.value.page)
+  }
+
   return {
     products,
     pagination,
     isLoading,
+    listError,
+    retryList,
+    searchByNameOrSku,
     filters,
     fetchProducts,
     createProduct,
     updateProduct,
     deactivateProduct,
+    setTaxCategory,
     fetchByBarcode,
     searchProductsLocally
   }

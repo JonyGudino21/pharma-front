@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useNuxtApp } from '#app'
 import type { PaginatedData, ApiResponse } from '~/types/auth'
+import { describirFallo, type FalloPeticion } from '~/composables/useRequestState'
 
 export interface Category {
   id: number
@@ -12,10 +13,24 @@ export interface Category {
   updatedAt: string
 }
 
+/** Forma mínima que necesita un selector: ni descripción, ni fechas. */
+export interface CategoryOption {
+  id: number
+  name: string
+}
+
 export const useCategoryStore = defineStore('category', () => {
   const categories = ref<Category[]>([])
   const pagination = ref({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const isLoading = ref(false)
+  // Fallo de carga, distinto de "no hay categorías". Ver useRequestState.
+  const listError = ref<FalloPeticion | null>(null)
+
+  // Estado de las OPCIONES, separado del de la tabla: son dos consultas con
+  // propósitos distintos y mezclarlas fue justo el origen del bug.
+  const options = ref<CategoryOption[]>([])
+  const optionsTruncated = ref(false)
+  const isLoadingOptions = ref(false)
 
   const filters = ref({
     query: '',
@@ -25,6 +40,7 @@ export const useCategoryStore = defineStore('category', () => {
   async function fetchCategories(page = 1) {
     const { $api } = useNuxtApp()
     isLoading.value = true
+    listError.value = null
 
     try {
       const params = new URLSearchParams()
@@ -48,8 +64,47 @@ export const useCategoryStore = defineStore('category', () => {
       }
     } catch (error) {
       console.error('Error fetching categories:', error)
+      categories.value = []
+      listError.value = describirFallo(error)
     } finally {
       isLoading.value = false
+    }
+  }
+
+  /**
+   * Opciones para selectores. NO es lo mismo que `fetchCategories`.
+   *
+   * `fetchCategories` sirve la TABLA de administración: paginada de 10 en 10.
+   * El selector de categorías de un producto la estaba usando para pintar sus
+   * casillas, así que sólo ofrecía las diez primeras y las demás quedaban
+   * inasignables. No daba error: faltaban en silencio.
+   *
+   * Este endpoint devuelve sólo `{id, name}` de las activas, con un tope
+   * explícito. `optionsTruncated` avisa si el catálogo excede ese tope, para
+   * que la interfaz pida buscar en lugar de mostrar una lista incompleta como
+   * si fuera completa.
+   */
+  async function fetchCategoryOptions(force = false) {
+    if (!force && options.value.length > 0) return options.value
+
+    const { $api } = useNuxtApp()
+    isLoadingOptions.value = true
+    try {
+      const res = await $api<ApiResponse<{
+        options: CategoryOption[]
+        truncated: boolean
+        total: number
+      }>>('/category/options')
+
+      options.value = res.data.options ?? []
+      optionsTruncated.value = res.data.truncated ?? false
+      return options.value
+    } catch {
+      // El interceptor ya avisó. Devolvemos lo que hubiera para no dejar el
+      // formulario sin nada que mostrar.
+      return options.value
+    } finally {
+      isLoadingOptions.value = false
     }
   }
 
@@ -76,10 +131,18 @@ export const useCategoryStore = defineStore('category', () => {
     categories,
     pagination,
     isLoading,
+    listError,
+    retryList: () => fetchCategories(pagination.value.page),
     filters,
     fetchCategories,
     createCategory,
     updateCategory,
-    deactivateCategory
+    deactivateCategory,
+
+    // Selectores
+    options,
+    optionsTruncated,
+    isLoadingOptions,
+    fetchCategoryOptions,
   }
 })

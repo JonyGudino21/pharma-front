@@ -1,18 +1,18 @@
 <template>
-  <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]">
-      
-      <div class="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+  <div class="modal-overlay" role="dialog" aria-modal="true" :aria-label="isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor'" @keydown.esc="$emit('close')">
+    <div class="modal-panel sm:max-w-2xl">
+
+      <div class="modal-header items-center">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon :name="isEditing ? 'ph:buildings-bold' : 'ph:buildings-bold'" class="text-primary-600" />
           {{ isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor' }}
         </h2>
-        <button @click="$emit('close')" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg transition-colors">
+        <button type="button" aria-label="Cerrar" @click="$emit('close')" class="-mr-2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg transition-colors">
           <Icon name="ph:x-bold" class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="p-6 overflow-y-auto flex-1">
+      <div class="modal-body">
         <form id="supplierForm" @submit.prevent="handleSubmit" class="space-y-5">
           
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -48,13 +48,13 @@
                 <Icon name="ph:calendar-blank-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input v-model.number="form.creditDays" type="number" min="0" required class="input-base pl-10" placeholder="0" />
               </div>
-              <p class="text-xs text-gray-500 mt-1">Días límite para pagar facturas (0 = Contado).</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Días límite para pagar facturas (0 = Contado).</p>
             </div>
           </div>
 
-          <div v-if="isEditing" class="flex items-center gap-2 mt-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
-            <input v-model="form.isActive" type="checkbox" id="isActiveSup" class="w-4 h-4 text-primary-600 rounded border-gray-300" />
-            <label for="isActiveSup" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+          <div v-if="isEditing" class="flex items-center gap-3 mt-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
+            <input v-model="form.isActive" type="checkbox" id="isActiveSup" class="w-5 h-5 text-primary-600 rounded border-gray-300" />
+            <label for="isActiveSup" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none">
               Proveedor Activo
             </label>
           </div>
@@ -62,9 +62,9 @@
         </form>
       </div>
 
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3 shrink-0">
+      <div class="modal-footer bg-gray-50 dark:bg-gray-800/80">
         <button type="button" @click="$emit('close')" class="btn-secondary">Cancelar</button>
-        <button type="submit" form="supplierForm" :disabled="isSubmitting" class="btn-primary min-w-[140px]">
+        <button type="submit" form="supplierForm" :disabled="isSubmitting" class="btn-primary sm:min-w-[140px]">
           <Icon v-if="isSubmitting" name="ph:spinner-gap-bold" class="animate-spin mr-2" />
           {{ isSubmitting ? 'Guardando...' : 'Guardar' }}
         </button>

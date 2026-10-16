@@ -3,6 +3,12 @@ import type { Company, ReceiptTemplate, ReceiptSaleView } from '~/types/receipt'
 import { DEFAULT_RECEIPT_LAYOUT } from '~/types/receipt'
 import { formatTicketDateTime } from '~/utils/receipt-view'
 import { useCurrency } from '~/composables/useCurrency'
+import { BRAND_MARK_SVG, PHARMA_TICKET_CSS } from '~/utils/pharma-ticket-css'
+
+// Una sola fuente de estilo para pantalla e impresión (antes había dos copias
+// que ya divergían). La clave evita inyectarla una vez por cada ticket.
+useHead({ style: [{ key: 'pharma-ticket-css', innerHTML: PHARMA_TICKET_CSS }] })
+const brandMark = BRAND_MARK_SVG('pharma-ticket__brandmark')
 
 const props = withDefaults(defineProps<{
   sale: ReceiptSaleView
@@ -46,7 +52,7 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
   <article
     class="pharma-ticket"
     :class="{ 'pharma-ticket--compact': compact }"
-    :style="{ width: `${widthPx}px`, fontSize: `${fontPx}px` }"
+    :style="{ width: `${widthPx}px`, maxWidth: '100%', fontSize: `${fontPx}px` }"
   >
     <div class="pharma-ticket__serration" aria-hidden="true" />
 
@@ -67,10 +73,8 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
             :alt="company.tradeName"
             class="pharma-ticket__logo"
           />
-          <svg v-else class="pharma-ticket__cross" viewBox="0 0 32 32" aria-hidden="true">
-            <rect x="12" y="2" width="8" height="28" rx="1" />
-            <rect x="2" y="12" width="28" height="8" rx="1" />
-          </svg>
+          <!-- eslint-disable-next-line vue/no-v-html -- SVG constante del propio código, sin datos de usuario -->
+          <span v-else v-html="brandMark" />
         </div>
         <p class="pharma-ticket__trade">{{ company?.tradeName || 'Mi Farmacia' }}</p>
         <p
@@ -82,11 +86,19 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
         <p v-if="template?.showTaxId !== false && company?.rfc" class="pharma-ticket__rfc">
           RFC {{ company.rfc }}
         </p>
+        <!-- El régimen y el correo se capturaban en la ficha pero no salían en
+             ningún ticket. Ahora acompañan al RFC y al teléfono. -->
+        <p v-if="template?.showTaxId !== false && company?.fiscalRegime" class="pharma-ticket__muted">
+          {{ company.fiscalRegime }}
+        </p>
         <p v-if="template?.showAddress !== false && company?.address" class="pharma-ticket__muted">
           {{ company.address }}
         </p>
         <p v-if="template?.showPhone !== false && company?.phone" class="pharma-ticket__muted">
           Tel. {{ company.phone }}
+        </p>
+        <p v-if="template?.showPhone !== false && company?.email" class="pharma-ticket__muted">
+          {{ company.email }}
         </p>
       </header>
       <hr class="pharma-ticket__dash" />
@@ -120,7 +132,11 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
         <p class="pharma-ticket__item-name">{{ item.quantity }} × {{ item.name }}</p>
         <p class="pharma-ticket__item-row">
           <span>{{ formatCurrency(item.unitPrice) }}</span>
-          <span>{{ formatCurrency(item.subtotal) }}</span>
+          <span>{{ formatCurrency(item.subtotal + (item.discount ?? 0)) }}</span>
+        </p>
+        <p v-if="(item.discount ?? 0) > 0" class="pharma-ticket__item-row pharma-ticket__muted">
+          <span>Descuento {{ item.discountPercent }}%</span>
+          <span>−{{ formatCurrency(item.discount ?? 0) }}</span>
         </p>
       </div>
     </section>
@@ -132,9 +148,17 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
         <span>Subtotal</span>
         <span>{{ formatCurrency(sale.subtotal) }}</span>
       </p>
+      <p v-if="(sale.discountTotal ?? 0) > 0">
+        <span>Descuentos</span>
+        <span>−{{ formatCurrency(sale.discountTotal ?? 0) }}</span>
+      </p>
       <p class="pharma-ticket__grand">
         <span>Total</span>
         <span>{{ formatCurrency(sale.total) }}</span>
+      </p>
+      <p v-for="row in sale.taxBreakdown ?? []" :key="row.ratePercent" class="pharma-ticket__muted">
+        <span>IVA {{ row.ratePercent }}% incluido</span>
+        <span>{{ formatCurrency(row.tax) }}</span>
       </p>
       <p>
         <span>Pagado</span>
@@ -143,6 +167,9 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
       <p v-if="sale.balance > 0" class="pharma-ticket__balance">
         <span>Saldo</span>
         <span>{{ formatCurrency(sale.balance) }}</span>
+      </p>
+      <p v-if="(sale.discountTotal ?? 0) > 0" class="pharma-ticket__muted" style="justify-content: center">
+        Usted ahorró {{ formatCurrency(sale.discountTotal ?? 0) }}
       </p>
     </section>
 
@@ -169,128 +196,3 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
   </article>
 </template>
 
-<style>
-.pharma-ticket {
-  --paper: #f3e6c4;
-  --ink: #1a140c;
-  --muted: #5c5346;
-  --cross: #1f7a4d;
-  --rule: #1a140c;
-  position: relative;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
-  line-height: 1.35;
-  padding: 18px 16px 22px;
-  overflow: hidden;
-  box-shadow:
-    0 18px 40px -24px rgba(18, 38, 30, 0.7),
-    inset 0 0 0 1px rgba(26, 20, 12, 0.06);
-}
-
-.pharma-ticket__serration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 10px;
-  background:
-    linear-gradient(135deg, transparent 50%, var(--paper) 50%) 0 0 / 10px 10px,
-    linear-gradient(45deg, transparent 50%, var(--paper) 50%) 0 0 / 10px 10px;
-  background-color: transparent;
-  transform: translateY(-10px);
-  pointer-events: none;
-}
-
-.pharma-ticket__stamp {
-  position: absolute;
-  top: 42%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-18deg);
-  font-weight: 700;
-  font-size: 1.7em;
-  letter-spacing: 0.18em;
-  pointer-events: none;
-  white-space: nowrap;
-  opacity: 0.14;
-}
-
-.pharma-ticket__stamp--original { color: var(--cross); }
-.pharma-ticket__stamp--copy { color: #8a1f1f; }
-.pharma-ticket__stamp--draft { color: var(--muted); }
-
-.pharma-ticket__header { text-align: center; }
-.pharma-ticket__mark { display: flex; justify-content: center; margin-bottom: 8px; }
-.pharma-ticket__logo { max-height: 48px; max-width: 70%; object-fit: contain; }
-.pharma-ticket__cross { width: 28px; height: 28px; fill: var(--cross); }
-.pharma-ticket__trade {
-  font-weight: 700;
-  font-size: 1.15em;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0;
-}
-.pharma-ticket__legal,
-.pharma-ticket__rfc,
-.pharma-ticket__muted {
-  margin: 2px 0 0;
-  color: var(--muted);
-  font-size: 0.85em;
-}
-
-.pharma-ticket__dash {
-  border: none;
-  border-top: 1px dashed var(--rule);
-  margin: 10px 0;
-  opacity: 0.55;
-}
-
-.pharma-ticket__meta p,
-.pharma-ticket__totals p,
-.pharma-ticket__pays p,
-.pharma-ticket__item-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 3px;
-}
-
-.pharma-ticket__item { margin-bottom: 8px; }
-.pharma-ticket__item-name { margin: 0; font-weight: 600; }
-.pharma-ticket__item-row { color: var(--muted); font-size: 0.9em; }
-.pharma-ticket__empty { text-align: center; color: var(--muted); font-style: italic; }
-
-.pharma-ticket__grand {
-  font-weight: 700;
-  font-size: 1.15em;
-  margin-top: 4px !important;
-}
-.pharma-ticket__balance { color: #8a1f1f; font-weight: 700; }
-
-.pharma-ticket__footer {
-  text-align: center;
-  font-size: 0.82em;
-  color: var(--muted);
-}
-.pharma-ticket__footer p { margin: 4px 0 0; }
-
-.pharma-ticket__cut {
-  height: 12px;
-  margin: 12px -16px -22px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--paper) 0 8px,
-    transparent 8px 12px
-  );
-  clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%);
-  border-top: 1px dashed var(--rule);
-  opacity: 0.7;
-}
-
-@media print {
-  .pharma-ticket {
-    box-shadow: none;
-    margin: 0 auto;
-  }
-}
-</style>
