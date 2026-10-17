@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, watchEffect } from 'vue'
-import { useState } from '#app'
+import { useRuntimeConfig, useState } from '#app'
 
 /**
  * ACTUALIZACIÓN DE LA APLICACIÓN — la decide el usuario, nunca el navegador.
@@ -26,6 +26,16 @@ export type UpdateReason = 'manifest' | 'chunk'
 
 /** Cuánto se aplaza el aviso cuando el usuario pulsa "Más tarde". */
 export const UPDATE_SNOOZE_MS = 30 * 60 * 1000
+
+/** URL del manifiesto de versión publicado (`/_nuxt/builds/latest.json`). */
+export function urlManifiesto(app: { baseURL: string; buildAssetsDir: string }): string {
+  return `${app.baseURL.replace(/\/$/, '')}${app.buildAssetsDir.replace(/\/$/, '')}/builds/latest.json`
+}
+
+/** ¿El build publicado es distinto del que está corriendo? Sin datos, no. */
+export function esVersionNueva(publicado: string | undefined, enEjecucion: string | undefined): boolean {
+  return !!publicado && !!enEjecucion && publicado !== enEjecucion
+}
 
 export function useAppUpdate() {
   const available = useState<boolean>('app-update:available', () => false)
@@ -72,7 +82,35 @@ export function useAppUpdate() {
     return true
   }
 
-  return { available, reason, snoozedUntil, blockedBy, markAvailable, snooze, hold, release, apply }
+  /**
+   * Revisa YA si hay versión nueva (sin esperar el sondeo de 5 minutos).
+   *
+   * Se usa cuando el servidor rechaza datos que no reconoce
+   * (`CAMPOS_NO_RECONOCIDOS`): casi siempre es una caja con la versión anterior
+   * abierta tras publicar una nueva. Compara el `buildId` en ejecución con el
+   * manifiesto publicado y, si difieren, muestra el aviso aunque estuviera
+   * aplazado. En desarrollo no hay manifiesto: no hace nada.
+   * @returns true si hay una versión nueva.
+   */
+  async function comprobarAhora(): Promise<boolean> {
+    if (!import.meta.client) return false
+    const { app } = useRuntimeConfig()
+    try {
+      const r = await fetch(urlManifiesto(app), { cache: 'no-store' })
+      if (!r.ok) return false
+      const { id } = (await r.json()) as { id?: string }
+      if (esVersionNueva(id, app.buildId)) {
+        markAvailable('manifest')
+        snoozedUntil.value = 0
+        return true
+      }
+    } catch {
+      // Sin red o sin manifiesto: el sondeo normal lo intentará después.
+    }
+    return false
+  }
+
+  return { available, reason, snoozedUntil, blockedBy, markAvailable, snooze, hold, release, apply, comprobarAhora }
 }
 
 /**

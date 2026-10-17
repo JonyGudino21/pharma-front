@@ -79,6 +79,7 @@
 import { ref, reactive, watch, computed } from 'vue'
 import { useClientStore, type Client } from '~/stores/client'
 import { useToast } from '~/composables/useToast'
+import { correoValido, MENSAJE_CORREO_INVALIDO } from '~/utils/email'
 
 const props = defineProps<{ modelValue: boolean, clientToEdit?: Client | null }>()
 const emit = defineEmits(['update:modelValue'])
@@ -120,6 +121,11 @@ watch(() => props.modelValue, (val) => {
 })
 
 async function handleSubmit() {
+  // El servidor rechaza correos sin dominio (ana@farmacia) con un 400 en inglés.
+  if (!correoValido(form.email)) {
+    toast.warning(MENSAJE_CORREO_INVALIDO)
+    return
+  }
   try {
     const payload = {
       name: form.name.trim(),
