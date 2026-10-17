@@ -224,7 +224,8 @@ import { useSettingsStore } from '~/stores/settings'
 import { useAuthStore } from '~/stores/auth'
 import { TAX_CATEGORY_META } from '~/utils/tax-categories'
 import type { TaxCategory } from '~/types/settings'
-import type { CreateProductPayload, Product } from '~/stores/product'
+import type { Product } from '~/stores/product'
+import { buildCreateProductPayload, buildUpdateProductPayload } from '~/utils/product-payload'
 
 const props = defineProps<{ productToEdit?: Product | null }>()
 const emit = defineEmits(['close'])
@@ -356,47 +357,18 @@ async function handleSubmit() {
       return
     }
 
-    const payload = {
-      name: form.name.trim(),
-      // Si están vacíos, enviamos string vacío para que el backend regenere el SKU correctamente si se borraron
-      strength: form.strength.trim() || '',
-      format: form.format.trim() || '',
-      presentation: form.presentation.trim() || '',
-      description: form.description.trim() || undefined,
-      barcode: form.barcode.trim() || undefined,
-      controlled: form.controlled,
-      minStock: form.minStock,
-      price: priceNum,
-      cost: costNum,
-      // Al EDITAR, el IVA sólo viaja si el usuario lo cambió. Antes se mandaba
-      // siempre y, si el producto llegaba sin el dato, como 'ZERO': un gerente
-      // podía cambiar el IVA sin darse cuenta y un farmacéutico recibía 403 al
-      // guardar un simple cambio de nombre.
-      taxCategory: isEditing.value && form.taxCategory === taxBaseline.value ? undefined : form.taxCategory,
-      categories: form.categories,
-      isActive: form.isActive 
-    }
-
     if (lotError.value) {
       toast.warning(lotError.value)
       return
     }
 
+    // El cuerpo se arma en utils/product-payload.ts: alta y edición aceptan
+    // campos distintos y el servidor rechaza (400) cualquier campo de más.
     if (isEditing.value && props.productToEdit) {
-      // En PATCH no mandamos stock (es regla del negocio)
-      await store.updateProduct(props.productToEdit.id, payload)
+      await store.updateProduct(props.productToEdit.id, buildUpdateProductPayload(form, taxBaseline.value))
       toast.success('Producto actualizado exitosamente.')
     } else {
-      // Regla de Negocio: En POST sí mandamos stock inicial si existe
-      const stock = Number(form.stock) || 0
-      const lot = form.lotNumber.trim().toUpperCase()
-      const createPayload: CreateProductPayload = {
-        ...payload,
-        stock,
-        // Sin stock el lote no aplica: el servidor lo rechazaría.
-        ...(stock > 0 && lot && form.expiryDate ? { lotNumber: lot, expiryDate: form.expiryDate } : {}),
-      }
-      await store.createProduct(createPayload)
+      await store.createProduct(buildCreateProductPayload(form))
       toast.success('Producto registrado exitosamente. SKU generado.')
     }
     emit('close')

@@ -6,6 +6,16 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Corregido — contrato con el servidor (16/10/2026, v1.3.0)
+
+- **Crear producto** fallaba con 400: el formulario mandaba `isActive` al dar de alta. El cuerpo se
+  arma en `utils/product-payload.ts` (alta y edición por separado, con pruebas de los campos exactos);
+  el tipo del alta ya no admite `isActive`.
+- **Correo incompleto** (`ana@farmacia`) en clientes y proveedores: aviso en español antes de enviar
+  (`utils/email.ts`, la misma regla que el servidor).
+- Si el servidor responde `CAMPOS_NO_RECONOCIDOS` (caja con la versión anterior abierta), se revisa
+  al momento si hay versión nueva y se muestra el aviso de actualizar (`useAppUpdate().comprobarAhora`).
+
 ### Producción (ADR-0024, 11/10/2026)
 
 - `Dockerfile`: compila la SPA con la API relativa (`/api`) y la sirve con Caddy; el mismo build

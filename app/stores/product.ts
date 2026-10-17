@@ -61,7 +61,8 @@ export interface CreateProductPayload {
   minStock: number
   price: number
   cost: number
-  isActive?: boolean
+  // SIN isActive: el alta no lo acepta (el producto nace activo). Sólo la
+  // edición lo manda (ver utils/product-payload.ts).
   /** Tratamiento de IVA. Sin valor, el de Configuración › Impuestos. */
   taxCategory?: TaxCategory
 }
