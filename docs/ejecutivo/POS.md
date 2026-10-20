@@ -19,6 +19,13 @@ cliente si aplica, se hacen descuentos permitidos, se cobra y se imprime el comp
 
 La guía detallada para el personal está en [GUIA_CAJERO.md](GUIA_CAJERO.md).
 
+### Precios por cliente
+
+Puedes cambiar el precio de un producto en la venta (por ejemplo, a la farmacia A el paracetamol a $10 y a
+la B a $12). Con el cliente elegido, el precio se guarda como **su precio especial** y la próxima vez se le
+cobra solo. Si el precio no deja ganancia, el sistema avisa; debajo del costo, no lo acepta (salvo que lo
+permitas). Quién puede hacerlo se decide en **Configuración › Precios en caja**.
+
 ## Qué protege
 
 - **No se pierde la venta**: lo capturado se guarda en el servidor al momento. Si se recarga la

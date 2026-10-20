@@ -49,6 +49,13 @@ configuración de crédito. Campos clave: `hasCredit`, `creditLimit`, `currentDe
 - **Venta a crédito**: en el POS, sólo para clientes con `hasCredit` y crédito disponible
   suficiente.
 
+### Precios especiales (`ClientSpecialPrices`, ADR-0025)
+
+En el estado de cuenta (`/clients/:id`): lista de precios especiales (lista tachada, especial,
+diferencia, aviso de margen, quién/cuándo/motivo/venta), **Agregar precio** (busca por nombre o SKU),
+cambiar, quitar (vuelve a lista) e historial. `composables/useClientPrices.ts` →
+`/client/:clientId/prices`. Cambiar/quitar/historial: `canEditClient`.
+
 ## Permisos
 
 `canViewClients`, `canCreateClient`, `canEditClient`, `canDeleteClient`,

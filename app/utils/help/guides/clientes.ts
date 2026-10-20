@@ -127,6 +127,23 @@ export const clientes: HelpGuide = {
       ],
     },
     {
+      id: 'precios-especiales',
+      title: 'Precios especiales del cliente',
+      icon: 'ph:tag-bold',
+      blocks: [
+        { type: 'p', text: 'Cada cliente puede tener su propio precio en algunos productos. Se aplican solos al elegirlo en caja; lo demás se le cobra a precio de lista.' },
+        {
+          type: 'list',
+          items: [
+            'En el **Estado de cuenta** del cliente, la sección **Precios especiales** muestra cada producto con su precio de lista tachado, su precio especial y la diferencia, además de quién lo cambió, cuándo y por qué.',
+            '**Agregar precio**: busca el producto por nombre o SKU y escribe el precio. También nacen en caja al cambiar el precio con el cliente elegido.',
+            'El lápiz lo cambia; la ✕ lo quita (el cliente vuelve a la lista); el reloj muestra su historial completo.',
+          ],
+        },
+        { type: 'warn', text: 'Capturar, cambiar y quitar precios especiales es de gerencia. Un precio debajo del costo no se acepta, salvo que se permita en Configuración › Precios en caja.' },
+      ],
+    },
+    {
       id: 'problemas',
       title: 'Si algo no funciona',
       icon: 'ph:lifebuoy-bold',

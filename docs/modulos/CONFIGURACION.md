@@ -113,6 +113,7 @@ Acción aparte (no es un ajuste): **asignar IVA en bloque a una categoría** con
 | Tamaño de hoja | Carta o A4. |
 | Forma de pago y saldo · Líneas de firma · Columna de código · Desglose de IVA | Contenido de la hoja. |
 | Detalle de cada producto: SKU · Lote · Caducidad | Interruptores independientes (`showSku`, `showLot`, `showExpiry`); la línea bajo el nombre sólo muestra lo encendido y lo que la partida tiene. |
+| Datos de la farmacia en la nota: Logo · Razón social · RFC · Régimen fiscal · Domicilio · Teléfono · Correo | Interruptores independientes (`showLogo`, `showLegalName`, `showRfc`, `showFiscalRegime`, `showAddress`, `showPhone`, `showEmail`), todos encendidos de fábrica. Cada dato sale sólo si está encendido y la ficha lo tiene; los valores se editan en **Ticket › Datos de la farmacia**. El nombre siempre sale. Sin logo no se pone la marca de PharmaPOS: el nombre ocupa el lugar. |
 | Leyenda | ≤ 300 caracteres; por omisión aclara que no es CFDI. |
 | Condiciones | ≤ 600 caracteres; vacío = no se imprime. |
 
