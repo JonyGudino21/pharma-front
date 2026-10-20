@@ -137,6 +137,7 @@ function onPrintTest(previewEl: HTMLElement | null) {
         <BlockOrderCard
           v-model="s.template"
           :ordered="s.orderedBlocks.value"
+          :company="s.liveCompany.value"
           :is-required="s.isRequired"
           :dirty="s.templateDirty.value"
           @toggle="s.toggleBlock"
@@ -161,6 +162,7 @@ function onPrintTest(previewEl: HTMLElement | null) {
       :saving="s.saving.value"
       :can-save="s.valid.value"
       :scopes="scopes"
+      :invalid-fields="s.invalidFields.value"
       @save="s.save()"
       @discard="s.discard()"
     />

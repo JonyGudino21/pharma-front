@@ -45,7 +45,18 @@ const stamp = computed(() => {
   return null
 })
 
-const show = (block: string) => blocks.value.includes(block as typeof blocks.value[number])
+/**
+ * Bloques que de verdad se pintan, EN EL ORDEN de la plantilla.
+ *
+ * Antes la plantilla HTML tenía el orden fijo (encabezado siempre arriba) y
+ * sólo consultaba si cada bloque estaba encendido: si el usuario movía el
+ * encabezado, la térmica lo imprimía donde él dijo pero esta vista no. Ahora
+ * ambas siguen `layout.blocks`. "Pagos" sin pagos se omite, igual que la
+ * térmica, para no dejar una raya doble.
+ */
+const rendered = computed(() =>
+  blocks.value.filter((b) => b !== 'payments' || props.sale.payments.length > 0),
+)
 </script>
 
 <template>
@@ -64,7 +75,11 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
       {{ stamp.text }}
     </div>
 
-    <template v-if="show('header')">
+    <template v-for="(block, idx) in rendered" :key="block">
+    <!-- Una raya ENTRE bloques, como la térmica: nunca antes del primero. -->
+    <hr v-if="idx > 0" class="pharma-ticket__dash" />
+
+    <template v-if="block === 'header'">
       <header class="pharma-ticket__header">
         <div v-if="template?.showLogo !== false" class="pharma-ticket__mark">
           <img
@@ -101,10 +116,9 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
           {{ company.email }}
         </p>
       </header>
-      <hr class="pharma-ticket__dash" />
     </template>
 
-    <section v-if="show('meta')" class="pharma-ticket__meta">
+    <section v-else-if="block === 'meta'" class="pharma-ticket__meta">
       <p>
         <span>Folio</span>
         <strong>{{ sale.invoiceNumber || (sale.id ? `#${sale.id}` : 'SIN COBRO') }}</strong>
@@ -124,9 +138,7 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
       <p v-if="sale.clientRfc" class="pharma-ticket__muted">RFC {{ sale.clientRfc }}</p>
     </section>
 
-    <hr v-if="show('meta') && show('items')" class="pharma-ticket__dash" />
-
-    <section v-if="show('items')" class="pharma-ticket__items">
+    <section v-else-if="block === 'items'" class="pharma-ticket__items">
       <p v-if="sale.items.length === 0" class="pharma-ticket__empty">Carrito vacío</p>
       <div v-for="(item, idx) in sale.items" :key="idx" class="pharma-ticket__item">
         <p class="pharma-ticket__item-name">{{ item.quantity }} × {{ item.name }}</p>
@@ -141,9 +153,7 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
       </div>
     </section>
 
-    <hr v-if="show('items') && show('totals')" class="pharma-ticket__dash" />
-
-    <section v-if="show('totals')" class="pharma-ticket__totals">
+    <section v-else-if="block === 'totals'" class="pharma-ticket__totals">
       <p>
         <span>Subtotal</span>
         <span>{{ formatCurrency(sale.subtotal) }}</span>
@@ -173,23 +183,18 @@ const show = (block: string) => blocks.value.includes(block as typeof blocks.val
       </p>
     </section>
 
-    <template v-if="show('payments') && sale.payments.length > 0">
-      <hr class="pharma-ticket__dash" />
-      <section class="pharma-ticket__pays">
-        <p v-for="(pay, idx) in sale.payments" :key="idx">
-          <span>{{ pay.method }}</span>
-          <span>{{ formatCurrency(pay.amount) }}</span>
-        </p>
-      </section>
-    </template>
+    <section v-else-if="block === 'payments'" class="pharma-ticket__pays">
+      <p v-for="(pay, pIdx) in sale.payments" :key="pIdx">
+        <span>{{ pay.method }}</span>
+        <span>{{ formatCurrency(pay.amount) }}</span>
+      </p>
+    </section>
 
-    <template v-if="show('footer')">
-      <hr class="pharma-ticket__dash" />
-      <footer class="pharma-ticket__footer">
-        <p v-if="sale.note">{{ sale.note }}</p>
-        <p>Comprobante de venta. No es un CFDI.</p>
-        <p>{{ company?.ticketFooter || 'Conserve su ticket.' }}</p>
-      </footer>
+    <footer v-else-if="block === 'footer'" class="pharma-ticket__footer">
+      <p v-if="sale.note">{{ sale.note }}</p>
+      <p>Comprobante de venta. No es un CFDI.</p>
+      <p>{{ company?.ticketFooter || 'Conserve su ticket.' }}</p>
+    </footer>
     </template>
 
     <div class="pharma-ticket__cut" aria-hidden="true" />
