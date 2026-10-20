@@ -36,6 +36,9 @@
       </div>
     </div>
 
+    <!-- Precios especiales (ADR-0025) -->
+    <ClientSpecialPrices v-if="cliente" :client-id="clienteId" :client-name="cliente.name" />
+
     <!-- Filtro de periodo -->
     <form class="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-white p-4 sm:flex sm:flex-wrap sm:items-end dark:border-gray-700 dark:bg-gray-800" @submit.prevent="cargar(1)">
       <div class="grid grid-cols-2 gap-3 sm:contents">
@@ -156,6 +159,7 @@ import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
 import { aCentavos, restar } from '~/utils/money'
 import Pagination from '~/components/shared/Pagination.vue'
+import ClientSpecialPrices from '~/components/clients/ClientSpecialPrices.vue'
 
 definePageMeta({ requiredPermission: 'canViewAccountStatement' })
 

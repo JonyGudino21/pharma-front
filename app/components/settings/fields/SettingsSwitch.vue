@@ -14,13 +14,15 @@ defineProps<{
   changed?: boolean
   /** Tono del estado activo: `warning` para ajustes con impacto sanitario o antifraude. */
   tone?: 'primary' | 'warning'
+  /** Deshabilitado (p. ej. depende de otro ajuste apagado). */
+  disabled?: boolean
 }>()
 
 const id = useId()
 </script>
 
 <template>
-  <div class="flex items-start justify-between gap-4">
+  <div class="flex items-start justify-between gap-4" :class="{ 'opacity-50': disabled }">
     <div class="min-w-0">
       <p :id="`${id}-label`" class="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
         {{ label }}
@@ -36,9 +38,10 @@ const id = useId()
       :aria-checked="model"
       :aria-labelledby="`${id}-label`"
       :aria-describedby="description ? `${id}-desc` : undefined"
-      class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
+      :disabled="disabled"
+      class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed dark:focus-visible:ring-offset-gray-800"
       :class="model ? (tone === 'warning' ? 'bg-warning-500' : 'bg-primary-600') : 'bg-gray-300 dark:bg-gray-600'"
-      @click="model = !model"
+      @click="!disabled && (model = !model)"
     >
       <span
         class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform motion-reduce:transition-none"
