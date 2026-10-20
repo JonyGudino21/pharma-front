@@ -106,8 +106,8 @@ export const pos: HelpGuide = {
           type: 'steps',
           items: [
             'Si es para un cliente, **elígelo primero** (`F4`).',
-            'En el producto, toca su precio subrayado (por ejemplo **$45.50 c/u ✎**).',
-            'Escribe el **Precio nuevo por pieza** (con IVA). Abajo ves si deja ganancia.',
+            'En la columna **Precio** toca el precio con el lápiz (por ejemplo **$45.50 ✎**). También puedes tocar el **Importe** del renglón: abre lo mismo.',
+            'Escribe el **Precio nuevo por pieza** (con IVA). Se cambia por pieza, no el importe: así vale para cualquier cantidad. Abajo ves el importe nuevo y si deja ganancia.',
             'Con cliente, deja marcada **Guardar como precio especial de …** para que la próxima vez se le cobre ese precio solo. Desmárcala si es sólo por esta vez.',
             'Escribe el motivo si te lo piden y pulsa **Cambiar precio**.',
           ],
@@ -122,6 +122,8 @@ export const pos: HelpGuide = {
         },
         { type: 'warn', text: 'Un precio debajo del costo no se acepta, salvo que gerencia lo permita. Igual al costo sí se acepta, pero con el aviso de «sin ganancia». En cuanto hay un pago registrado, el precio ya no se puede cambiar.' },
         { type: 'tip', icon: 'ph:arrow-counter-clockwise-bold', text: 'Si guardas para el cliente un precio igual al de lista, se le quita el precio especial: vuelve a pagar la lista y sigue sus cambios.' },
+        { type: 'p', text: '**Ejemplo.** El paracetamol vale $10 a público y la farmacia B tiene guardado $12. Escaneas el paracetamol (sale a $10) y luego eliges a la farmacia B: el renglón cambia solo a **$12** con la etiqueta **Precio cliente**. Si hoy le subes a $13, toca el precio, escribe 13 y deja marcada **Guardar como precio especial**: desde ahora la farmacia B paga $13.' },
+        { type: 'tip', icon: 'ph:info-bold', text: '¿No ves el lápiz en el precio? Tu puesto no tiene permiso para cambiar precios. Gerencia lo activa en **Configuración › Precios en caja**.' },
       ],
     },
     {

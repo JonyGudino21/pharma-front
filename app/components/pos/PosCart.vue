@@ -45,14 +45,17 @@ function origen(i: SaleItem): string | undefined {
   }
   return undefined
 }
+
+const nombre = (i: SaleItem) => i.product?.name ?? 'producto'
 </script>
 
 <template>
   <div class="flex flex-col h-full">
     <!-- Encabezado de columnas -->
     <div class="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
-      <div class="col-span-5">Producto</div>
-      <div class="col-span-3 text-center">Cantidad</div>
+      <div class="col-span-4">Producto</div>
+      <div class="col-span-2 text-center">Precio</div>
+      <div class="col-span-2 text-center">Cantidad</div>
       <div class="col-span-2 text-right">Importe</div>
       <div class="col-span-2"></div>
     </div>
@@ -74,30 +77,53 @@ function origen(i: SaleItem): string | undefined {
         class="flex flex-wrap items-center gap-x-2 gap-y-2 px-3 py-3 sm:grid sm:grid-cols-12 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
       >
         <!--
-          Celular: nombre a todo el ancho y debajo una fila con cantidad,
-          importe y acciones (botones de 40 px, cómodos al dedo).
-          Desde `sm`: la rejilla de 12 columnas de siempre.
+          Celular: nombre a todo el ancho y debajo una fila con precio,
+          cantidad, importe y acciones (botones de 40 px, cómodos al dedo).
+          Desde `sm`: rejilla de 12 columnas con la columna PRECIO propia.
         -->
         <!-- Producto -->
-        <div class="w-full sm:w-auto sm:col-span-5 min-w-0">
+        <div class="w-full sm:w-auto sm:col-span-4 min-w-0">
           <p class="font-medium text-gray-900 dark:text-gray-100 line-clamp-2 sm:truncate">{{ item.product?.name ?? 'Producto #' + item.productId }}</p>
-          <p class="flex flex-wrap items-center gap-x-1 text-xs text-gray-400 dark:text-gray-500">
-            <span>{{ item.product?.sku }} ·</span>
-            <!-- Precio unitario: botón para cambiarlo (ADR-0025) o texto. -->
-            <button
-              v-if="canEditPrice"
-              type="button"
-              :disabled="busy || discountsLocked"
-              class="inline-flex items-center gap-1 rounded-md px-1 -mx-1 font-medium text-primary-700 underline decoration-dotted underline-offset-2 hover:bg-primary-50 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60 dark:text-primary-300 dark:hover:bg-primary-900/20"
-              :title="discountsLocked ? 'Ya hay un pago registrado: el precio no se puede cambiar' : 'Cambiar precio'"
-              :aria-label="`Cambiar el precio de ${item.product?.name ?? 'producto'}: ${formatCurrency(Number(item.price))} por pieza`"
-              data-testid="pos-edit-price"
-              @click="emit('edit-price', item)"
+          <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
+            <span>{{ item.product?.sku }}</span>
+            <span
+              v-if="item.product?.controlled"
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-error-100 text-error-700 dark:bg-error-900/40 dark:text-error-300"
             >
-              {{ formatCurrency(Number(item.price)) }} c/u
-              <Icon name="ph:pencil-simple-bold" class="h-3 w-3" />
-            </button>
-            <span v-else>{{ formatCurrency(Number(item.price)) }} c/u</span>
+              Controlado
+            </span>
+            <span
+              v-if="pct(item) > 0"
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300"
+              :title="item.discountReason ?? undefined"
+            >
+              −{{ pct(item) }}%
+            </span>
+          </p>
+        </div>
+
+        <!--
+          Precio unitario (ADR-0025). Con permiso se ve como un campo editable:
+          un clic abre «Cambiar precio». Debajo, de dónde salió el precio y el
+          aviso si no deja ganancia.
+        -->
+        <div class="sm:col-span-2 flex flex-col items-start sm:items-center gap-1">
+          <button
+            v-if="canEditPrice"
+            type="button"
+            :disabled="busy || discountsLocked"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-primary-300 bg-white px-2.5 py-1.5 text-sm font-semibold tabular-nums text-gray-900 hover:border-primary-500 hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:opacity-60 dark:border-primary-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-primary-900/20"
+            :title="discountsLocked ? 'Ya hay un pago registrado: el precio no se puede cambiar' : 'Cambiar precio por pieza'"
+            :aria-label="`Cambiar el precio de ${nombre(item)}: ${formatCurrency(Number(item.price))} por pieza`"
+            data-testid="pos-edit-price"
+            @click="emit('edit-price', item)"
+          >
+            {{ formatCurrency(Number(item.price)) }}
+            <Icon name="ph:pencil-simple-bold" class="h-3.5 w-3.5 text-primary-600 dark:text-primary-400" />
+          </button>
+          <span v-else class="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">{{ formatCurrency(Number(item.price)) }}</span>
+
+          <span v-if="item.priceSource === 'CLIENT' || item.priceSource === 'MANUAL' || aviso(item)" class="flex items-center gap-1">
             <span
               v-if="item.priceSource === 'CLIENT'"
               class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
@@ -125,47 +151,51 @@ function origen(i: SaleItem): string | undefined {
             >
               <Icon name="ph:warning-bold" class="h-3.5 w-3.5" />
             </span>
-            <span
-              v-if="item.product?.controlled"
-              class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-error-100 text-error-700 dark:bg-error-900/40 dark:text-error-300"
-            >
-              Controlado
-            </span>
-            <span
-              v-if="pct(item) > 0"
-              class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300"
-              :title="item.discountReason ?? undefined"
-            >
-              −{{ pct(item) }}%
-            </span>
-          </p>
+          </span>
         </div>
 
         <!-- Cantidad -->
-        <div class="sm:col-span-3 flex items-center justify-center gap-1.5">
+        <div class="sm:col-span-2 flex items-center justify-center gap-1">
           <button
             :disabled="busy"
             class="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 transition-colors"
-            :aria-label="`Quitar una unidad de ${item.product?.name ?? 'producto'}`"
+            :aria-label="`Quitar una unidad de ${nombre(item)}`"
             @click="emit('decrement', item)"
           >
             <Icon name="ph:minus-bold" class="w-4 h-4" />
           </button>
-          <span class="w-9 sm:w-10 text-center font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{{ item.quantity }}</span>
+          <span class="w-9 text-center font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{{ item.quantity }}</span>
           <button
             :disabled="busy"
             class="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 transition-colors"
-            :aria-label="`Agregar una unidad de ${item.product?.name ?? 'producto'}`"
+            :aria-label="`Agregar una unidad de ${nombre(item)}`"
             @click="emit('increment', item)"
           >
             <Icon name="ph:plus-bold" class="w-4 h-4" />
           </button>
         </div>
 
-        <!-- Importe -->
+        <!--
+          Importe (precio × cantidad − descuento). Es donde el cajero suele
+          buscar cambiar el precio: con permiso, un clic abre el mismo «Cambiar
+          precio». Se cambia el precio POR PIEZA porque es lo que se guarda para
+          el cliente y vale para cualquier cantidad.
+        -->
         <div class="ml-auto sm:ml-0 sm:col-span-2 text-right tabular-nums">
           <p v-if="pct(item) > 0" class="text-xs text-gray-400 line-through">{{ formatCurrency(gross(item)) }}</p>
-          <p class="font-semibold text-gray-900 dark:text-gray-100">{{ formatCurrency(Number(item.subtotal)) }}</p>
+          <button
+            v-if="canEditPrice"
+            type="button"
+            :disabled="busy || discountsLocked"
+            class="rounded-md px-1 -mx-1 font-semibold text-gray-900 hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-gray-100 dark:hover:bg-primary-900/20 dark:hover:text-primary-300"
+            :title="discountsLocked ? undefined : 'Cambiar precio por pieza'"
+            :aria-label="`Importe ${formatCurrency(Number(item.subtotal))}. Cambiar el precio de ${nombre(item)}`"
+            data-testid="pos-edit-price-total"
+            @click="emit('edit-price', item)"
+          >
+            {{ formatCurrency(Number(item.subtotal)) }}
+          </button>
+          <p v-else class="font-semibold text-gray-900 dark:text-gray-100">{{ formatCurrency(Number(item.subtotal)) }}</p>
         </div>
 
         <!-- Descuento y quitar -->
@@ -175,7 +205,7 @@ function origen(i: SaleItem): string | undefined {
             :disabled="busy || discountsLocked"
             class="w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-40 transition-colors"
             :title="discountsLocked ? 'Ya hay un pago registrado: el descuento no se puede cambiar' : 'Descuento'"
-            :aria-label="`Descuento en ${item.product?.name ?? 'producto'}`"
+            :aria-label="`Descuento en ${nombre(item)}`"
             @click="emit('discount', item)"
           >
             <Icon name="ph:percent-bold" class="w-4 h-4" />
@@ -183,7 +213,7 @@ function origen(i: SaleItem): string | undefined {
           <button
             :disabled="busy"
             class="w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 disabled:opacity-40 transition-colors"
-            :aria-label="`Quitar ${item.product?.name ?? 'producto'}`"
+            :aria-label="`Quitar ${nombre(item)}`"
             @click="emit('remove', item)"
           >
             <Icon name="ph:trash-bold" class="w-4 h-4" />
