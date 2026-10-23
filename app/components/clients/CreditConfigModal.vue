@@ -51,6 +51,42 @@
             </div>
             <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Si la deuda actual supera este límite, el POS bloqueará nuevas ventas a crédito.</p>
           </div>
+
+          <!-- Días de crédito: OPCIONALES. Sólo proponen la fecha de pago en caja. -->
+          <div v-if="form.hasCredit" class="animate-fade-in">
+            <label for="creditDays" class="label-base">Días para pagar <span class="text-xs font-normal text-gray-400">(opcional)</span></label>
+            <div class="relative">
+              <Icon name="ph:calendar-dots-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                id="creditDays"
+                v-model="form.creditDays"
+                type="number"
+                min="0"
+                max="365"
+                step="1"
+                inputmode="numeric"
+                placeholder="Sin plazo fijo"
+                class="input-base pl-10"
+                aria-describedby="creditDaysHelp"
+                data-testid="credit-days"
+              />
+            </div>
+            <div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Plazos comunes">
+              <button
+                v-for="d in [7, 15, 30, 45, 60]"
+                :key="d"
+                type="button"
+                class="rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors"
+                :class="Number(form.creditDays) === d
+                  ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                  : 'border-gray-200 text-gray-600 hover:border-primary-300 dark:border-gray-600 dark:text-gray-300'"
+                @click="form.creditDays = d"
+              >{{ d }} días</button>
+            </div>
+            <p id="creditDaysHelp" class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+              Al vender a crédito, la caja propone pagar en estos días. Se puede cambiar en cada venta o dejarla sin fecha. Vacío: se usa lo de Configuración › Crédito.
+            </p>
+          </div>
         </template>
       </form>
 
@@ -79,7 +115,7 @@ const store = useClientStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 
-const form = reactive({ hasCredit: false, creditLimit: 0 })
+const form = reactive({ hasCredit: false, creditLimit: 0, creditDays: '' as number | '' })
 const loadingClient = ref(false)
 const loadError = ref(false)
 
@@ -87,9 +123,11 @@ watch(() => props.modelValue, async (val) => {
   if (!val || !props.client) return
   loadError.value = false
   form.creditLimit = Number(props.client.creditLimit) || 0
+  form.creditDays = ''
 
-  if ('hasCredit' in props.client) {
+  if ('hasCredit' in props.client && 'creditDays' in props.client) {
     form.hasCredit = props.client.hasCredit
+    form.creditDays = props.client.creditDays ?? ''
     return
   }
 
@@ -108,6 +146,7 @@ watch(() => props.modelValue, async (val) => {
   }
   form.hasCredit = Boolean(full.hasCredit)
   form.creditLimit = Number(full.creditLimit) || 0
+  form.creditDays = full.creditDays ?? ''
 })
 
 const handleSubmit = async () => {
@@ -115,7 +154,9 @@ const handleSubmit = async () => {
   try {
     await store.updateCreditConfig(props.client.id, {
       hasCredit: form.hasCredit,
-      creditLimit: form.hasCredit ? form.creditLimit : 0
+      creditLimit: form.hasCredit ? form.creditLimit : 0,
+      // Vacío = sin días propios (rige Configuración › Crédito).
+      creditDays: form.hasCredit && form.creditDays !== '' ? Number(form.creditDays) : null,
     })
     toast.success('Configuración de crédito actualizada.')
     emit('success')

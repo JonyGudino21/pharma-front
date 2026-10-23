@@ -88,6 +88,7 @@
               <th class="px-4 py-3 text-right">Total</th>
               <th class="px-4 py-3 text-right">Pagado</th>
               <th class="px-4 py-3 text-right">Saldo</th>
+              <th class="px-4 py-3">Fecha de pago</th>
               <th class="px-4 py-3">Abonos</th>
             </tr>
           </thead>
@@ -103,6 +104,13 @@
               <td class="px-4 py-3 text-right text-success-600 dark:text-success-400">{{ formatCurrency(Number(m.paidAmount)) }}</td>
               <td class="px-4 py-3 text-right font-semibold" :class="aCentavos(m.balance) > 0 ? 'text-error-600 dark:text-error-400' : 'text-gray-400'">
                 {{ formatCurrency(Number(m.balance)) }}
+              </td>
+              <td class="px-4 py-3">
+                <template v-if="aCentavos(m.balance) > 0">
+                  <p class="text-xs text-gray-600 dark:text-gray-300">{{ m.dueDate ? fechaCorta(m.dueDate) : '' }}</p>
+                  <CreditStatusChip v-bind="situacion(m)" />
+                </template>
+                <span v-else class="text-xs text-gray-400">{{ m.dueDate ? fechaCorta(m.dueDate) : '—' }}</span>
               </td>
               <td class="px-4 py-3">
                 <ul v-if="m.payments.length" class="space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
@@ -132,6 +140,7 @@
                 </p>
               </div>
               <p class="mt-1 text-xs text-success-600 dark:text-success-400">Pagado {{ formatCurrency(Number(m.paidAmount)) }}</p>
+              <div v-if="aCentavos(m.balance) > 0" class="mt-1.5"><CreditStatusChip v-bind="situacion(m)" /></div>
               <ul v-if="m.payments.length" class="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
                 <li v-for="p in m.payments" :key="p.id">
                   {{ formatDate(p.createdAt) }} · {{ etiquetaMetodo(p.method) }} · {{ formatCurrency(Number(p.amount)) }}
@@ -160,6 +169,9 @@ import { useDate } from '~/composables/useDate'
 import { aCentavos, restar } from '~/utils/money'
 import Pagination from '~/components/shared/Pagination.vue'
 import ClientSpecialPrices from '~/components/clients/ClientSpecialPrices.vue'
+import CreditStatusChip from '~/components/credit/CreditStatusChip.vue'
+import { useSettingsStore } from '~/stores/settings'
+import { estadoDe, fechaCorta, ymdEnDias } from '~/utils/credit-status'
 
 definePageMeta({ requiredPermission: 'canViewAccountStatement' })
 
@@ -170,8 +182,17 @@ interface Movimiento {
   paidAmount: string | number
   balance: string | number
   createdAt: string
+  /** Fecha de pago pactada (AAAA-MM-DD) o null. */
+  dueDate?: string | null
   payments: { id: number; amount: string | number; method: string; createdAt: string }[]
 }
+
+// Situación de cada venta con saldo, con el mismo criterio que Cobranza.
+const settingsCredito = useSettingsStore()
+void settingsCredito.fetch('credit').catch(() => null)
+const hoyFarmacia = ymdEnDias(0)
+const situacion = (m: Movimiento) =>
+  estadoDe(m.dueDate, hoyFarmacia, settingsCredito.valuesOf('credit')?.dueSoonDays ?? 7)
 
 interface EstadoDeCuenta {
   client: {

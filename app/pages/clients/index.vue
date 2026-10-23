@@ -10,7 +10,7 @@
 
       <div class="page-actions">
         <NuxtLink v-if="authStore.can('canViewDebtors')" to="/clients/debtors" class="btn-secondary">
-          <Icon name="ph:warning-circle-bold" class="text-warning-600 mr-2" /> Ver Deudores
+          <Icon name="ph:hand-coins-bold" class="text-warning-600 mr-2" /> Cobranza
         </NuxtLink>
         <button v-if="authStore.can('canCreateClient')" @click="openCreateModal" class="btn-primary">
           <Icon name="ph:user-plus-bold" class="mr-2" /> Nuevo Cliente

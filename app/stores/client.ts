@@ -14,6 +14,8 @@ export interface Client {
   currentDebt: string | number
   hasCredit: boolean
   creditLimit: string | number
+  /** Días de crédito pactados (opcional): sugieren la fecha de pago en caja. */
+  creditDays?: number | null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -212,7 +214,7 @@ export const useClientStore = defineStore('client', () => {
 
   // --- MÉTODOS FINANCIEROS (Se usarán en Fase B y C) ---
   // Los dejamos preparados
-  async function updateCreditConfig(id: number, payload: { hasCredit: boolean, creditLimit: number }) {
+  async function updateCreditConfig(id: number, payload: { hasCredit: boolean, creditLimit: number, creditDays?: number | null }) {
     const { $api } = useNuxtApp()
     isActionLoading.value = true
     try {
