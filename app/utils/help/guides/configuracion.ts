@@ -114,6 +114,24 @@ export const configuracion: HelpGuide = {
       ],
     },
     {
+      id: 'credito',
+      title: 'Crédito y cobranza',
+      icon: 'ph:calendar-check-bold',
+      blocks: [
+        { type: 'p', text: 'La fecha de pago de una venta a crédito es **opcional**. Aquí decides qué fecha se propone en caja y qué pasa con quien ya debe vencido.' },
+        {
+          type: 'list',
+          items: [
+            '**Días sugeridos para pagar**: para clientes sin días propios. Con **0** no se propone fecha (la caja puede poner una).',
+            '**Marcar «por vencer» con**: cuántos días antes de la fecha de pago la cuenta aparece como «Por vencer» en Cobranza y en el panel (de fábrica, 7).',
+            '**Avisar en caja**: al elegir un cliente con saldo vencido, aparece cuánto debe vencido.',
+            '**No permitir crédito nuevo**: con saldo vencido, la venta nueva se cobra completa. Apagado de fábrica.',
+          ],
+        },
+        { type: 'tip', icon: 'ph:identification-card-bold', text: 'Los días de cada cliente se ponen en su **Configurar crédito** (Clientes). Los de cada proveedor, en su ficha de **Proveedores**.' },
+      ],
+    },
+    {
       id: 'impuestos',
       title: 'Impuestos',
       icon: 'ph:receipt-x-bold',

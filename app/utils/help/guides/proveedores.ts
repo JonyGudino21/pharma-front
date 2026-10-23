@@ -33,7 +33,7 @@ export const proveedores: HelpGuide = {
             'Pulsa **Nuevo Proveedor**.',
             'Escribe la **Razón Social o Nombre** (obligatorio).',
             'Si los tienes, llena **Nombre del Contacto**, **Teléfono** y **Correo Electrónico**. El correo no puede repetirse entre proveedores.',
-            'En **Días de Crédito** escribe cuántos días te da para pagar. Pon `0` si le pagas de contado.',
+            'En **Días de Crédito** escribe cuántos días te da para pagar. Pon `0` si le pagas de contado. Con días, al capturar una compra se propone su **fecha límite de pago** y en el panel ves lo que vence pronto.',
             'Pulsa **Guardar**. Ya puedes elegirlo al capturar una compra.',
           ],
         },

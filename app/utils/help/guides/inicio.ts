@@ -49,6 +49,14 @@ export const inicio: HelpGuide = {
             '**Valor Inventario**: tus existencias multiplicadas por su costo (productos activos).',
           ],
         },
+        { type: 'p', text: '**Cobrar y pagar** también es de **hoy**:' },
+        {
+          type: 'list',
+          items: [
+            '**Por cobrar a clientes**: lo que te deben, cuánto está vencido y la barra de antigüedad (verde al corriente → rojo muy vencido, gris sin fecha). **Cobrar primero** lista las 5 ventas más urgentes. **Ver cobranza** abre el detalle.',
+            '**Por pagar a proveedores**: compras ya recibidas que aún debes, con **Vencido**, lo que vence en los próximos días y **Sin fecha**. **Pagar primero** lista las más urgentes; tócalas para abrir la compra y registrar el pago.',
+          ],
+        },
       ],
     },
     {
