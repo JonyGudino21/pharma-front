@@ -14,32 +14,13 @@
 
       <form @submit.prevent="handleSubmit" id="itemForm" novalidate class="modal-body space-y-5">
 
-        <div v-if="!isEditing" class="relative">
-          <label for="purchaseItemSearch" class="label-base">Buscar Producto *</label>
-          <div class="relative">
-            <Icon name="ph:magnifying-glass-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              id="purchaseItemSearch"
-              v-model="searchQuery"
-              @input="handleSearch"
-              type="search"
-              autocomplete="off"
-              placeholder="Nombre del producto..."
-              class="input-base pl-10"
-            />
-          </div>
-          <div v-if="searchResults.length > 0" class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-h-56 overflow-y-auto">
-            <button
-              v-for="product in searchResults" :key="product.id"
-              @click="selectProduct(product)"
-              type="button"
-              class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
-            >
-              <p class="font-bold text-gray-900 dark:text-white">{{ product.name }}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ product.sku }} | Costo: {{ formatCurrency(Number(product.cost)) }}</p>
-            </button>
-          </div>
-        </div>
+        <PurchaseProductPicker
+          v-if="!isEditing"
+          input-id="purchaseItemSearch"
+          :label="selectedProduct ? 'Cambiar producto' : 'Buscar producto *'"
+          @select="selectProduct"
+          @create="newProduct = $event"
+        />
 
         <div v-if="selectedProduct || isEditing" class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl border border-primary-100 dark:border-primary-800/30">
           <p class="font-bold break-words text-primary-900 dark:text-primary-100">{{ isEditing ? itemToEdit?.product.name : selectedProduct?.name }}</p>
@@ -101,13 +82,24 @@
         </button>
       </div>
     </div>
+
+    <!-- Alta de un producto nuevo sin cerrar la partida. -->
+    <ProductFormModal
+      v-if="newProduct"
+      :initial="newProduct"
+      for-purchase
+      @created="onProductCreated"
+      @close="newProduct = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
 import { usePurchaseStore, lotPairError, MIN_ITEM_COST, type PurchaseItem } from '~/stores/purchase'
-import { useProductStore, type Product } from '~/stores/product'
+import type { Product } from '~/stores/product'
+import PurchaseProductPicker from '~/components/purchases/PurchaseProductPicker.vue'
+import ProductFormModal from '~/components/catalog/ProductFormModal.vue'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import { useSettingsStore } from '~/stores/settings'
@@ -116,7 +108,6 @@ const props = defineProps<{ modelValue: boolean, purchaseId: number, itemToEdit?
 const emit = defineEmits(['update:modelValue'])
 
 const store = usePurchaseStore()
-const productStore = useProductStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 
@@ -125,11 +116,9 @@ const isEditing = computed(() => !!props.itemToEdit)
 /** Los errores de "falta" se muestran tras el primer intento de guardar. */
 const submitted = ref(false)
 
-// Búsqueda
-const searchQuery = ref('')
-const searchResults = ref<Product[]>([])
-let searchTimeout: any = null
 const selectedProduct = ref<Product | null>(null)
+/** Producto nuevo en alta (datos ya conocidos de lo que se buscó). */
+const newProduct = ref<{ name?: string; barcode?: string } | null>(null)
 
 const form = reactive({ quantity: 1, cost: 0, lotNumber: '', expiryDate: '' })
 const isControlled = computed(() =>
@@ -175,9 +164,8 @@ watch(() => props.modelValue, (val) => {
       form.lotNumber = props.itemToEdit.lotNumber ?? ''
       form.expiryDate = props.itemToEdit.expiryDate ? String(props.itemToEdit.expiryDate).slice(0, 10) : ''
     } else {
-      searchQuery.value = ''
-      searchResults.value = []
       selectedProduct.value = null
+      newProduct.value = null
       form.quantity = 1
       form.cost = 0
       form.lotNumber = ''
@@ -186,21 +174,14 @@ watch(() => props.modelValue, (val) => {
   }
 })
 
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  // Si se edita el texto tras elegir, la selección deja de ser válida.
-  if (selectedProduct.value && searchQuery.value !== selectedProduct.value.name) selectedProduct.value = null
-  if (!searchQuery.value.trim()) { searchResults.value = []; return }
-  searchTimeout = setTimeout(async () => {
-    searchResults.value = await productStore.searchProductsLocally({ name: searchQuery.value, limit: 5 })
-  }, 400)
-}
-
 const selectProduct = (p: Product) => {
   selectedProduct.value = p
-  searchQuery.value = p.name
-  searchResults.value = []
   form.cost = Number(p.cost)
+}
+
+function onProductCreated(p: Product) {
+  newProduct.value = null
+  selectProduct(p)
 }
 
 const handleSubmit = async () => {

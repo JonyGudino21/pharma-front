@@ -113,7 +113,8 @@ export interface CreatePaymentPayload {
 
 export interface CreatePurchasePayload {
   supplierId: number
-  invoiceNumber: string
+  /** Vacío/ausente: el servidor asigna el folio sugerido (FAC-001-ALV-20261023). */
+  invoiceNumber?: string
   items: CreatePurchaseItemPayload[]
   payments?: CreatePaymentPayload[]
 }
@@ -187,6 +188,23 @@ export const usePurchaseStore = defineStore('purchase', () => {
       return res.data
     } finally {
       isActionLoading.value = false
+    }
+  }
+
+  /**
+   * Folio sugerido para una compra del proveedor (FAC-001-ALV-20261023), para
+   * cuando el proveedor no entrega factura o ticket con folio. No lo reserva.
+   * @returns null si no se pudo obtener (la compra se guarda igual).
+   */
+  async function suggestFolio(supplierId: number): Promise<string | null> {
+    const { $api } = useNuxtApp()
+    try {
+      const res = await $api<ApiResponse<{ folio: string; supplierCode: string }>>('/purchase/suggest-folio', {
+        query: { supplierId },
+      })
+      return res.data.folio
+    } catch {
+      return null
     }
   }
 
@@ -295,6 +313,7 @@ export const usePurchaseStore = defineStore('purchase', () => {
     fetchPurchases,
     fetchPurchaseById,
     createPurchase,
+    suggestFolio,
     updatePurchase,
     cancelPurchase,
     receivePurchase,

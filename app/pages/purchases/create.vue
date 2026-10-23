@@ -53,10 +53,38 @@
               </p>
             </div>
             <div>
-              <label for="createInvoice" class="label-base">Folio de Factura / Ticket *</label>
+              <label for="createInvoice" class="label-base">Folio de Factura / Ticket</label>
               <div class="relative">
                 <Icon name="ph:receipt-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input id="createInvoice" v-model="form.invoiceNumber" type="text" required autocomplete="off" class="input-base pl-10" placeholder="Ej: FAC-001" />
+                <input
+                  id="createInvoice"
+                  v-model="form.invoiceNumber"
+                  type="text"
+                  maxlength="60"
+                  autocomplete="off"
+                  class="input-base pl-10 font-mono"
+                  :placeholder="suggestedFolio ?? 'El de la factura o ticket del proveedor'"
+                  aria-describedby="createInvoiceHelp"
+                />
+              </div>
+              <!--
+                No todos los proveedores entregan folio. Se propone uno (FAC +
+                consecutivo + clave del proveedor + fecha) y, si el campo se deja
+                vacío, el servidor guarda ese mismo.
+              -->
+              <div id="createInvoiceHelp" class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <template v-if="suggestedFolio">
+                  <span v-if="!form.invoiceNumber.trim()">¿Sin folio del proveedor? Se guardará como </span>
+                  <span v-else>Sugerido: </span>
+                  <button
+                    type="button"
+                    class="rounded-md bg-primary-50 px-1.5 py-0.5 font-mono font-semibold text-primary-700 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-300"
+                    title="Usar este folio"
+                    data-testid="purchase-use-suggested-folio"
+                    @click="form.invoiceNumber = suggestedFolio"
+                  >{{ suggestedFolio }}</button>
+                </template>
+                <template v-else>Elige el proveedor para sugerirte un folio si no trae uno.</template>
               </div>
             </div>
           </div>
@@ -68,41 +96,12 @@
             <span v-if="form.items.length" class="ml-auto text-sm font-medium text-gray-500">{{ form.items.length }} partida{{ form.items.length === 1 ? '' : 's' }}</span>
           </h2>
 
-          <div class="relative mb-4 sm:mb-6">
-            <label for="createSearch" class="label-base">Agregar Producto</label>
-            <div class="relative">
-              <Icon name="ph:magnifying-glass-bold" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                id="createSearch"
-                v-model="searchQuery"
-                @input="handleSearch"
-                type="search"
-                autocomplete="off"
-                placeholder="Busca por nombre y elige de la lista..."
-                class="input-base pl-10 pr-10 border-primary-200 focus:ring-primary-500"
-              />
-              <Icon v-if="isSearching" name="ph:spinner-gap-bold" class="absolute right-3 top-1/2 -translate-y-1/2 text-primary-500 animate-spin" />
-            </div>
-
-            <div
-              v-if="searchResults.length > 0 && searchQuery.trim() !== ''"
-              class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-h-72 overflow-y-auto"
-            >
-              <button
-                v-for="product in searchResults" :key="product.id"
-                @click="addProductToCart(product)"
-                type="button"
-                class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors flex justify-between items-center gap-3"
-              >
-                <div class="min-w-0">
-                  <p class="font-bold text-gray-900 dark:text-white truncate">{{ product.name }}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ product.sku }} | Costo Ref: {{ formatCurrency(Number(product.cost)) }}</p>
-                </div>
-                <Icon name="ph:plus-circle-bold" class="shrink-0 text-primary-600 w-6 h-6" />
-              </button>
-            </div>
-          </div>
-
+          <PurchaseProductPicker
+            input-id="createSearch"
+            class="mb-4 sm:mb-6"
+            @select="addProductToCart"
+            @create="newProduct = $event"
+          />
           <div v-if="form.items.length === 0" class="flex-1 rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-400 dark:border-gray-700">
             Aún no has agregado productos a esta compra.
           </div>
@@ -319,11 +318,22 @@
         </button>
       </div>
     </div>
+
+    <!-- Alta de un producto que no está en el catálogo, sin salir de la compra. -->
+    <ProductFormModal
+      v-if="newProduct"
+      :initial="newProduct"
+      for-purchase
+      @created="onProductCreated"
+      @close="newProduct = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import PurchaseProductPicker from '~/components/purchases/PurchaseProductPicker.vue'
+import ProductFormModal from '~/components/catalog/ProductFormModal.vue'
 import { useSettingsStore } from '~/stores/settings'
 import { useRouter } from '#app'
 import {
@@ -335,7 +345,7 @@ import {
   type PaymentMethod,
 } from '~/stores/purchase'
 import { useSupplierStore } from '~/stores/supplier'
-import { useProductStore, type Product } from '~/stores/product'
+import type { Product } from '~/stores/product'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import { useUpdateHold } from '~/composables/useAppUpdate'
@@ -345,7 +355,6 @@ definePageMeta({ requiredPermission: 'canManagePurchases' })
 const router = useRouter()
 const purchaseStore = usePurchaseStore()
 const supplierStore = useSupplierStore()
-const productStore = useProductStore()
 const { formatCurrency } = useCurrency()
 const toast = useToast()
 
@@ -392,11 +401,22 @@ useUpdateHold('purchase-create', () =>
   form.items.length > 0 || form.payments.length > 0 ? 'Tienes una compra a medio capturar.' : null,
 )
 
-// Lógica del Buscador Autocompletado
-const searchQuery = ref('')
-const searchResults = ref<Product[]>([])
-const isSearching = ref(false)
-let searchTimeout: any = null
+// Folio sugerido del proveedor elegido (FAC-001-ALV-20261023).
+const suggestedFolio = ref<string | null>(null)
+watch(() => form.supplierId, async (id) => {
+  suggestedFolio.value = null
+  if (id === null) return
+  const folio = await purchaseStore.suggestFolio(id)
+  // Si mientras tanto cambiaron de proveedor, la respuesta ya no aplica.
+  if (form.supplierId === id) suggestedFolio.value = folio
+})
+
+/** Producto nuevo en alta (datos ya conocidos de lo que se buscó). */
+const newProduct = ref<{ name?: string; barcode?: string } | null>(null)
+function onProductCreated(product: Product) {
+  newProduct.value = null
+  addProductToCart(product)
+}
 
 onMounted(async () => {
   void settingsStore.fetch('inventory').catch(() => null)
@@ -406,30 +426,11 @@ onMounted(async () => {
   await supplierStore.fetchSupplierOptions()
 })
 
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  if (!searchQuery.value.trim()) {
-    searchResults.value = []
-    isSearching.value = false
-    return
-  }
-  isSearching.value = true
-  searchTimeout = setTimeout(async () => {
-    searchResults.value = await productStore.searchProductsLocally({ 
-      name: searchQuery.value, 
-      limit: 5 // Solo mostramos los top 5 en el dropdown
-    })
-    isSearching.value = false
-  }, 400)
-}
-
 const addProductToCart = (product: Product) => {
   if (!product.controlled) {
     const existingItem = form.items.find(i => i.product.id === product.id && !i.lotNumber)
     if (existingItem) {
       existingItem.quantity += 1
-      searchQuery.value = ''
-      searchResults.value = []
       return
     }
   }
@@ -440,8 +441,6 @@ const addProductToCart = (product: Product) => {
     lotNumber: '',
     expiryDate: '',
   })
-  searchQuery.value = ''
-  searchResults.value = []
 }
 
 const removeItem = (index: number) => form.items.splice(index, 1)
@@ -469,7 +468,6 @@ const totalItemsCount = computed(() => form.items.reduce((sum, item) => sum + it
 /** Qué falta para poder guardar (se muestra junto al botón deshabilitado). */
 const blockingReason = computed(() => {
   if (form.supplierId === null) return 'Selecciona el proveedor.'
-  if (!form.invoiceNumber.trim()) return 'Escribe el folio de la factura o ticket.'
   if (form.items.length === 0) return 'Agrega al menos un producto.'
   if (form.items.some(i => itemError(i))) return 'Corrige las partidas marcadas en rojo.'
   if (form.payments.some(p => !(p.amount > 0))) return 'Hay un abono sin monto.'
@@ -487,7 +485,8 @@ const handleSubmit = async () => {
     // Armamos el payload exacto que exige CreatePurchaseDto
     const payload: CreatePurchasePayload = {
       supplierId: form.supplierId!,
-      invoiceNumber: form.invoiceNumber.trim(),
+      // Vacío: el servidor asigna el folio sugerido.
+      invoiceNumber: form.invoiceNumber.trim() || undefined,
       items: form.items.map(i => ({
         productId: i.product.id,
         quantity: i.quantity,
