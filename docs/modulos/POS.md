@@ -97,6 +97,18 @@ Modela **una sola venta viva** (DRAFT en el servidor = fuente de verdad).
   Si el servidor responde 403 pidiendo autorización, el modal pasa a ese paso.
 - "Quitar descuento" envía 0 %.
 
+### Cambio de precio y precios por cliente (`PosPriceModal`, ADR-0025)
+
+- El precio unitario de cada línea es un botón (si `puedeCambiarPrecio(rol, pricing)`, `utils/pricing-policy.ts`).
+- El modal muestra precio actual, de lista y —para gerencia (`canViewInventoryValuation`)— costo y ganancia;
+  avisa "sin ganancia" (igual al costo) y bloquea "bajo costo" salvo `pricing.allowBelowCost`
+  (`utils/price-margin.ts`, mismo criterio que el servidor).
+- Con cliente: casilla "Guardar como precio especial de …" (marcada según `pricing.saveForClientByDefault`).
+- Etiquetas en la línea: **Precio cliente** (`priceSource = CLIENT`) y **Precio editado** (`MANUAL`);
+  icono de aviso si la línea no deja ganancia.
+- `sales.setItemPrice()` → `PATCH /sales/:id/items/:itemId/price`. Congelado tras un pago.
+- Al elegir cliente, el aviso dice cuántos productos cambiaron (`repriced`), o nada si ninguno.
+
 ## Permisos relevantes
 
 | Permiso | Efecto |

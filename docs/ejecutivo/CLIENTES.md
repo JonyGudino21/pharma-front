@@ -14,6 +14,11 @@ crédito con límite, deudores, abonos y estado de cuenta.
 4. En el punto de venta, el cajero elige al cliente con **F4** y puede cobrar a crédito si tiene
    crédito disponible.
 
+### Precios especiales
+
+En el estado de cuenta de cada cliente ves sus precios especiales: el de lista, el suyo, la diferencia, y
+quién lo cambió, cuándo y por qué. Desde ahí se agregan, cambian o quitan (gerencia).
+
 ## Qué protege
 
 - No se vende a crédito por encima del límite autorizado.

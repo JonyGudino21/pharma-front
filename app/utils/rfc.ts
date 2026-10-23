@@ -22,3 +22,13 @@ export function rfcError(value: string): string | null {
   }
   return null
 }
+
+/**
+ * Deja el RFC como lo guarda el servidor: sin espacios ni guiones y en
+ * mayúsculas. Se aplica al CARGAR la ficha: un RFC heredado escrito a mano
+ * ("xaxx-010101-000", p. ej. de una semilla antigua) se marcaba inválido y
+ * dejaba el botón de guardar deshabilitado sin que el usuario lo hubiera tocado.
+ */
+export function normalizeRfc(value: string | null | undefined): string {
+  return (value ?? '').replace(/[\s-]+/g, '').toUpperCase()
+}

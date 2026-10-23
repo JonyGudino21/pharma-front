@@ -9,7 +9,9 @@ import type {
 import { DEFAULT_RECEIPT_LAYOUT, REQUIRED_RECEIPT_BLOCKS } from '~/types/receipt'
 import { useCompanyStore } from '~/stores/company'
 import { useToast } from '~/composables/useToast'
-import { rfcError } from '~/utils/rfc'
+import { normalizeRfc, rfcError } from '~/utils/rfc'
+import { correoValido } from '~/utils/email'
+import { insertBlockInCanonicalOrder } from '~/utils/receipt-blocks'
 
 /** Campos editables de la ficha de la farmacia. */
 export interface CompanyForm {
@@ -63,7 +65,23 @@ const emptyTemplate = (): TemplateForm => ({
   blocks: [...DEFAULT_RECEIPT_LAYOUT.blocks],
 })
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/**
+ * Nombre de cada campo tal como lo ve el usuario, y el id de su input. La barra
+ * de guardar dice QUÉ corregir ("Corrige: RFC, Correo") y puede llevar al
+ * primero; antes sólo decía "Corrige los campos marcados" y había que buscarlo.
+ */
+export const TICKET_FIELD_LABELS: Record<keyof CompanyForm | 'templateName', { label: string; inputId: string }> = {
+  tradeName: { label: 'Nombre comercial', inputId: 'tk-trade' },
+  legalName: { label: 'Razón social', inputId: 'tk-legal' },
+  rfc: { label: 'RFC', inputId: 'tk-rfc' },
+  fiscalRegime: { label: 'Régimen fiscal', inputId: 'tk-regime' },
+  address: { label: 'Domicilio', inputId: 'tk-address' },
+  phone: { label: 'Teléfono', inputId: 'tk-phone' },
+  email: { label: 'Correo', inputId: 'tk-email' },
+  logoUrl: { label: 'Logo', inputId: 'tk-logo' },
+  ticketFooter: { label: 'Mensaje al pie', inputId: 'tk-footer' },
+  templateName: { label: 'Nombre de la plantilla', inputId: 'tk-tpl-name' },
+}
 
 /**
  * Estado de la pantalla de ticket.
@@ -104,7 +122,9 @@ export function useTicketStudio() {
     return {
       legalName: c.legalName ?? '',
       tradeName: c.tradeName ?? '',
-      rfc: c.rfc ?? '',
+      // Normalizado al cargar: un RFC heredado con guiones o minúsculas (p. ej.
+      // de una semilla antigua) se marcaba inválido y bloqueaba el guardado.
+      rfc: normalizeRfc(c.rfc),
       fiscalRegime: c.fiscalRegime ?? '',
       address: c.address ?? '',
       phone: c.phone ?? '',
@@ -178,7 +198,9 @@ export function useTicketStudio() {
     if (!company.legalName.trim()) e.legalName = 'La razón social es obligatoria.'
     const rfc = rfcError(company.rfc)
     if (rfc) e.rfc = rfc
-    if (company.email.trim() && !EMAIL.test(company.email.trim())) e.email = 'Escribe un correo válido, por ejemplo contacto@farmacia.mx.'
+    // Misma regla que `@IsEmail` del servidor (dominio de primer nivel de 2+
+    // letras): `ana@farmacia.m` pasaba aquí y el servidor respondía 400.
+    if (!correoValido(company.email)) e.email = 'Escribe un correo válido, por ejemplo contacto@farmacia.mx.'
     if (company.logoUrl.trim() && !/^https?:\/\//i.test(company.logoUrl.trim())) {
       e.logoUrl = 'La dirección del logo debe empezar con http:// o https://.'
     }
@@ -195,6 +217,14 @@ export function useTicketStudio() {
     () => Object.keys(companyErrors.value).length === 0 && Object.keys(templateErrors.value).length === 0,
   )
 
+  /** Campos con error, en el orden de la pantalla, para la barra de guardar. */
+  // `companyErrors` se arma en el orden de los campos en pantalla.
+  const invalidFields = computed(() => {
+    const out = (Object.keys(companyErrors.value) as (keyof CompanyForm)[]).map((k) => TICKET_FIELD_LABELS[k])
+    if (templateErrors.value.name) out.push(TICKET_FIELD_LABELS.templateName)
+    return out
+  })
+
   // ── Bloques ──────────────────────────────────────────────────────────────
 
   const isRequired = (b: ReceiptBlock) => REQUIRED_RECEIPT_BLOCKS.includes(b)
@@ -209,7 +239,8 @@ export function useTicketStudio() {
     if (isRequired(b)) return
     const i = template.blocks.indexOf(b)
     if (i >= 0) template.blocks.splice(i, 1)
-    else template.blocks.push(b)
+    // Al volver, a su sitio y no al final (ver `insertBlockInCanonicalOrder`).
+    else template.blocks = insertBlockInCanonicalOrder(template.blocks, b)
   }
 
   /** Mueve un bloque ENCENDIDO una posición. Los apagados no tienen posición. */
@@ -309,7 +340,7 @@ export function useTicketStudio() {
         await store.saveCompany({
           legalName: company.legalName.trim(),
           tradeName: company.tradeName.trim(),
-          rfc: company.rfc.trim().toUpperCase(),
+          rfc: normalizeRfc(company.rfc),
           fiscalRegime: company.fiscalRegime.trim() || null,
           address: company.address.trim(),
           phone: company.phone.trim() || null,
@@ -416,6 +447,7 @@ export function useTicketStudio() {
     companyErrors,
     templateErrors,
     valid,
+    invalidFields,
     orderedBlocks,
     isRequired,
     liveCompany,

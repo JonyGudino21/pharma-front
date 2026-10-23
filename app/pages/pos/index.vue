@@ -15,10 +15,12 @@ import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
 import PosPrescriptionModal from '~/components/pos/PosPrescriptionModal.vue'
 import PosDiscountModal from '~/components/pos/PosDiscountModal.vue'
+import PosPriceModal from '~/components/pos/PosPriceModal.vue'
+import { puedeCambiarPrecio } from '~/utils/pricing-policy'
 import { useSettingsStore } from '~/stores/settings'
 import RemissionModal from '~/components/receipt/RemissionModal.vue'
 import ConfirmModal from '~/components/shared/ConfirmModal.vue'
-import type { SaleItem, DiscountRequest } from '~/stores/sales'
+import type { SaleItem, DiscountRequest, PriceChangeRequest, PriceChangeResult } from '~/stores/sales'
 import ReceiptPreview from '~/components/receipt/ReceiptPreview.vue'
 import { useCompanyStore } from '~/stores/company'
 import { useAuthStore } from '~/stores/auth'
@@ -83,6 +85,36 @@ function onDiscountDone() {
   focusScanner()
 }
 
+// ── Precios en caja (ADR-0025, Configuración › Precios en caja) ─────────────
+const pricingCfg = computed(() => settingsStore.valuesOf('pricing'))
+const canEditPrice = computed(() => puedeCambiarPrecio(authStore.user?.role, pricingCfg.value))
+/** Costos y ganancia en montos: sólo quien ve la valuación del inventario (gerencia). */
+const showCost = computed(() => authStore.can('canViewInventoryValuation'))
+const priceTarget = ref<SaleItem | null>(null)
+
+function openPrice(item: SaleItem) {
+  if (discountsLocked.value) {
+    toast.warning('Ya hay un pago registrado: el precio ya no se puede cambiar.')
+    return
+  }
+  priceTarget.value = item
+}
+
+function applyPrice(req: PriceChangeRequest) {
+  return sales.setItemPrice(priceTarget.value!.id, req)
+}
+
+function onPriceDone(res: PriceChangeResult | null) {
+  priceTarget.value = null
+  if (res) {
+    toast.success(res.message)
+    if (res.margin !== 'OK') {
+      toast.warning(res.margin === 'SIN_GANANCIA' ? 'Ojo: con ese precio no hay ganancia.' : 'Ojo: ese precio está por debajo del costo.')
+    }
+  }
+  focusScanner()
+}
+
 const scannerRef = ref<HTMLInputElement | null>(null)
 const scannerValue = ref('')
 
@@ -143,7 +175,7 @@ useUpdateHold('pos', () =>
 // y en laptop, y respeta el tema claro/oscuro.
 const confirmDiscard = ref(false)
 const isDiscarding = ref(false)
-const anyModalOpen = computed(() => confirmDiscard.value || showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
+const anyModalOpen = computed(() => !!priceTarget.value || confirmDiscard.value || showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
 
 function focusScanner() {
@@ -307,6 +339,7 @@ async function executeDiscard() {
 
 function handleEscape() {
   if (confirmDiscard.value) { if (!isDiscarding.value) { confirmDiscard.value = false; focusScanner() } return }
+  if (priceTarget.value) { priceTarget.value = null; focusScanner(); return }
   if (discountTarget.value) { discountTarget.value = null; focusScanner(); return }
   if (showSearch.value) { showSearch.value = false; focusScanner(); return }
   if (showClient.value) { showClient.value = false; focusScanner(); return }
@@ -340,6 +373,22 @@ const soloSiLibre = (accion: () => unknown) => () => {
   void accion()
 }
 
+// La caja suele quedarse abierta todo el día en una pestaña: al volver a ella
+// (otra pestaña cambió la ficha o la plantilla) se refresca, como mucho una vez
+// por minuto para no pedirla en cada alt-tab.
+function refrescarFicha() {
+  if (document.visibilityState === 'hidden') return
+  void companyStore.refreshProfileIfStale().catch(() => null)
+}
+onMounted(() => {
+  window.addEventListener('focus', refrescarFicha)
+  document.addEventListener('visibilitychange', refrescarFicha)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refrescarFicha)
+  document.removeEventListener('visibilitychange', refrescarFicha)
+})
+
 useKeyboardShortcuts({
   F2: soloSiLibre(openPayment),
   F3: soloSiLibre(openSearch),
@@ -350,9 +399,12 @@ useKeyboardShortcuts({
 
 onMounted(async () => {
   focusScanner()
-  companyStore.ensureProfile()
+  // Al entrar al POS se refresca la ficha si tiene más de un minuto: lo
+  // guardado en Configuración › Ticket debe salir ya en el siguiente ticket.
+  void companyStore.refreshProfileIfStale().catch(() => null)
   // Reglas de descuento: si no cargan, el botón de descuento simplemente no aparece.
   void settingsStore.fetch('discounts').catch(() => null)
+  void settingsStore.fetch('pricing').catch(() => null)
   void settingsStore.fetch('taxes').catch(() => null)
   // Nota de remisión: si no carga, el botón simplemente no aparece.
   void settingsStore.fetch('remission').catch(() => null)
@@ -449,7 +501,11 @@ onMounted(async () => {
           @remove="(i) => sales.removeItem(i.id)"
           :can-discount="canDiscount"
           :discounts-locked="discountsLocked"
+          :can-edit-price="canEditPrice"
+          :show-cost="showCost"
+          :client-name="selectedClient?.name ?? null"
           @discount="openDiscount"
+          @edit-price="openPrice"
         />
       </section>
 
@@ -632,6 +688,17 @@ onMounted(async () => {
       :apply="applyDiscount"
       @close="handleEscape"
       @done="onDiscountDone"
+    />
+
+    <PosPriceModal
+      v-if="priceTarget"
+      :item="priceTarget"
+      :client-name="selectedClient?.name ?? null"
+      :settings="pricingCfg"
+      :show-cost="showCost"
+      :apply="applyPrice"
+      @close="handleEscape"
+      @done="onPriceDone"
     />
 
     <!-- Nota de remisión (hoja completa) sobre el comprobante -->

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { ReceiptBlock } from '~/types/receipt'
+import { headerHints, type HeaderHintCompany } from '~/utils/receipt-blocks'
 import type { TemplateForm } from '~/composables/useTicketStudio'
 import SettingsCard from '~/components/settings/SettingsCard.vue'
 
@@ -14,11 +15,15 @@ import SettingsCard from '~/components/settings/SettingsCard.vue'
  */
 const form = defineModel<TemplateForm>({ required: true })
 
-defineProps<{
+const props = defineProps<{
   ordered: ReceiptBlock[]
   isRequired: (b: ReceiptBlock) => boolean
   dirty: boolean
+  /** Ficha tal como se está editando: para avisar si un dato pedido está vacío. */
+  company?: HeaderHintCompany
 }>()
+
+const hints = computed(() => headerHints(form.value, props.company ?? {}))
 
 const emit = defineEmits<{
   toggle: [block: ReceiptBlock]
@@ -184,6 +189,16 @@ function onDragEnd() {
             <Icon :name="form[opt.key] ? 'ph:check-bold' : 'ph:plus-bold'" class="h-3 w-3" />
             {{ opt.label }}
           </label>
+          <ul v-if="hints.length" class="basis-full space-y-1 pt-1" aria-label="Qué no saldrá impreso">
+            <li
+              v-for="h in hints"
+              :key="h"
+              class="flex items-start gap-1.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400"
+            >
+              <Icon name="ph:info" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning-500" />
+              <span>{{ h }}</span>
+            </li>
+          </ul>
         </div>
       </li>
     </ol>

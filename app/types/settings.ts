@@ -4,7 +4,7 @@
  * para dar retroalimentación inmediata, nunca para decidir.
  */
 
-export type SettingsNamespace = 'inventory' | 'cash' | 'discounts' | 'taxes' | 'remission'
+export type SettingsNamespace = 'inventory' | 'cash' | 'discounts' | 'taxes' | 'remission' | 'pricing'
 
 export interface InventorySettings {
   expiryAlertDays: number
@@ -32,6 +32,28 @@ export interface DiscountSettings {
   requireReason: boolean
   allowAuthorization: boolean
   allowBelowCost: boolean
+}
+
+/**
+ * Precios en caja (ADR-0025). Espejo de pricing.settings.ts del backend.
+ * Gerencia y administración siempre pueden cambiar precios (si está activo).
+ */
+export interface PricingSettings {
+  enabled: boolean
+  cashierCanEdit: boolean
+  pharmacistCanEdit: boolean
+  requireReason: boolean
+  saveForClientByDefault: boolean
+  allowBelowCost: boolean
+}
+
+export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
+  enabled: true,
+  cashierCanEdit: false,
+  pharmacistCanEdit: true,
+  requireReason: false,
+  saveForClientByDefault: true,
+  allowBelowCost: false,
 }
 
 export type TaxCategory = 'GENERAL' | 'ZERO' | 'EXEMPT'
@@ -64,6 +86,20 @@ export interface RemissionSettings {
   showExpiry: boolean
   showTaxBreakdown: boolean
   density: RemissionDensity
+  /*
+   * Datos de la farmacia en el encabezado. Sólo deciden si se imprimen; los
+   * valores vienen de la ficha (Configuración › Ticket). Un dato sale si está
+   * encendido Y la ficha lo tiene. El nombre siempre sale.
+   */
+  /** Logo (o la marca de PharmaPOS si no hay logo). Apagado: ni uno ni otra. */
+  showLogo: boolean
+  /** Razón social, sólo si es distinta del nombre comercial. */
+  showLegalName: boolean
+  showRfc: boolean
+  showFiscalRegime: boolean
+  showAddress: boolean
+  showPhone: boolean
+  showEmail: boolean
 }
 
 /** Valores de fábrica; se usan si el servidor no pudo entregar la configuración. */
@@ -79,6 +115,13 @@ export const DEFAULT_REMISSION_SETTINGS: RemissionSettings = {
   showExpiry: true,
   showTaxBreakdown: false,
   density: 'AUTO',
+  showLogo: true,
+  showLegalName: true,
+  showRfc: true,
+  showFiscalRegime: true,
+  showAddress: true,
+  showPhone: true,
+  showEmail: true,
 }
 
 export interface SettingsMap {
@@ -87,6 +130,7 @@ export interface SettingsMap {
   discounts: DiscountSettings
   taxes: TaxSettings
   remission: RemissionSettings
+  pricing: PricingSettings
 }
 
 export interface SettingsSnapshot<N extends SettingsNamespace = SettingsNamespace> {

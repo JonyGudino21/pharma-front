@@ -6,6 +6,24 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Precios por cliente y comprobantes (20/10/2026, v1.4.0)
+
+- **Cambiar el precio en caja** (botón en el precio de cada línea, `PosPriceModal`), con **precio
+  especial por cliente**, avisos de "sin ganancia" / "bajo costo" y etiquetas **Precio cliente** /
+  **Precio editado**. ADR-0025.
+- **Clientes › Estado de cuenta › Precios especiales**: ver, agregar, cambiar, quitar e historial.
+- **Configuración › Precios en caja**: quién puede, motivo, casilla de cliente y vender bajo costo.
+- **Corregido: no se podía guardar el nombre comercial.** El aviso de "versión nueva" tapaba el botón
+  Guardar en pantallas de ~1366 px y a la vez esperaba a que se guardara. Ahora se coloca arriba de la
+  barra y, con cambios pendientes, se reduce a un aviso compacto. La barra dice qué campo corregir y
+  lleva a él. El RFC se normaliza al cargar.
+- **Corregido: el Encabezado del ticket térmico se iba al final** al apagarlo y encenderlo: vuelve a su
+  lugar. La vista "Navegador" respeta el orden de los bloques. Avisos claros: el logo no se imprime en
+  térmica; RFC/domicilio/teléfono vacíos no aparecen.
+- **Nota de remisión:** cada dato de la farmacia se muestra u oculta por separado (logo, razón social,
+  RFC, régimen fiscal —nuevo—, domicilio, teléfono, correo).
+- El POS refresca los datos de la farmacia (al volver a la ventana, máx. 1 vez por minuto).
+
 ### Corregido — contrato con el servidor (16/10/2026, v1.3.0)
 
 - **Crear producto** fallaba con 400: el formulario mandaba `isActive` al dar de alta. El cuerpo se

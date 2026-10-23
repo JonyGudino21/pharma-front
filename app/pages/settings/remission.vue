@@ -31,6 +31,13 @@ const LABELS: Record<keyof RemissionSettings, string> = {
   showExpiry: 'Caducidad',
   showTaxBreakdown: 'Desglose de IVA',
   density: 'Densidad de la tabla',
+  showLogo: 'Logo de la farmacia',
+  showLegalName: 'Razón social',
+  showRfc: 'RFC de la farmacia',
+  showFiscalRegime: 'Régimen fiscal',
+  showAddress: 'Domicilio de la farmacia',
+  showPhone: 'Teléfono de la farmacia',
+  showEmail: 'Correo de la farmacia',
 }
 
 function validate(v: RemissionSettings): FieldErrors<RemissionSettings> {
@@ -69,6 +76,38 @@ const CONTENT_KEYS: Array<keyof RemissionSettings> = ['showSignatures', 'showPay
 const DETAIL_KEYS: Array<keyof RemissionSettings> = ['showSku', 'showLot', 'showExpiry']
 const detailDirty = computed(() => DETAIL_KEYS.some((k) => s.isChanged(k)))
 const contentDirty = computed(() => CONTENT_KEYS.some((k) => s.isChanged(k)))
+
+/*
+ * Datos de la farmacia en el encabezado. Aquí sólo se decide si salen; el dato
+ * se edita en la ficha (Ticket). Cada interruptor avisa cuando la ficha no tiene
+ * ese dato: encendido pero vacío no imprime nada, y sin el aviso parecería un error.
+ */
+type CompanyKey = 'showLogo' | 'showLegalName' | 'showRfc' | 'showFiscalRegime' | 'showAddress' | 'showPhone' | 'showEmail'
+const COMPANY_FIELDS: Array<{ key: CompanyKey; label: string; description: string; hasValue: () => boolean }> = [
+  {
+    key: 'showLogo',
+    label: 'Logo',
+    description: 'Tu logo, o la marca de PharmaPOS si no tienes uno. Apagado, el nombre ocupa su lugar.',
+    hasValue: () => true,
+  },
+  {
+    key: 'showLegalName',
+    label: 'Razón social',
+    description: 'Bajo el nombre comercial, sólo si es distinta de él.',
+    hasValue: () => !!companyStore.company?.legalName,
+  },
+  { key: 'showRfc', label: 'RFC', description: 'Lo piden clínicas y empresas para su control de compras.', hasValue: () => !!companyStore.company?.rfc },
+  {
+    key: 'showFiscalRegime',
+    label: 'Régimen fiscal',
+    description: 'Como lo capturaste en la ficha, p. ej. «Régimen: 612 · Personas Físicas con Actividades Empresariales».',
+    hasValue: () => !!companyStore.company?.fiscalRegime?.trim(),
+  },
+  { key: 'showAddress', label: 'Domicilio', description: 'Dirección de la farmacia.', hasValue: () => !!companyStore.company?.address },
+  { key: 'showPhone', label: 'Teléfono', description: 'Para que el cliente pueda llamar.', hasValue: () => !!companyStore.company?.phone },
+  { key: 'showEmail', label: 'Correo', description: 'Va junto al teléfono, en el mismo renglón.', hasValue: () => !!companyStore.company?.email },
+]
+const companyDirty = computed(() => COMPANY_FIELDS.some((f) => s.isChanged(f.key)))
 
 /** La vista previa usa lo que está en el formulario, guardado o no: sirve para decidir. */
 const previewHtml = computed(() =>
@@ -129,6 +168,24 @@ function format(key: string, value: unknown) {
                 Automática: renglones amplios hasta 7 productos (caben en una hoja); con más, renglones de una línea: unos 22 productos caben en una sola hoja con totales y firmas, y un pedido de 50 ocupa 2 hojas en lugar de 4. Cambia el ejemplo de la vista previa a 30 productos para verla.
               </p>
             </div>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Datos de la farmacia en la nota" description="Qué datos de tu farmacia salen en el encabezado. El nombre siempre se imprime." icon="ph:storefront-bold" :dirty="companyDirty">
+          <div class="space-y-5">
+            <SettingsSwitch
+              v-for="f in COMPANY_FIELDS"
+              :key="f.key"
+              v-model="s.form[f.key]"
+              :label="f.label"
+              :description="companyStore.company && !f.hasValue() ? `${f.description} Tu ficha no lo tiene: no se imprimirá.` : f.description"
+              :changed="s.isChanged(f.key)"
+            />
+            <p class="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+              Los datos se editan en
+              <NuxtLink to="/settings/ticket" class="font-medium text-primary-600 underline-offset-2 hover:underline dark:text-primary-400">Configuración › Ticket › Datos de la farmacia</NuxtLink>.
+              Aquí sólo eliges si aparecen en la nota.
+            </p>
           </div>
         </SettingsCard>
 

@@ -23,6 +23,11 @@ export interface SaleItem {
   /** Neto de la línea: precio × cantidad − descuento. */
   subtotal: string | number
   costAtSale: string | number
+  /** Precio de lista cuando se agregó la línea (ADR-0025). */
+  listPrice?: string | number | null
+  /** De dónde salió el precio: lista, precio especial del cliente o cambiado en caja. */
+  priceSource?: PriceSource
+  priceReason?: string | null
   discountPercent?: string | number
   discountReason?: string | null
   discountAuthorizedById?: number | null
@@ -35,6 +40,24 @@ export interface SaleItem {
   product?: { id: number; name: string; sku: string; controlled?: boolean }
   /** Lotes surtidos (FEFO). Sólo en el detalle de la venta (GET /sales/:id). */
   batches?: Array<{ quantity: number; batch: { id: number; lotNumber: string; expiryDate: string | null } }>
+}
+
+export type PriceSource = 'LIST' | 'CLIENT' | 'MANUAL'
+
+/** Cambio de precio de una línea en caja (ADR-0025). */
+export interface PriceChangeRequest {
+  price: number
+  /** Con cliente: guardar como su precio especial. */
+  saveForClient?: boolean
+  reason?: string
+}
+
+/** Respuesta del servidor al cambiar un precio. */
+export interface PriceChangeResult {
+  message: string
+  margin: 'BAJO_COSTO' | 'SIN_GANANCIA' | 'OK'
+  priceSource: PriceSource
+  clientPrice: { saved: boolean; previous: string | null; current: string | null } | null
 }
 
 /** Credenciales de quien autoriza un descuento sobre el tope. */
@@ -272,13 +295,18 @@ export const useSalesStore = defineStore('sales', () => {
     const saleId = sale.value.id
     await withMutation(async () => {
       try {
-        await $api(`/sales/${saleId}/set-client`, {
+        const res = await $api<ApiResponse<{ repriced?: number }>>(`/sales/${saleId}/set-client`, {
           method: 'PATCH',
           body: { clientId: client?.id ?? null },
         })
         selectedClient.value = client
         await refreshSale() // trae los items ya re-preciados y el nuevo total
-        toast.info(client ? `Precios actualizados para ${client.name}` : 'Precios de público general aplicados')
+        // Sólo se anuncia "precios actualizados" si de verdad cambió alguno.
+        const n = res.data?.repriced ?? 0
+        if (n > 0) {
+          const lineas = n === 1 ? '1 producto' : `${n} productos`
+          toast.info(client ? `Precios de ${client.name} aplicados a ${lineas}.` : `Precio de lista aplicado a ${lineas}.`)
+        }
       } catch {
         selectedClient.value = previous // el interceptor ya notificó el error
       }
@@ -465,6 +493,24 @@ export const useSalesStore = defineStore('sales', () => {
    * pidió autorización (403) para mostrar el paso de credenciales. El
    * interceptor ya muestra el mensaje.
    */
+  /**
+   * Cambia el precio unitario de una línea (ADR-0025). Lanza el error para que
+   * el modal lo muestre y no se cierre; el interceptor ya avisó con su mensaje.
+   */
+  async function setItemPrice(itemId: number, request: PriceChangeRequest): Promise<PriceChangeResult | null> {
+    if (!sale.value) return null
+    const { $api } = useNuxtApp()
+    const saleId = sale.value.id
+    return withMutation(async () => {
+      const res = await $api<ApiResponse<PriceChangeResult>>(`/sales/${saleId}/items/${itemId}/price`, {
+        method: 'PATCH',
+        body: request,
+      })
+      await refreshSale()
+      return res.data
+    })
+  }
+
   async function applyDiscount(target: { itemId?: number }, request: DiscountRequest) {
     if (!sale.value) return
     const { $api } = useNuxtApp()
@@ -619,7 +665,7 @@ export const useSalesStore = defineStore('sales', () => {
     balance, paidAmount, isEmpty, hasDraft, canChangeClient, hasControlledItems,
     // acciones
     refreshSale, resumeDraft, setClient, scanBarcode, addProduct, removeItem,
-    incrementItem, decrementItem, setQuantity, registerPayment, applyDiscount,
+    incrementItem, decrementItem, setQuantity, registerPayment, applyDiscount, setItemPrice,
     completeSale, discardSale, reset, setPrescription,
   }
 })

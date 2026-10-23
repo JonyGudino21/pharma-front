@@ -289,6 +289,71 @@ function subLine(i: RemissionLine, cfg: Pick<RemissionSettings, 'showSku' | 'sho
   return partes.length ? `<span class="sub">${partes.join(' &nbsp;·&nbsp; ')}</span>` : ''
 }
 
+/**
+ * Régimen fiscal como texto de la ficha (es captura libre, p. ej. "612 · Personas
+ * Físicas con Actividades Empresariales"). Si el gerente ya escribió "Régimen…"
+ * al inicio se quita, para no imprimir "Régimen: Régimen fiscal 612".
+ */
+export function regimenFiscal(value: string | null | undefined): string {
+  return (value ?? '')
+    .trim()
+    .replace(/^r[ée]gimen(\s+fiscal)?\s*[:.\-–]?\s*/i, '')
+    .trim()
+}
+
+type EmisorCfg = Pick<
+  RemissionSettings,
+  'showLogo' | 'showLegalName' | 'showRfc' | 'showFiscalRegime' | 'showAddress' | 'showPhone' | 'showEmail'
+>
+
+/**
+ * Encabezado con los datos de la farmacia. Cada dato es opcional (Configuración ›
+ * Nota de remisión) y sólo se imprime si está encendido Y la ficha lo tiene: un
+ * interruptor encendido nunca deja una etiqueta vacía ("RFC" sin número). El
+ * nombre siempre sale: sin él la nota no dice quién la emite.
+ *
+ * Sin logo tampoco se pone la marca de PharmaPOS: quien lo apaga quiere una
+ * nota sobria, no otra imagen. `.brand` es flex con `gap`, y el `gap` sólo
+ * separa hijos: con un solo hijo el nombre queda alineado al margen, sin hueco.
+ */
+function emisorHtml(company: Company | null, cfg: EmisorCfg): string {
+  const nombre = company?.tradeName || company?.legalName || 'Farmacia'
+
+  // `!== false`: una configuración vieja en memoria (sin estas llaves) imprime como antes.
+  const on = (k: keyof EmisorCfg) => cfg[k] !== false
+
+  const marca = !on('showLogo')
+    ? ''
+    : company?.logoUrl
+      ? `<img src="${esc(company.logoUrl)}" alt="" onerror="this.remove()" />`
+      : BRAND_MARK_SVG('mark')
+
+  const regimen = on('showFiscalRegime') ? regimenFiscal(company?.fiscalRegime) : ''
+  // Teléfono y correo comparten renglón cuando ambos salen; si sólo sale uno, va solo.
+  const contacto = [
+    on('showPhone') && company?.phone && `Tel. ${esc(company.phone)}`,
+    on('showEmail') && company?.email && esc(company.email),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const lineas = [
+    on('showLegalName') && company?.legalName && company.legalName !== nombre && `<p class="legal">${esc(company.legalName)}</p>`,
+    on('showRfc') && company?.rfc && `<p class="meta">RFC <span class="rfc">${esc(company.rfc)}</span></p>`,
+    regimen && `<p class="meta">Régimen: ${esc(regimen)}</p>`,
+    on('showAddress') && company?.address && `<p class="meta">${esc(company.address)}</p>`,
+    contacto && `<p class="meta">${contacto}</p>`,
+  ].filter(Boolean)
+
+  return `<div class="brand${marca ? '' : ' no-mark'}">
+      ${marca}
+      <div>
+        <h1>${esc(nombre)}</h1>
+        ${lineas.join('\n        ')}
+      </div>
+    </div>`
+}
+
 export interface RemissionDocumentOptions {
   /** Título de la ventana de impresión (sugiere el nombre del PDF). */
   title?: string
@@ -304,14 +369,7 @@ export function renderRemissionHtml(
 ): string {
   const f = fecha(view.issuedAt)
   const hayDescuento = view.items.some((i) => (i.discount ?? 0) > 0)
-  const nombreFarmacia = company?.tradeName || company?.legalName || 'Farmacia'
   const aCredito = view.balance > 0.004
-
-  const contactoEmisor = [company?.phone && `Tel. ${esc(company.phone)}`, company?.email && esc(company.email)]
-    .filter(Boolean)
-    .join(' · ')
-
-  const marca = company?.logoUrl ? `<img src="${esc(company.logoUrl)}" alt="" onerror="this.remove()" />` : BRAND_MARK_SVG('mark')
   const densidad = resolveDensity(cfg.density, view.items.length)
 
   const filas = view.items
@@ -385,16 +443,7 @@ export function renderRemissionHtml(
 <main class="sheet">
   ${guillocheSvg()}
   <header class="head">
-    <div class="brand">
-      ${marca}
-      <div>
-        <h1>${esc(nombreFarmacia)}</h1>
-        ${company?.legalName && company.legalName !== nombreFarmacia ? `<p class="legal">${esc(company.legalName)}</p>` : ''}
-        ${company?.rfc ? `<p class="meta">RFC <span class="rfc">${esc(company.rfc)}</span></p>` : ''}
-        ${company?.address ? `<p class="meta">${esc(company.address)}</p>` : ''}
-        ${contactoEmisor ? `<p class="meta">${contactoEmisor}</p>` : ''}
-      </div>
-    </div>
+    ${emisorHtml(company, cfg)}
     <div class="doc">
       <div class="eyebrow">NOTA DE REMISIÓN</div>
       <div class="folio">${esc(view.folio)}</div>

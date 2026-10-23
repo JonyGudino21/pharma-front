@@ -19,6 +19,13 @@ onBeforeUnmount(() => clearInterval(reloj))
 
 const visible = computed(() => update.available.value && ahora.value >= update.snoozedUntil.value)
 const urgente = computed(() => update.reason.value === 'chunk')
+/**
+ * Bloqueado por una operación en curso (p. ej. cambios sin guardar). Antes se
+ * mostraba "Actualizar ahora" como botón primario deshabilitado: parecía la
+ * acción a tomar y no hacía nada. Ahora el aviso se compacta, explica qué
+ * falta y sólo ofrece lo que sí se puede hacer ("Más tarde").
+ */
+const bloqueado = computed(() => !!update.blockedBy.value)
 
 function actualizar() {
   update.apply()
@@ -32,9 +39,43 @@ function actualizar() {
     leave-active-class="transition duration-200 ease-in"
     leave-to-class="translate-y-4 opacity-0"
   >
+    <!-- Se apila ENCIMA de la barra "Cambios sin guardar" (`--pp-save-bar`) y,
+         en celular, del aviso de soporte (`--pp-bottom-stack`): antes tapaba
+         el botón Guardar en laptops de ~1366 px. -->
     <div
-      v-if="visible"
-      class="fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))_+_var(--pp-bottom-stack,0px))] z-40 rounded-xl border bg-white shadow-xl sm:inset-x-auto sm:right-4 sm:w-[min(24rem,calc(100vw-2rem))] lg:bottom-4 dark:bg-gray-800"
+      v-if="visible && bloqueado"
+      class="fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))_+_max(var(--pp-bottom-stack,0px),var(--pp-save-bar,0px)))] z-40 flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-lg sm:inset-x-auto sm:right-4 sm:max-w-[min(24rem,calc(100vw-2rem))] lg:bottom-[calc(1rem_+_var(--pp-save-bar,0px))] dark:bg-gray-800"
+      :class="urgente ? 'border-warning-500' : 'border-primary-500/60'"
+      role="status"
+      aria-live="polite"
+      data-testid="app-update-banner"
+      data-state="blocked"
+    >
+      <Icon
+        :name="urgente ? 'ph:warning-fill' : 'ph:arrow-circle-up-fill'"
+        class="shrink-0 text-xl"
+        :class="urgente ? 'text-warning-500' : 'text-primary-600 dark:text-primary-400'"
+      />
+      <p class="min-w-0 flex-1 text-xs leading-snug text-gray-600 dark:text-gray-300">
+        <strong class="font-semibold text-gray-800 dark:text-gray-100">
+          {{ urgente ? 'Esta pantalla necesita la versión nueva.' : 'Hay una versión nueva.' }}
+        </strong>
+        {{ update.blockedBy.value }} Termina o cancela para poder actualizar.
+      </p>
+      <button
+        v-if="!urgente"
+        type="button"
+        class="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+        data-testid="app-update-later"
+        @click="update.snooze()"
+      >
+        Más tarde
+      </button>
+    </div>
+
+    <div
+      v-else-if="visible"
+      class="fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))_+_max(var(--pp-bottom-stack,0px),var(--pp-save-bar,0px)))] z-40 rounded-xl border bg-white shadow-xl sm:inset-x-auto sm:right-4 sm:w-[min(24rem,calc(100vw-2rem))] lg:bottom-[calc(1rem_+_var(--pp-save-bar,0px))] dark:bg-gray-800"
       :class="urgente ? 'border-warning-500' : 'border-primary-500'"
       role="status"
       aria-live="polite"
@@ -59,19 +100,10 @@ function actualizar() {
             }}
           </p>
 
-          <p
-            v-if="update.blockedBy.value"
-            class="mt-2 flex items-start gap-1.5 rounded-lg bg-warning-500/10 p-2 text-xs text-warning-800 dark:text-warning-300"
-          >
-            <Icon name="ph:hand-palm-bold" class="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{{ update.blockedBy.value }} Termina o cancela para poder actualizar.</span>
-          </p>
-
           <div class="mt-3 flex gap-2">
             <button
               type="button"
               class="btn-primary flex-1 gap-2 py-2 text-sm sm:py-1.5"
-              :disabled="!!update.blockedBy.value"
               data-testid="app-update-apply"
               @click="actualizar"
             >

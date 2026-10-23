@@ -18,6 +18,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { label: 'Caja', to: '/settings/cash', icon: 'ph:cash-register-bold', permission: 'canManageSettings' },
   { label: 'Inventario', to: '/settings/inventory', icon: 'ph:hourglass-medium-bold', permission: 'canManageSettings' },
   { label: 'Descuentos', to: '/settings/discounts', icon: 'ph:percent-bold', permission: 'canManageSettings' },
+  { label: 'Precios en caja', to: '/settings/pricing', icon: 'ph:tag-bold', permission: 'canManageSettings' },
   { label: 'Impuestos', to: '/settings/taxes', icon: 'ph:receipt-x-bold', permission: 'canManageSettings' },
   { label: 'Nota de remisión', to: '/settings/remission', icon: 'ph:file-text-bold', permission: 'canManageSettings' },
   { label: 'Dispositivos', to: '/settings/devices', icon: 'ph:printer-bold', permission: 'canManageSettings' },
