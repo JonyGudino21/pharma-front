@@ -61,14 +61,19 @@ export interface CreateProductPayload {
   minStock: number
   price: number
   cost: number
-  isActive?: boolean
+  // SIN isActive: el alta no lo acepta (el producto nace activo). Sólo la
+  // edición lo manda (ver utils/product-payload.ts).
   /** Tratamiento de IVA. Sin valor, el de Configuración › Impuestos. */
   taxCategory?: TaxCategory
 }
 
+/** Dónde buscar: todo, sólo el nombre o sólo los códigos (SKU y código de barras). */
+export type ProductSearchField = 'all' | 'name' | 'code'
+
 export interface SearchProductPayload {
   name?: string;
   letters?: string[];
+  by?: ProductSearchField;
   page?: number;
   limit?: number;
 }
@@ -128,11 +133,17 @@ export const useProductStore = defineStore('product', () => {
     }
   }
 
-  async function createProduct(payload: CreateProductPayload) {
+  /**
+   * Da de alta un producto y lo devuelve (con su SKU generado).
+   * @param opts.refreshList recargar el catálogo detrás (de fábrica sí; desde
+   *   Compras no hace falta).
+   */
+  async function createProduct(payload: CreateProductPayload, opts: { refreshList?: boolean } = {}): Promise<Product> {
     const { $api } = useNuxtApp()
     // El interceptor atrapará el 400 si el Barcode o SKU generado ya existe
-    await $api('/products', { method: 'POST', body: payload })
-    await fetchProducts(1)
+    const res = await $api<ApiResponse<Product>>('/products', { method: 'POST', body: payload })
+    if (opts.refreshList !== false) await fetchProducts(1)
+    return res.data
   }
 
   async function updateProduct(id: number, payload: Partial<CreateProductPayload & { isActive: boolean }>) {
@@ -185,6 +196,7 @@ export const useProductStore = defineStore('product', () => {
         body: {
           name: payload.name,
           letters: payload.letters,
+          by: payload.by,
           page: payload.page || 1,
           limit: payload.limit || 10
         }

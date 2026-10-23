@@ -78,6 +78,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useSupplierStore } from '~/stores/supplier'
 import { useToast } from '~/composables/useToast'
+import { correoValido, MENSAJE_CORREO_INVALIDO } from '~/utils/email'
 import type { Supplier, CreateSupplierPayload } from '~/stores/supplier'
 
 const props = defineProps<{ supplierToEdit?: Supplier | null }>()
@@ -111,6 +112,11 @@ onMounted(() => {
 })
 
 async function handleSubmit() {
+  // El servidor rechaza correos sin dominio (ana@farmacia) con un 400 en inglés.
+  if (!correoValido(form.email)) {
+    toast.warning(MENSAJE_CORREO_INVALIDO)
+    return
+  }
   if (isSubmitting.value) return
   isSubmitting.value = true
 

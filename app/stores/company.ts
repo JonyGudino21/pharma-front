@@ -22,7 +22,11 @@ export const useCompanyStore = defineStore('company', () => {
   const defaultTemplate = computed(() => profile.value?.defaultTemplate ?? null)
   const activeTemplates = computed(() => templates.value.filter((t) => t.isActive))
 
-  async function fetchProfile() {
+  /** Cuándo se trajo la ficha por última vez (ms), para no pedirla de más. */
+  const fetchedAt = ref(0)
+  let refreshing: Promise<CompanyProfile> | null = null
+
+  async function fetchProfile(): Promise<CompanyProfile> {
     const { $api } = useNuxtApp()
     isLoading.value = true
     try {
@@ -34,6 +38,7 @@ export const useCompanyStore = defineStore('company', () => {
           ? normalizeTemplate(res.data.defaultTemplate)
           : null,
       }
+      fetchedAt.value = Date.now()
       return profile.value
     } finally {
       isLoading.value = false
@@ -43,6 +48,23 @@ export const useCompanyStore = defineStore('company', () => {
   async function ensureProfile() {
     if (profile.value) return profile.value
     return fetchProfile()
+  }
+
+  /**
+   * Vuelve a pedir la ficha si la que hay tiene más de `minIntervalMs`.
+   *
+   * `ensureProfile` devuelve la copia en memoria para siempre: si otra caja (u
+   * otra pestaña) cambiaba el RFC o la plantilla en Configuración, el POS seguía
+   * imprimiendo los datos viejos hasta recargar. El POS llama a esto al abrirse
+   * y al recuperar el foco; el intervalo mínimo evita una petición por cada
+   * alt-tab del cajero.
+   */
+  async function refreshProfileIfStale(minIntervalMs = 60_000) {
+    if (profile.value && Date.now() - fetchedAt.value < minIntervalMs) return profile.value
+    // Montaje y foco casi simultáneos comparten la petición. No se comparte con
+    // `fetchProfile` de los guardados: ésos deben leer DESPUÉS de su PATCH.
+    refreshing ??= fetchProfile().finally(() => (refreshing = null))
+    return refreshing
   }
 
   async function saveCompany(patch: Partial<Company>) {
@@ -134,6 +156,7 @@ export const useCompanyStore = defineStore('company', () => {
     activeTemplates,
     fetchProfile,
     ensureProfile,
+    refreshProfileIfStale,
     saveCompany,
     saveTemplate,
     createTemplate,

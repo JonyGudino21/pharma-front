@@ -131,6 +131,32 @@ export const ventas: HelpGuide = {
       ],
     },
     {
+      id: 'volver-a-vender',
+      title: 'Volver a vender una venta anulada',
+      icon: 'ph:arrow-clockwise-bold',
+      blocks: [
+        { type: 'p', text: 'Si anulaste una venta por un error (cobro equivocado, método de pago incorrecto) y el cliente sí se lleva lo mismo, no hace falta capturarla otra vez.' },
+        {
+          type: 'steps',
+          items: [
+            'En la lista de ventas pulsa la flecha circular ↻ de la venta **Anulada**, o abre la venta y pulsa **Volver a vender**.',
+            'Se abre el **Punto de venta** con el mismo cliente y los mismos productos.',
+            'Lee el aviso de arriba: dice qué cambió. Revisa y cobra como siempre.',
+          ],
+        },
+        {
+          type: 'list',
+          items: [
+            '**Precios de hoy**: el precio especial vigente del cliente o el de lista. No se copian los precios cambiados a mano ni los descuentos de la venta original.',
+            '**Existencias de hoy**: si ya no alcanzan, se agregan las que hay; sin existencia, el producto no se agrega.',
+            'Los productos dados de baja no se agregan. Si el cliente fue dado de baja, la venta queda a **Público General**.',
+          ],
+        },
+        { type: 'tip', icon: 'ph:repeat-bold', text: 'En una venta **cobrada** el mismo botón dice **Repetir venta**: sirve para el cliente que compra lo mismo cada semana.' },
+        { type: 'warn', text: 'Si ya tienes una venta en curso en el punto de venta, primero cóbrala o descártala: no se mezclan dos ventas en un carrito.' },
+      ],
+    },
+    {
       id: 'problemas',
       title: 'Si algo no funciona',
       icon: 'ph:lifebuoy-bold',

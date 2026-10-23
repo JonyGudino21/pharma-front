@@ -2,6 +2,7 @@ import type { Company, ReceiptCharset, ReceiptSaleView, ReceiptTemplate } from '
 import { DEFAULT_RECEIPT_LAYOUT } from '~/types/receipt'
 import { EscPosEncoder, padLine, toPrinterText } from '~/utils/escpos'
 import { formatTicketDateTime } from '~/utils/receipt-view'
+import { LOGO_THERMAL_HINT } from '~/utils/receipt-blocks'
 
 /** Columnas de texto a tamaño normal en cada ancho de rollo. */
 export const COLUMNS_BY_WIDTH: Record<number, number> = { 58: 32, 80: 48 }
@@ -184,11 +185,10 @@ export function buildThermalReceipt(
       message: `${truncated} ${truncated === 1 ? 'renglón no cabe' : 'renglones no caben'} en ${columns} columnas y se ${truncated === 1 ? 'recorta' : 'recortan'}.`,
     })
   }
-  if (template.showLogo && company.logoUrl) {
-    warnings.push({
-      kind: 'logo',
-      message: 'La impresora térmica no imprime el logo: sólo aparece al imprimir desde el navegador.',
-    })
+  // Con "Logo o cruz" encendido se avisa aunque no haya URL: la cruz verde
+  // tampoco sale en térmica (el codificador ESC/POS no manda imágenes).
+  if (template.showLogo && blocks.includes('header')) {
+    warnings.push({ kind: 'logo', message: LOGO_THERMAL_HINT })
   }
   warnings.push({
     kind: 'watermark',

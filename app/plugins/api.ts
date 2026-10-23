@@ -2,6 +2,7 @@ import { defineNuxtPlugin, useRuntimeConfig, useCookie } from '#app'
 import type { FetchOptions, FetchRequest } from 'ofetch'
 import { useToast } from '~/composables/useToast'
 import { useUIStore } from '~/stores/ui'
+import { useAppUpdate } from '~/composables/useAppUpdate'
 
 /**
  * Métodos HTTP admitidos, EXACTAMENTE como los declara el `$fetch` de Nuxt.
@@ -209,6 +210,12 @@ export default defineNuxtPlugin((nuxtApp) => {
         const backendMessage =
           response._data?.message || 'Verifica los datos ingresados.'
         toast.error(backendMessage)
+        // Datos que el servidor no reconoce: casi siempre esta caja tiene la
+        // versión anterior abierta. Se revisa ya si hay una nueva para mostrar
+        // el aviso de actualizar sin esperar el sondeo.
+        if (response._data?.error?.codigo === 'CAMPOS_NO_RECONOCIDOS') {
+          void useAppUpdate().comprobarAhora()
+        }
         return
       }
 

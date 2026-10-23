@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref } from 'vue'
 // Mismo módulo al que vitest.config.ts apunta '#app' (doble de useState).
 import { __resetState } from '../../test/nuxt-app-shim'
-import { UPDATE_SNOOZE_MS, useAppUpdate, useUpdateHold } from './useAppUpdate'
+import { UPDATE_SNOOZE_MS, esVersionNueva, urlManifiesto, useAppUpdate, useUpdateHold } from './useAppUpdate'
 
 describe('useAppUpdate', () => {
   beforeEach(() => __resetState())
@@ -78,5 +78,28 @@ describe('useUpdateHold', () => {
 
     scope.stop()
     expect(u.blockedBy.value).toBeNull()
+  })
+})
+
+describe('revisar ya si hay versión nueva', () => {
+  it('arma la URL del manifiesto con o sin diagonales', () => {
+    expect(urlManifiesto({ baseURL: '/', buildAssetsDir: '/_nuxt/' })).toBe('/_nuxt/builds/latest.json')
+    expect(urlManifiesto({ baseURL: '/app/', buildAssetsDir: '/_nuxt' })).toBe('/app/_nuxt/builds/latest.json')
+  })
+
+  it('sólo hay versión nueva si la publicada es distinta de la que corre', () => {
+    expect(esVersionNueva('b2', 'b1')).toBe(true)
+    expect(esVersionNueva('b1', 'b1')).toBe(false)
+    expect(esVersionNueva(undefined, 'b1')).toBe(false)
+    expect(esVersionNueva('b2', undefined)).toBe(false)
+  })
+
+  it('fuera del navegador no consulta nada', async () => {
+    __resetState()
+    const fetchEspia = vi.fn()
+    vi.stubGlobal('fetch', fetchEspia)
+    expect(await useAppUpdate().comprobarAhora()).toBe(false)
+    expect(fetchEspia).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })

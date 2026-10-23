@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CompanyErrors, CompanyForm } from '~/composables/useTicketStudio'
 import SettingsCard from '~/components/settings/SettingsCard.vue'
+import { normalizeRfc } from '~/utils/rfc'
 
 /**
  * Datos de la farmacia que salen en el encabezado y el pie del ticket.
@@ -59,7 +60,7 @@ const FOOTER_MAX = 500
           class="input-base font-mono uppercase tracking-wide"
           :aria-invalid="!!errors.rfc"
           aria-describedby="tk-rfc-help"
-          @input="form.rfc = ($event.target as HTMLInputElement).value.toUpperCase().replace(/\s/g, '')"
+          @input="form.rfc = normalizeRfc(($event.target as HTMLInputElement).value)"
         />
         <p v-if="errors.rfc" id="tk-rfc-help" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.rfc }}</p>
         <p v-else id="tk-rfc-help" class="mt-1 text-xs text-gray-400 dark:text-gray-500">12 caracteres si es empresa, 13 si es persona física.</p>
@@ -107,13 +108,14 @@ const FOOTER_MAX = 500
           id="tk-logo"
           v-model="form.logoUrl"
           type="url"
+          maxlength="500"
           placeholder="https://…/logo.png"
           class="input-base"
           :aria-invalid="!!errors.logoUrl"
           aria-describedby="tk-logo-help"
         />
         <p v-if="errors.logoUrl" id="tk-logo-help" class="mt-1 text-xs text-error-600 dark:text-error-400">{{ errors.logoUrl }}</p>
-        <p v-else id="tk-logo-help" class="mt-1 text-xs text-gray-400 dark:text-gray-500">Sólo se imprime desde el navegador. Sin logo se usa la cruz verde.</p>
+        <p v-else id="tk-logo-help" class="mt-1 text-xs text-gray-400 dark:text-gray-500">No sale en la impresora térmica: sólo en el ticket por navegador y en la nota de remisión. Sin logo se usa la cruz verde.</p>
       </div>
 
       <div class="md:col-span-2">

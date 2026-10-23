@@ -6,6 +6,50 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Ventas y compras más rápidas (23/10/2026, v1.5.0)
+
+- **Compras · buscador nuevo** (`PurchaseProductPicker`): nombre, SKU y código de barras; modos
+  Todo / Nombre / Código; con el lector (Enter) el producto se agrega directo.
+- **Compras · alta de producto sin salir** de la compra ni de «Agregar partida»: `ProductFormModal`
+  con `initial` y `for-purchase` (sin stock inicial); devuelve el producto creado. ADR-0026.
+- **Compras · folio sugerido** (`FAC-001-ALV-20261023`) bajo el campo; el folio deja de ser
+  obligatorio.
+- **Ventas · Volver a vender** (anuladas) / **Repetir venta** (cobradas): botón en el detalle y acción
+  ↻ en la tabla; el punto de venta muestra qué cambió (`PosReorderNotice`). ADR-0027.
+- **Punto de venta:** la vista previa del ticket ocupa el alto libre y tiene «Ver ticket completo».
+  La búsqueda (F3) también encuentra por código de barras.
+- **Configuración › Ticket:** la vista previa térmica se ajusta al ancho de su columna (sin barra
+  horizontal en 80 mm).
+- Ayuda: Compras (folio sugerido, producto nuevo, escáner), Ventas (volver a vender), Punto de venta.
+
+### Precios por cliente y comprobantes (20/10/2026, v1.4.0)
+
+- **Cambiar el precio en caja** (botón en el precio de cada línea, `PosPriceModal`), con **precio
+  especial por cliente**, avisos de "sin ganancia" / "bajo costo" y etiquetas **Precio cliente** /
+  **Precio editado**. ADR-0025.
+- **Clientes › Estado de cuenta › Precios especiales**: ver, agregar, cambiar, quitar e historial.
+- **Configuración › Precios en caja**: quién puede, motivo, casilla de cliente y vender bajo costo.
+- **Corregido: no se podía guardar el nombre comercial.** El aviso de "versión nueva" tapaba el botón
+  Guardar en pantallas de ~1366 px y a la vez esperaba a que se guardara. Ahora se coloca arriba de la
+  barra y, con cambios pendientes, se reduce a un aviso compacto. La barra dice qué campo corregir y
+  lleva a él. El RFC se normaliza al cargar.
+- **Corregido: el Encabezado del ticket térmico se iba al final** al apagarlo y encenderlo: vuelve a su
+  lugar. La vista "Navegador" respeta el orden de los bloques. Avisos claros: el logo no se imprime en
+  térmica; RFC/domicilio/teléfono vacíos no aparecen.
+- **Nota de remisión:** cada dato de la farmacia se muestra u oculta por separado (logo, razón social,
+  RFC, régimen fiscal —nuevo—, domicilio, teléfono, correo).
+- El POS refresca los datos de la farmacia (al volver a la ventana, máx. 1 vez por minuto).
+
+### Corregido — contrato con el servidor (16/10/2026, v1.3.0)
+
+- **Crear producto** fallaba con 400: el formulario mandaba `isActive` al dar de alta. El cuerpo se
+  arma en `utils/product-payload.ts` (alta y edición por separado, con pruebas de los campos exactos);
+  el tipo del alta ya no admite `isActive`.
+- **Correo incompleto** (`ana@farmacia`) en clientes y proveedores: aviso en español antes de enviar
+  (`utils/email.ts`, la misma regla que el servidor).
+- Si el servidor responde `CAMPOS_NO_RECONOCIDOS` (caja con la versión anterior abierta), se revisa
+  al momento si hay versión nueva y se muestra el aviso de actualizar (`useAppUpdate().comprobarAhora`).
+
 ### Producción (ADR-0024, 11/10/2026)
 
 - `Dockerfile`: compila la SPA con la API relativa (`/api`) y la sirve con Caddy; el mismo build

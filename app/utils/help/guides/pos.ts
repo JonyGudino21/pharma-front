@@ -34,7 +34,7 @@ export const pos: HelpGuide = {
           items: [
             '**Escanea** el código: el producto se agrega solo.',
             '**Varias piezas iguales**: escribe la cantidad y un asterisco, por ejemplo `3*`, y luego escanea. Máximo 999 por vez.',
-            '**Sin código**: pulsa `F3` o **Buscar**, escribe al menos 2 letras del nombre o del SKU y elige. Los que dicen «Sin stock» no se pueden elegir.',
+            '**Sin código**: pulsa `F3` o **Buscar**, escribe al menos 2 letras del nombre, del SKU o parte del código de barras y elige. Los que dicen «Sin stock» no se pueden elegir.',
             '**Cambiar cantidad**: usa los botones **+** y **−** de cada renglón. El bote de basura quita el producto.',
           ],
         },
@@ -43,7 +43,7 @@ export const pos: HelpGuide = {
           type: 'list',
           items: [
             '`F2` Cobrar.',
-            '`F3` Buscar un producto por nombre o SKU.',
+            '`F3` Buscar un producto por nombre, SKU o código de barras.',
             '`F4` Elegir cliente.',
             '`F9` Descartar la venta (pide confirmación).',
             '`Esc` Cerrar la ventana abierta y volver al escáner.',
@@ -70,7 +70,7 @@ export const pos: HelpGuide = {
         {
           type: 'list',
           items: [
-            'Si el cliente tiene precios especiales, la lista cambia sola y verás «Precios actualizados para …».',
+            'Si el cliente tiene precios especiales, los productos cambian solos a su precio (etiqueta **Precio cliente**) y verás «Precios de … aplicados». Si vuelves a **Público General**, regresan al precio de lista.',
             'En la lista, la etiqueta **Crédito** indica que puede comprar a crédito, y «Debe $…» lo que ya debe.',
             'Puedes cambiar de cliente en cualquier momento antes de cobrar.',
           ],
@@ -94,6 +94,36 @@ export const pos: HelpGuide = {
         },
         { type: 'tip', icon: 'ph:arrow-counter-clockwise-bold', text: 'Para quitar un descuento, abre el mismo botón y pulsa **Quitar descuento**.' },
         { type: 'warn', text: 'Cada descuento queda registrado con su motivo y con quién lo autorizó. En cuanto hay un pago registrado, los descuentos ya no se pueden cambiar.' },
+      ],
+    },
+    {
+      id: 'precios',
+      title: 'Cambiar el precio y precios por cliente',
+      icon: 'ph:tag-bold',
+      blocks: [
+        { type: 'p', text: 'Puedes cambiar el precio de un producto en la venta: por ejemplo, a la farmacia A le das el paracetamol a $10 y a la farmacia B a $12. Quién puede hacerlo lo decide gerencia en **Configuración › Precios en caja**.' },
+        {
+          type: 'steps',
+          items: [
+            'Si es para un cliente, **elígelo primero** (`F4`).',
+            'En la columna **Precio** toca el precio con el lápiz (por ejemplo **$45.50 ✎**). También puedes tocar el **Importe** del renglón: abre lo mismo.',
+            'Escribe el **Precio nuevo por pieza** (con IVA). Se cambia por pieza, no el importe: así vale para cualquier cantidad. Abajo ves el importe nuevo y si deja ganancia.',
+            'Con cliente, deja marcada **Guardar como precio especial de …** para que la próxima vez se le cobre ese precio solo. Desmárcala si es sólo por esta vez.',
+            'Escribe el motivo si te lo piden y pulsa **Cambiar precio**.',
+          ],
+        },
+        {
+          type: 'list',
+          items: [
+            '**Precio cliente**: es el precio especial guardado de ese cliente.',
+            '**Precio editado**: lo cambiaste sólo para esta venta.',
+            'El triángulo de aviso junto al precio significa que **no deja ganancia** (igual al costo) o que está **debajo del costo**. Pasa el cursor encima para ver el detalle.',
+          ],
+        },
+        { type: 'warn', text: 'Un precio debajo del costo no se acepta, salvo que gerencia lo permita. Igual al costo sí se acepta, pero con el aviso de «sin ganancia». En cuanto hay un pago registrado, el precio ya no se puede cambiar.' },
+        { type: 'tip', icon: 'ph:arrow-counter-clockwise-bold', text: 'Si guardas para el cliente un precio igual al de lista, se le quita el precio especial: vuelve a pagar la lista y sigue sus cambios.' },
+        { type: 'p', text: '**Ejemplo.** El paracetamol vale $10 a público y la farmacia B tiene guardado $12. Escaneas el paracetamol (sale a $10) y luego eliges a la farmacia B: el renglón cambia solo a **$12** con la etiqueta **Precio cliente**. Si hoy le subes a $13, toca el precio, escribe 13 y deja marcada **Guardar como precio especial**: desde ahora la farmacia B paga $13.' },
+        { type: 'tip', icon: 'ph:info-bold', text: '¿No ves el lápiz en el precio? Tu puesto no tiene permiso para cambiar precios. Gerencia lo activa en **Configuración › Precios en caja**.' },
       ],
     },
     {
@@ -131,6 +161,7 @@ export const pos: HelpGuide = {
       title: 'Ticket, nota de remisión y PDF',
       icon: 'ph:receipt-bold',
       blocks: [
+        { type: 'p', text: 'Mientras capturas, a la derecha ves **cómo va el ticket** (marca «PREVIEW»). Si no cabe completo en tu pantalla, desplázalo o pulsa **Ver ticket completo**.' },
         { type: 'p', text: 'Al cobrar aparece «Venta cobrada» con su folio y el ticket en pantalla.' },
         {
           type: 'list',
@@ -159,7 +190,7 @@ export const pos: HelpGuide = {
             { q: '«La cantidad debe estar entre 1 y 999.»', a: 'El número antes del asterisco es muy grande o es cero. Escribe, por ejemplo, `3*` y vuelve a escanear.' },
             { q: '«¡ALERTA! No tienes caja abierta. Abre turno para recibir efectivo.»', a: 'Ve a **Caja**, abre tu turno y vuelve a cobrar. La venta sigue ahí.' },
             { q: 'Aviso rojo «Sin conexión con el servidor» (o «El servidor no puede acceder a su base de datos»).', a: 'El botón **Cobrar** se desactiva. **No cierres la ventana**: lo que tienes se conserva. Anota la venta a mano, revisa el cable o el Wi-Fi y pulsa **Reintentar**. Cuando regrese verás «Conexión con el servidor restablecida.»' },
-            { q: 'Aviso «Hay una versión nueva de PharmaPOS».', a: 'Termina la venta y pulsa **Actualizar ahora**; la página se recarga. **Más tarde** lo pospone 30 minutos. Con una venta en curso el botón se desactiva: «Hay una venta en curso en el punto de venta. Termina o cancela para poder actualizar.» Si dice «Esta pantalla necesita la versión nueva», actualiza en cuanto termines.' },
+            { q: 'Aviso «Hay una versión nueva de PharmaPOS».', a: 'Termina la venta y pulsa **Actualizar ahora**; la página se recarga. **Más tarde** lo pospone 30 minutos. Con una venta en curso el aviso se reduce, sin botón de actualizar, y explica: «Hay una venta en curso en el punto de venta. Termina o cancela para poder actualizar.» Si dice «Esta pantalla necesita la versión nueva», actualiza en cuanto termines.' },
             { q: 'Al cobrar dice «El pago de esta venta ya está registrado (…). Sólo falta cerrarla: no se volverá a cobrar.»', a: 'Un intento anterior sí cobró, pero no terminó de cerrar. Pulsa **Cerrar venta**. No pidas el dinero otra vez.' },
             { q: 'En el resumen aparece «Pagado de más» y no deja cobrar.', a: 'Ya se registró más dinero que el total (por ejemplo, quitaste productos después de un pago). Agrega lo que falta o descarta la venta y devuelve la diferencia. Avisa al encargado.' },
             { q: '«Límite de crédito excedido. Disponible: …»', a: 'El cliente no tiene crédito suficiente. Cobra una parte en efectivo o pide a gerencia que revise su límite en **Clientes**.' },

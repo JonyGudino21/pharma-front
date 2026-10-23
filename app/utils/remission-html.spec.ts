@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COMFORTABLE_MAX_LINES, caducidad, esc, guillocheSvg, renderRemissionHtml, resolveDensity } from './remission-html'
+import { COMFORTABLE_MAX_LINES, caducidad, esc, guillocheSvg, regimenFiscal, renderRemissionHtml, resolveDensity } from './remission-html'
 import { remissionFolio, sampleRemissionView, type RemissionView } from './remission-view'
 import { DEFAULT_REMISSION_SETTINGS, type RemissionSettings } from '~/types/settings'
 import type { Company } from '~/types/receipt'
@@ -254,5 +254,119 @@ describe('detalle de cada partida (interruptores)', () => {
     expect(h).not.toContain('PA24117')
     expect(h).not.toContain('Cad.')
     expect(h).toContain('Descuento 10%')
+  })
+})
+
+describe('datos de la farmacia en el encabezado (interruptores)', () => {
+  const ficha: Company = {
+    ...company,
+    email: 'ventas@ochoa.test',
+    fiscalRegime: '612 · Personas Físicas con Actividades Empresariales',
+    logoUrl: 'https://x.test/logo.png',
+  }
+  /** Sólo el encabezado: el cliente también imprime RFC, domicilio y contacto. */
+  const head = (over: Partial<RemissionSettings> = {}, c: Company | null = ficha) => {
+    const h = renderRemissionHtml(view(), c, cfg(over))
+    return h.slice(h.indexOf('<header class="head">'), h.indexOf('</header>'))
+  }
+
+  it('de fábrica imprime todo lo que la ficha tiene, régimen incluido', () => {
+    const h = head()
+    expect(h).toContain('<img src="https://x.test/logo.png"')
+    expect(h).toContain('<h1>Farmacia Ochoa</h1>')
+    expect(h).toContain('Farmacia Ochoa S.A. de C.V.')
+    expect(h).toContain('FOC010101AB1')
+    expect(h).toContain('Régimen: 612 · Personas Físicas con Actividades Empresariales')
+    expect(h).toContain('Calle 5 #10, Querétaro')
+    expect(h).toContain('Tel. 442 000 0000 · ventas@ochoa.test')
+  })
+
+  it('logo apagado: ni imagen ni marca de PharmaPOS, y sin hueco', () => {
+    const conLogo = head({ showLogo: false })
+    expect(conLogo).not.toContain('<img')
+    expect(conLogo).not.toContain('class="mark"')
+    expect(conLogo).toContain('class="brand no-mark"')
+    const sinLogo = head({ showLogo: false }, { ...ficha, logoUrl: null })
+    expect(sinLogo).not.toContain('class="mark"')
+    expect(head({}, { ...ficha, logoUrl: null })).toContain('class="mark"')
+  })
+
+  it('razón social apagada', () => {
+    expect(head({ showLegalName: false })).not.toContain('S.A. de C.V.')
+  })
+
+  it('RFC apagado (el nombre sigue)', () => {
+    const h = head({ showRfc: false })
+    expect(h).not.toContain('FOC010101AB1')
+    expect(h).not.toContain('RFC')
+    expect(h).toContain('<h1>Farmacia Ochoa</h1>')
+  })
+
+  it('régimen apagado, vacío o sólo espacios: no imprime la etiqueta', () => {
+    expect(head({ showFiscalRegime: false })).not.toContain('Régimen')
+    expect(head({}, { ...ficha, fiscalRegime: null })).not.toContain('Régimen')
+    expect(head({}, { ...ficha, fiscalRegime: '   ' })).not.toContain('Régimen')
+  })
+
+  it('régimen escrito con su propia etiqueta no se duplica', () => {
+    expect(head({}, { ...ficha, fiscalRegime: 'Régimen fiscal: 601 General de Ley' })).toContain('Régimen: 601 General de Ley')
+    expect(regimenFiscal('regimen 626 RESICO')).toBe('626 RESICO')
+    expect(regimenFiscal(null)).toBe('')
+  })
+
+  it('el régimen se escapa como cualquier captura', () => {
+    expect(head({}, { ...ficha, fiscalRegime: '<b>612</b>' })).toContain('Régimen: &lt;b&gt;612&lt;/b&gt;')
+  })
+
+  it('domicilio apagado', () => {
+    expect(head({ showAddress: false })).not.toContain('Calle 5 #10')
+  })
+
+  it('teléfono y correo: juntos, uno solo o ninguno', () => {
+    const soloCorreo = head({ showPhone: false })
+    expect(soloCorreo).not.toContain('Tel.')
+    expect(soloCorreo).toContain('<p class="meta">ventas@ochoa.test</p>')
+
+    const soloTel = head({ showEmail: false })
+    expect(soloTel).toContain('<p class="meta">Tel. 442 000 0000</p>')
+    expect(soloTel).not.toContain('ventas@ochoa.test')
+
+    const ninguno = head({ showPhone: false, showEmail: false })
+    expect(ninguno).not.toContain('Tel.')
+    expect(ninguno).not.toContain('ventas@ochoa.test')
+  })
+
+  it('encendido pero vacío en la ficha: no imprime nada', () => {
+    const vacia: Company = { ...ficha, legalName: '', rfc: '', address: '', phone: null, email: null, fiscalRegime: null }
+    const h = head({}, vacia)
+    expect(h).not.toContain('RFC')
+    expect(h).not.toContain('Tel.')
+    expect(h).not.toContain('class="legal"')
+    expect(h).not.toContain('class="meta"')
+  })
+
+  it('todo apagado: sólo el nombre', () => {
+    const h = head({
+      showLogo: false,
+      showLegalName: false,
+      showRfc: false,
+      showFiscalRegime: false,
+      showAddress: false,
+      showPhone: false,
+      showEmail: false,
+    })
+    expect(h).toContain('<h1>Farmacia Ochoa</h1>')
+    expect(h).not.toContain('class="meta"')
+    expect(h).not.toContain('class="legal"')
+    expect(h).not.toContain('<img')
+  })
+
+  it('una configuración sin estas llaves (versión anterior) imprime como antes', () => {
+    const vieja = { ...DEFAULT_REMISSION_SETTINGS } as Partial<RemissionSettings>
+    delete vieja.showRfc
+    delete vieja.showLogo
+    const h = renderRemissionHtml(view(), ficha, vieja as RemissionSettings)
+    expect(h).toContain('FOC010101AB1')
+    expect(h).toContain('<img src="https://x.test/logo.png"')
   })
 })

@@ -93,7 +93,7 @@
 
           <!-- Celular: acciones a todo el ancho (dos por fila desde 400 px); laptop: fila. -->
           <div
-            v-if="puedeImprimir || puedeRemision || puedeDevolver || puedeAnular"
+            v-if="puedeImprimir || puedeRemision || puedeDevolver || puedeAnular || puedeRevender"
             class="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 sm:flex sm:flex-wrap shrink-0 print:hidden"
           >
             <button
@@ -115,6 +115,18 @@
             >
               <Icon name="ph:file-text-bold" class="mr-2" />
               Nota de remisión
+            </button>
+
+            <button
+              v-if="puedeRevender"
+              :class="venta.flowStatus === 'CANCELLED' ? 'btn-primary' : 'btn-secondary'"
+              :disabled="pos.isBootstrapping"
+              title="Crea una venta nueva en el punto de venta con este cliente y estos productos, con los precios y existencias de hoy"
+              data-testid="sale-reorder"
+              @click="revender"
+            >
+              <Icon :name="pos.isBootstrapping ? 'ph:spinner-gap-bold' : 'ph:arrow-clockwise-bold'" class="mr-2" :class="{ 'animate-spin': pos.isBootstrapping }" />
+              {{ etiquetaRevender }}
             </button>
 
             <button
@@ -378,7 +390,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSalesHistoryStore, type SaleReturn } from '~/stores/salesHistory'
-import type { Sale, PaymentMethod } from '~/stores/sales'
+import { useSalesStore, type Sale, type PaymentMethod } from '~/stores/sales'
 import { useAuthStore } from '~/stores/auth'
 import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
@@ -451,6 +463,28 @@ const puedeAnular = computed(
     venta.value.status !== 'CANCELLED' &&
     venta.value.flowStatus !== 'CANCELLED',
 )
+
+/**
+ * VOLVER A VENDER (anulada) o REPETIR (cobrada): arma en el punto de venta una
+ * venta nueva con el mismo cliente y productos, con precios y existencias de
+ * hoy. Necesita poder vender.
+ */
+const pos = useSalesStore()
+const puedeRevender = computed(
+  () =>
+    !!venta.value &&
+    authStore.can('canSell') &&
+    (venta.value.flowStatus === 'CANCELLED' || venta.value.flowStatus === 'COMPLETED'),
+)
+const etiquetaRevender = computed(() =>
+  venta.value?.flowStatus === 'CANCELLED' ? 'Volver a vender' : 'Repetir venta',
+)
+async function revender() {
+  const v = venta.value
+  if (!v) return
+  const r = await pos.reorderFrom(v.id, v.invoiceNumber || `#${v.id}`)
+  if (r) await navigateTo('/pos')
+}
 
 const mensajeAnulacion = computed(() => {
   if (!venta.value) return ''

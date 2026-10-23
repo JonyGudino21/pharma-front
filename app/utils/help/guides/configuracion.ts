@@ -11,7 +11,7 @@ export const configuracion: HelpGuide = {
       title: 'Qué es y cómo se guarda',
       icon: 'ph:info-bold',
       blocks: [
-        { type: 'p', text: 'En **Configuración** eliges la pestaña: **Ticket**, **Caja**, **Inventario**, **Descuentos**, **Impuestos** o **Nota de remisión**. Lo que guardes aquí aplica en **todas las cajas**.' },
+        { type: 'p', text: 'En **Configuración** eliges la pestaña: **Ticket**, **Caja**, **Inventario**, **Descuentos**, **Precios en caja**, **Impuestos** o **Nota de remisión**. Lo que guardes aquí aplica en **todas las cajas**.' },
         {
           type: 'steps',
           items: [
@@ -95,6 +95,25 @@ export const configuracion: HelpGuide = {
       ],
     },
     {
+      id: 'precios-en-caja',
+      title: 'Precios en caja',
+      icon: 'ph:tag-bold',
+      blocks: [
+        { type: 'p', text: 'Quién puede cambiar el precio de un producto al vender y cómo se guardan los precios especiales de cada cliente.' },
+        {
+          type: 'list',
+          items: [
+            '**Permitir cambiar precios en caja**: apagado, nadie cambia precios al vender (los precios especiales ya guardados se siguen aplicando).',
+            '**Farmacéutico** y **Cajero**: si pueden cambiar precios. Gerencia y administración siempre pueden.',
+            '**Guardar como precio especial del cliente**: con cliente elegido, la casilla aparece marcada.',
+            '**Motivo obligatorio**: se pide el motivo y queda en la venta y en el historial del cliente.',
+            '**Permitir vender bajo costo**: déjalo apagado (recomendado). Un precio igual al costo sí se acepta, con aviso de «sin ganancia».',
+          ],
+        },
+        { type: 'tip', icon: 'ph:users-bold', text: 'Los precios de cada cliente se ven y se editan en **Clientes › Estado de cuenta › Precios especiales**.' },
+      ],
+    },
+    {
       id: 'impuestos',
       title: 'Impuestos',
       icon: 'ph:receipt-x-bold',
@@ -124,6 +143,7 @@ export const configuracion: HelpGuide = {
             '**Documento**: **Permitir imprimir notas de remisión** (apagado, el botón desaparece del punto de venta y del historial) y **Tamaño de hoja**.',
             '**Contenido**: **Forma de pago, pagado y saldo**, **Líneas de firma**, **Desglose de IVA incluido** y **Densidad de la tabla de productos**: **Automática** (recomendada), **Cómoda** (letra amplia) o **Compacta** (más por hoja).',
             '**Detalle de cada producto**: interruptores independientes de **Código del producto**, **Lote** y **Caducidad**. Con los tres apagados, cada producto muestra sólo su nombre.',
+            '**Datos de la farmacia en la nota**: elige qué sale en el encabezado: **Logo**, **Razón social**, **RFC**, **Régimen fiscal**, **Domicilio**, **Teléfono** y **Correo**. El nombre de la farmacia siempre sale. Un dato encendido que la ficha no tiene, simplemente no se imprime.',
             '**Textos**: la **Leyenda** (por defecto aclara que no es CFDI) y **Condiciones (opcional)**.',
           ],
         },
@@ -145,7 +165,7 @@ export const configuracion: HelpGuide = {
             { q: 'En Inventario dice «Debe ser menor que los días de advertencia.»', a: 'Los días en rojo deben ser menos que los de amarillo, y los de amarillo no pueden pasar del horizonte de alerta.' },
             { q: 'En Ticket el RFC marca «Formato inválido…».', a: 'Escribe 12 caracteres si es empresa o 13 si es persona física, sin espacios ni guiones.' },
             { q: 'No puedo desactivar una plantilla de ticket.', a: 'No se puede desactivar la que está «En el POS» ni la última activa. Primero elige otra con **Usar esta plantilla en el POS**.' },
-            { q: 'La nota de remisión sale sin datos de la farmacia.', a: 'Falta la ficha: captúrala en **Configuración › Ticket** (Datos de la farmacia) y guarda.' },
+            { q: 'La nota de remisión sale sin datos de la farmacia.', a: 'Revisa en **Nota de remisión › Datos de la farmacia en la nota** que estén encendidos. Si lo están, falta la ficha: captúrala en **Configuración › Ticket** (Datos de la farmacia) y guarda.' },
           ],
         },
       ],
