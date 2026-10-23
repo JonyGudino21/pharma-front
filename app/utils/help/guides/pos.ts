@@ -34,7 +34,7 @@ export const pos: HelpGuide = {
           items: [
             '**Escanea** el código: el producto se agrega solo.',
             '**Varias piezas iguales**: escribe la cantidad y un asterisco, por ejemplo `3*`, y luego escanea. Máximo 999 por vez.',
-            '**Sin código**: pulsa `F3` o **Buscar**, escribe al menos 2 letras del nombre o del SKU y elige. Los que dicen «Sin stock» no se pueden elegir.',
+            '**Sin código**: pulsa `F3` o **Buscar**, escribe al menos 2 letras del nombre, del SKU o parte del código de barras y elige. Los que dicen «Sin stock» no se pueden elegir.',
             '**Cambiar cantidad**: usa los botones **+** y **−** de cada renglón. El bote de basura quita el producto.',
           ],
         },
@@ -43,7 +43,7 @@ export const pos: HelpGuide = {
           type: 'list',
           items: [
             '`F2` Cobrar.',
-            '`F3` Buscar un producto por nombre o SKU.',
+            '`F3` Buscar un producto por nombre, SKU o código de barras.',
             '`F4` Elegir cliente.',
             '`F9` Descartar la venta (pide confirmación).',
             '`Esc` Cerrar la ventana abierta y volver al escáner.',
@@ -161,6 +161,7 @@ export const pos: HelpGuide = {
       title: 'Ticket, nota de remisión y PDF',
       icon: 'ph:receipt-bold',
       blocks: [
+        { type: 'p', text: 'Mientras capturas, a la derecha ves **cómo va el ticket** (marca «PREVIEW»). Si no cabe completo en tu pantalla, desplázalo o pulsa **Ver ticket completo**.' },
         { type: 'p', text: 'Al cobrar aparece «Venta cobrada» con su folio y el ticket en pantalla.' },
         {
           type: 'list',

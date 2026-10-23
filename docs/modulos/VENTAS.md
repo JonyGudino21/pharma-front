@@ -97,3 +97,12 @@ Separado del store del POS a propósito: aquel modela la venta viva; éste, vent
 - El front **replica** las condiciones del backend (unidades devolvibles, estados) para no
   ofrecer botones que sólo pueden terminar en error; el backend sigue decidiendo.
 - No se imprime ticket ni nota de ventas anuladas: evita comprobantes de algo reembolsado.
+
+## Volver a vender (v1.5, ADR-0027)
+
+- Detalle (`pages/sales/[id].vue`): **Volver a vender** (anulada) o **Repetir venta** (cobrada),
+  con permiso `canSell`. Lista: acción ↻ en las anuladas.
+- `useSalesStore().reorderFrom(id, folio)` → `POST /sales/:id/reorder`; deja la venta nueva como
+  carrito (con el cliente completo) y guarda `reorderNotice`. El punto de venta muestra
+  `PosReorderNotice` con precios cambiados, piezas ajustadas, omitidos y cliente dado de baja.
+- Si ya hay una venta en curso con productos, no se hace nada (aviso en el front o 409 del servidor).

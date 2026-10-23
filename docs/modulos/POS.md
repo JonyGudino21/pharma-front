@@ -151,3 +151,9 @@ El modal de cobro **no** confirma con `Enter`: se usa el botón **Cobrar**.
   que un error genérico.
 - **Atajos sólo con la pantalla libre**: F-keys no actúan con modales abiertos ni durante una
   operación (antes F9 descartaba a mitad de un cobro).
+
+## Vista previa del ticket (v1.5)
+
+La vista previa de la columna derecha ocupa todo el alto libre del panel (antes un recuadro fijo de
+224 px la cortaba) y se desplaza si no cabe; **Ver ticket completo** la abre a tamaño real
+(`showTicketPeek`, cuenta como ventana abierta para Esc y las teclas F).

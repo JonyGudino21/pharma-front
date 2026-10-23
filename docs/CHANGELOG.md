@@ -6,6 +6,22 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Ventas y compras más rápidas (23/10/2026, v1.5.0)
+
+- **Compras · buscador nuevo** (`PurchaseProductPicker`): nombre, SKU y código de barras; modos
+  Todo / Nombre / Código; con el lector (Enter) el producto se agrega directo.
+- **Compras · alta de producto sin salir** de la compra ni de «Agregar partida»: `ProductFormModal`
+  con `initial` y `for-purchase` (sin stock inicial); devuelve el producto creado. ADR-0026.
+- **Compras · folio sugerido** (`FAC-001-ALV-20261023`) bajo el campo; el folio deja de ser
+  obligatorio.
+- **Ventas · Volver a vender** (anuladas) / **Repetir venta** (cobradas): botón en el detalle y acción
+  ↻ en la tabla; el punto de venta muestra qué cambió (`PosReorderNotice`). ADR-0027.
+- **Punto de venta:** la vista previa del ticket ocupa el alto libre y tiene «Ver ticket completo».
+  La búsqueda (F3) también encuentra por código de barras.
+- **Configuración › Ticket:** la vista previa térmica se ajusta al ancho de su columna (sin barra
+  horizontal en 80 mm).
+- Ayuda: Compras (folio sugerido, producto nuevo, escáner), Ventas (volver a vender), Punto de venta.
+
 ### Precios por cliente y comprobantes (20/10/2026, v1.4.0)
 
 - **Cambiar el precio en caja** (botón en el precio de cada línea, `PosPriceModal`), con **precio
