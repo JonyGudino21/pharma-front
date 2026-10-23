@@ -157,3 +157,11 @@ El modal de cobro **no** confirma con `Enter`: se usa el botón **Cobrar**.
 La vista previa de la columna derecha ocupa todo el alto libre del panel (antes un recuadro fijo de
 224 px la cortaba) y se desplaza si no cabe; **Ver ticket completo** la abre a tamaño real
 (`showTicketPeek`, cuenta como ventana abierta para Esc y las teclas F).
+
+## Crédito: fecha de pago y saldo vencido (v1.6)
+
+- `PosPaymentModal`: con **Cargar a crédito** consulta `GET /client/:id/credit-status`, propone la
+  fecha con `suggestedDays` y manda `completeSale({ dueDate })` (fecha o `null`). Con `blocksCredit`
+  no deja confirmar a crédito.
+- Al elegir un cliente con crédito, el panel derecho muestra su saldo vencido (`overdueNotice`) si
+  `warnAtPos` o `blocksCredit`.
