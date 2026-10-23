@@ -580,7 +580,11 @@ export const useSalesStore = defineStore('sales', () => {
    * Cierra la venta (descuenta stock oficial). Guarda el ticket en lastCompletedSale y limpia el carrito.
    * Devuelve la venta cerrada (enriquecida) o null.
    */
-  async function completeSale(): Promise<Sale | null> {
+  /**
+   * @param opts.dueDate fecha de pago de lo que queda a crédito (AAAA-MM-DD),
+   *   null = sin fecha; sin el campo, el servidor aplica la sugerida.
+   */
+  async function completeSale(opts: { dueDate?: string | null } = {}): Promise<Sale | null> {
     if (!sale.value) return null
     const { $api } = useNuxtApp()
     const saleId = sale.value.id
@@ -596,7 +600,10 @@ export const useSalesStore = defineStore('sales', () => {
       try {
         await $api(`/sales/${saleId}/complete`, {
           method: 'POST',
-          body: prescription.value ? { prescription: prescription.value } : {},
+          body: {
+            ...(prescription.value ? { prescription: prescription.value } : {}),
+            ...(opts.dueDate !== undefined ? { dueDate: opts.dueDate } : {}),
+          },
         })
       } catch (error) {
         if (httpStatusOf(error) !== 409) return null

@@ -87,6 +87,27 @@
                 <template v-else>Elige el proveedor para sugerirte un folio si no trae uno.</template>
               </div>
             </div>
+
+            <!-- Fecha límite de pago al proveedor: opcional (ADR-0029). -->
+            <div class="md:col-span-2">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <label for="createDueDate" class="label-base">Fecha límite de pago <span class="text-xs font-normal text-gray-400">(opcional)</span></label>
+                <span v-if="supplierCreditDays" class="text-xs text-gray-500 dark:text-gray-400">El proveedor da {{ supplierCreditDays }} días de crédito</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="createDueDate" v-model="form.dueDate" type="date" :min="hoy" class="input-base w-auto" :aria-invalid="!!dueDateError" data-testid="purchase-due-date" @input="dueDateTouched = true" />
+                <button
+                  v-for="d in [15, 30, 45]"
+                  :key="d"
+                  type="button"
+                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:border-primary-300 hover:text-primary-700 dark:border-gray-600 dark:text-gray-300"
+                  @click="form.dueDate = ymdEnDias(d); dueDateTouched = true"
+                >{{ d }} días</button>
+                <button type="button" class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300" @click="form.dueDate = ''; dueDateTouched = true">Sin fecha</button>
+              </div>
+              <p v-if="dueDateError" class="mt-1 text-xs text-error-600 dark:text-error-400" role="alert">{{ dueDateError }}</p>
+              <p v-else class="mt-1 text-xs text-gray-500 dark:text-gray-400">Aparece en el panel en «Por pagar a proveedores» y avisa cuando está por vencer.</p>
+            </div>
           </div>
         </div>
 
@@ -346,6 +367,7 @@ import {
 } from '~/stores/purchase'
 import { useSupplierStore } from '~/stores/supplier'
 import type { Product } from '~/stores/product'
+import { ymdEnDias } from '~/utils/credit-status'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import { useUpdateHold } from '~/composables/useAppUpdate'
@@ -372,6 +394,7 @@ type CartItem = { product: Product, quantity: number, cost: number, lotNumber: s
 const form = reactive({
   supplierId: null as number | null,
   invoiceNumber: '',
+  dueDate: '',
   items: [] as CartItem[],
   payments: [] as Array<{ method: PaymentMethod, amount: number, references: string }>
 })
@@ -401,14 +424,23 @@ useUpdateHold('purchase-create', () =>
   form.items.length > 0 || form.payments.length > 0 ? 'Tienes una compra a medio capturar.' : null,
 )
 
-// Folio sugerido del proveedor elegido (FAC-001-ALV-20261023).
+// Folio sugerido del proveedor elegido (FAC-001-ALV-20261023) y, con sus días
+// de crédito, la fecha límite de pago propuesta (se puede cambiar o quitar).
 const suggestedFolio = ref<string | null>(null)
+const supplierCreditDays = ref(0)
+const dueDateTouched = ref(false)
+const hoy = ymdEnDias(0)
+const dueDateError = computed(() => (form.dueDate && form.dueDate < hoy ? 'La fecha de pago no puede ser anterior a hoy.' : ''))
 watch(() => form.supplierId, async (id) => {
   suggestedFolio.value = null
+  supplierCreditDays.value = 0
   if (id === null) return
-  const folio = await purchaseStore.suggestFolio(id)
+  const sugerencia = await purchaseStore.suggestFolio(id)
   // Si mientras tanto cambiaron de proveedor, la respuesta ya no aplica.
-  if (form.supplierId === id) suggestedFolio.value = folio
+  if (form.supplierId !== id || !sugerencia) return
+  suggestedFolio.value = sugerencia.folio
+  supplierCreditDays.value = sugerencia.creditDays
+  if (!dueDateTouched.value) form.dueDate = sugerencia.suggestedDueDate ?? ''
 })
 
 /** Producto nuevo en alta (datos ya conocidos de lo que se buscó). */
@@ -468,6 +500,7 @@ const totalItemsCount = computed(() => form.items.reduce((sum, item) => sum + it
 /** Qué falta para poder guardar (se muestra junto al botón deshabilitado). */
 const blockingReason = computed(() => {
   if (form.supplierId === null) return 'Selecciona el proveedor.'
+  if (dueDateError.value) return dueDateError.value
   if (form.items.length === 0) return 'Agrega al menos un producto.'
   if (form.items.some(i => itemError(i))) return 'Corrige las partidas marcadas en rojo.'
   if (form.payments.some(p => !(p.amount > 0))) return 'Hay un abono sin monto.'
@@ -487,6 +520,8 @@ const handleSubmit = async () => {
       supplierId: form.supplierId!,
       // Vacío: el servidor asigna el folio sugerido.
       invoiceNumber: form.invoiceNumber.trim() || undefined,
+      // Se manda siempre la decisión: la fecha o null (sin fecha).
+      dueDate: form.dueDate || null,
       items: form.items.map(i => ({
         productId: i.product.id,
         quantity: i.quantity,
