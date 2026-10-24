@@ -159,3 +159,8 @@ registrado como evento `TEST`). Ambos exigen guardar antes. Confirmación al sal
   previa permite ver un ejemplo de 3 o de 30 productos.
 - Estado de las 9 secciones (Ticket, Caja, Inventario, Descuentos, Impuestos, Nota de remisión,
   Dispositivos, Usuarios, Permisos): todas implementadas y verificadas en vivo, sin errores de carga.
+
+## Crédito (v1.6, ADR-0029)
+
+`/settings/credit` (`canManageSettings`), namespace `credit`: `defaultCreditDays`, `dueSoonDays`,
+`warnOverdueAtPos`, `blockCreditWhenOverdue`. Muestra un ejemplo vivo de la fecha que se propondría.

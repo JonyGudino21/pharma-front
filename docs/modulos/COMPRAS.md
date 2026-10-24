@@ -82,3 +82,21 @@
 - La exigencia de lote se valida **al capturar**, no hasta recibir, con el mismo criterio que el
   backend.
 - El combo de proveedores usa `/suppliers/options` para no alterar los filtros del directorio.
+
+## Folio sugerido, escáner y producto nuevo (v1.5, ADR-0026)
+
+- **Buscador** `components/purchases/PurchaseProductPicker.vue` (alta de compra y «Agregar partida»):
+  `POST /products/search` con `by: all | name | code`. Enter: código exacto (`GET
+  /products/barcode/:code`, o SKU/barras exactos en los resultados) → se agrega; un solo resultado →
+  se agrega; si no, el resaltado. La forma de "código" se decide en `utils/product-search.ts`.
+- **Sin resultados:** «Dar de alta este producto» abre `ProductFormModal` con `initial` (nombre o
+  código de barras) y `for-purchase`: sin stock inicial, sin recargar el catálogo, emite `created`.
+- **Folio:** opcional. Al elegir proveedor se pide `GET /purchase/suggest-folio` y se muestra como
+  sugerencia (un clic lo usa); vacío → el servidor guarda el sugerido. Folio repetido del mismo
+  proveedor → 409 con la compra existente.
+
+## Fecha límite de pago (v1.6, ADR-0029)
+
+- Alta: `suggestFolio` ahora devuelve también `creditDays` y `suggestedDueDate`; la fecha se propone
+  mientras el usuario no la toque y se envía siempre (`dueDate` o `null`).
+- Detalle: «Pagar a más tardar» con su situación y **Cambiar** (`DueDateModal` → `PATCH /purchase/:id`).

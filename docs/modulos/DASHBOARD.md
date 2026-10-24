@@ -43,3 +43,12 @@ curso. Las gráficas siguen el modo claro/oscuro.
 - Error: no se pinta contenido (no hay mensaje de error propio; el toast del interceptor aplica
   para 403/5xx).
 - Sin datos en una gráfica: "Sin datos registrados" / "Sin productos vendidos".
+
+## Cobrar y pagar (v1.6, ADR-0029)
+
+Sección bajo «Liquidez Actual»; son saldos de **hoy** (no dependen del periodo):
+
+- `components/dashboard/ReceivablesWidget.vue`: total, vencido, termómetro compacto y las 5 primeras
+  ventas en orden de cobro (`GET /client/receivables`).
+- `components/dashboard/PayablesWidget.vue`: total, vencido / por vencer / sin fecha y las 5 compras
+  a pagar primero (`GET /purchase/payables`).

@@ -89,6 +89,8 @@ export interface Purchase {
   balance: string | number
   status: PurchaseStatus
   deliveryStatus: PurchaseDeliveryStatus
+  /** Fecha límite para pagarle al proveedor (ADR-0029). */
+  dueDate?: string | null
   createdAt: string
   updatedAt: string
   supplier?: Supplier
@@ -111,9 +113,22 @@ export interface CreatePaymentPayload {
   references?: string
 }
 
+/** Respuesta de GET /purchase/suggest-folio. */
+export interface FolioSugerido {
+  folio: string
+  supplierCode: string
+  /** Días de crédito del proveedor (0 = de contado). */
+  creditDays: number
+  /** Hoy + días del proveedor (AAAA-MM-DD), o null. */
+  suggestedDueDate: string | null
+}
+
 export interface CreatePurchasePayload {
   supplierId: number
-  invoiceNumber: string
+  /** Vacío/ausente: el servidor asigna el folio sugerido (FAC-001-ALV-20261023). */
+  invoiceNumber?: string
+  /** Fecha límite de pago (AAAA-MM-DD); null = sin fecha; ausente = la de los días del proveedor. */
+  dueDate?: string | null
   items: CreatePurchaseItemPayload[]
   payments?: CreatePaymentPayload[]
 }
@@ -190,8 +205,25 @@ export const usePurchaseStore = defineStore('purchase', () => {
     }
   }
 
+  /**
+   * Folio sugerido para una compra del proveedor (FAC-001-ALV-20261023), para
+   * cuando el proveedor no entrega factura o ticket con folio. No lo reserva.
+   * @returns null si no se pudo obtener (la compra se guarda igual).
+   */
+  async function suggestFolio(supplierId: number): Promise<FolioSugerido | null> {
+    const { $api } = useNuxtApp()
+    try {
+      const res = await $api<ApiResponse<FolioSugerido>>('/purchase/suggest-folio', {
+        query: { supplierId },
+      })
+      return res.data
+    } catch {
+      return null
+    }
+  }
+
   // 4. Actualizar Cabecera
-  async function updatePurchase(id: number, payload: { supplierId?: number, invoiceNumber?: string }) {
+  async function updatePurchase(id: number, payload: { supplierId?: number, invoiceNumber?: string, dueDate?: string | null }) {
     const { $api } = useNuxtApp()
     isActionLoading.value = true
     try {
@@ -295,6 +327,7 @@ export const usePurchaseStore = defineStore('purchase', () => {
     fetchPurchases,
     fetchPurchaseById,
     createPurchase,
+    suggestFolio,
     updatePurchase,
     cancelPurchase,
     receivePurchase,

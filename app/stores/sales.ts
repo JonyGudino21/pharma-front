@@ -104,6 +104,19 @@ export interface Sale {
   user?: { firstName: string; lastName: string }
 }
 
+/** Respuesta de POST /sales/:id/reorder (volver a vender). */
+export interface ReorderResult {
+  sale: Sale
+  /** El cliente original fue dado de baja: la venta nueva es a Público General. */
+  clientDropped: boolean
+  adjusted: { productId: number; name: string; requested: number; quantity: number }[]
+  skipped: { productId: number; name: string; quantity: number; reason: 'INACTIVO' | 'SIN_EXISTENCIA' }[]
+  priceChanges: { productId: number; name: string; before: string; now: string }[]
+  /** Venta de la que se partió (para el aviso en caja). */
+  fromSaleId: number
+  fromLabel: string
+}
+
 export interface ControlledPrescription {
   prescriptionNo: string
   doctorName: string
@@ -119,6 +132,8 @@ export const useSalesStore = defineStore('sales', () => {
   const selectedClient = ref<Client | null>(null)
   const lastCompletedSale = ref<Sale | null>(null) // Para el ticket tras cerrar
   const prescription = ref<ControlledPrescription | null>(null)
+  /** Qué cambió al volver a vender una venta (se muestra en caja hasta cerrarlo). */
+  const reorderNotice = ref<ReorderResult | null>(null)
 
   // --- Banderas ---
   // CONTADOR, no booleano: con el escáner disparando ráfagas hay varias
@@ -565,7 +580,11 @@ export const useSalesStore = defineStore('sales', () => {
    * Cierra la venta (descuenta stock oficial). Guarda el ticket en lastCompletedSale y limpia el carrito.
    * Devuelve la venta cerrada (enriquecida) o null.
    */
-  async function completeSale(): Promise<Sale | null> {
+  /**
+   * @param opts.dueDate fecha de pago de lo que queda a crédito (AAAA-MM-DD),
+   *   null = sin fecha; sin el campo, el servidor aplica la sugerida.
+   */
+  async function completeSale(opts: { dueDate?: string | null } = {}): Promise<Sale | null> {
     if (!sale.value) return null
     const { $api } = useNuxtApp()
     const saleId = sale.value.id
@@ -581,7 +600,10 @@ export const useSalesStore = defineStore('sales', () => {
       try {
         await $api(`/sales/${saleId}/complete`, {
           method: 'POST',
-          body: prescription.value ? { prescription: prescription.value } : {},
+          body: {
+            ...(prescription.value ? { prescription: prescription.value } : {}),
+            ...(opts.dueDate !== undefined ? { dueDate: opts.dueDate } : {}),
+          },
         })
       } catch (error) {
         if (httpStatusOf(error) !== 409) return null
@@ -646,6 +668,42 @@ export const useSalesStore = defineStore('sales', () => {
     return true
   }
 
+  /**
+   * VOLVER A VENDER: crea en el servidor una venta nueva en borrador con el
+   * cliente y los productos de otra (anulada o cobrada), con precios y
+   * existencias de hoy, y la deja como carrito de esta caja.
+   * @param label folio de la venta original, para el aviso
+   * @returns el resultado, o null si no se pudo (el error ya se mostró)
+   */
+  async function reorderFrom(saleId: number, label: string): Promise<ReorderResult | null> {
+    if (sale.value && sale.value.items.length > 0) {
+      toast.warning('Ya tienes una venta en curso en el punto de venta. Cóbrala o descártala antes de volver a vender otra.')
+      return null
+    }
+    const { $api } = useNuxtApp()
+    isBootstrapping.value = true
+    try {
+      const res = await $api<ApiResponse<Omit<ReorderResult, 'fromSaleId' | 'fromLabel'>>>(`/sales/${saleId}/reorder`, { method: 'POST' })
+      const result: ReorderResult = { ...res.data, fromSaleId: saleId, fromLabel: label }
+      sale.value = result.sale
+      prescription.value = null
+      // Cliente COMPLETO (crédito, deuda), igual que al recuperar un borrador.
+      selectedClient.value = result.sale.clientId
+        ? await useClientStore().fetchClientById(result.sale.clientId)
+        : null
+      reorderNotice.value = result
+      return result
+    } catch {
+      return null
+    } finally {
+      isBootstrapping.value = false
+    }
+  }
+
+  function dismissReorderNotice() {
+    reorderNotice.value = null
+  }
+
   function setPrescription(data: ControlledPrescription | null) {
     prescription.value = data
   }
@@ -654,11 +712,12 @@ export const useSalesStore = defineStore('sales', () => {
     sale.value = null
     selectedClient.value = null
     prescription.value = null
+    reorderNotice.value = null
   }
 
   return {
     // estado
-    sale, selectedClient, lastCompletedSale, prescription,
+    sale, selectedClient, lastCompletedSale, prescription, reorderNotice,
     isBootstrapping, isMutating, isCompleting,
     // getters
     items, itemCount, total, subtotal, discountTotal, taxTotal, discountsLocked,
@@ -666,6 +725,6 @@ export const useSalesStore = defineStore('sales', () => {
     // acciones
     refreshSale, resumeDraft, setClient, scanBarcode, addProduct, removeItem,
     incrementItem, decrementItem, setQuantity, registerPayment, applyDiscount, setItemPrice,
-    completeSale, discardSale, reset, setPrescription,
+    completeSale, discardSale, reset, setPrescription, reorderFrom, dismissReorderNotice,
   }
 })

@@ -10,6 +10,8 @@ import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import { useUpdateHold } from '~/composables/useAppUpdate'
 import { useConnectivity } from '~/composables/useConnectivity'
 import PosCart from '~/components/pos/PosCart.vue'
+import PosReorderNotice from '~/components/pos/PosReorderNotice.vue'
+import { useReceivablesStore, type ClientCreditStatus } from '~/stores/receivables'
 import PosSearchModal from '~/components/pos/PosSearchModal.vue'
 import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
@@ -175,7 +177,26 @@ useUpdateHold('pos', () =>
 // y en laptop, y respeta el tema claro/oscuro.
 const confirmDiscard = ref(false)
 const isDiscarding = ref(false)
-const anyModalOpen = computed(() => !!priceTarget.value || confirmDiscard.value || showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
+/** Ticket en curso a tamaño real. */
+const showTicketPeek = ref(false)
+function closeTicketPeek() {
+  showTicketPeek.value = false
+  focusScanner()
+}
+
+// Saldo vencido del cliente elegido (ADR-0029): se consulta al elegirlo.
+const receivables = useReceivablesStore()
+const overdueNotice = ref<ClientCreditStatus | null>(null)
+watch(() => selectedClient.value?.id, async (id) => {
+  overdueNotice.value = null
+  if (!id || !selectedClient.value?.hasCredit) return
+  const st = await receivables.fetchCreditStatus(id)
+  // El cajero pudo cambiar de cliente mientras se consultaba.
+  if (selectedClient.value?.id !== id || !st) return
+  if (Number(st.overdue) > 0 && (st.warnAtPos || st.blocksCredit)) overdueNotice.value = st
+}, { immediate: true })
+
+const anyModalOpen = computed(() => showTicketPeek.value || !!priceTarget.value || confirmDiscard.value || showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
 
 function focusScanner() {
@@ -338,6 +359,7 @@ async function executeDiscard() {
 }
 
 function handleEscape() {
+  if (showTicketPeek.value) { closeTicketPeek(); return }
   if (confirmDiscard.value) { if (!isDiscarding.value) { confirmDiscard.value = false; focusScanner() } return }
   if (priceTarget.value) { priceTarget.value = null; focusScanner(); return }
   if (discountTarget.value) { discountTarget.value = null; focusScanner(); return }
@@ -493,6 +515,13 @@ onMounted(async () => {
           </button>
         </div>
 
+        <PosReorderNotice
+          v-if="sales.reorderNotice && sales.sale?.id === sales.reorderNotice.sale.id"
+          :notice="sales.reorderNotice"
+          class="mx-3 mt-3 sm:mx-4"
+          @dismiss="sales.dismissReorderNotice()"
+        />
+
         <PosCart
           :items="items"
           :busy="busy"
@@ -533,6 +562,21 @@ onMounted(async () => {
             <Icon v-else name="ph:lock-simple-bold" class="w-4 h-4 shrink-0 text-gray-400" />
           </button>
 
+          <!-- Saldo vencido del cliente elegido (Configuración › Crédito). -->
+          <p
+            v-if="overdueNotice"
+            class="flex items-start gap-2 rounded-xl px-3 py-2 text-xs"
+            :class="overdueNotice.blocksCredit ? 'bg-error-50 text-error-800 dark:bg-error-900/20 dark:text-error-200' : 'bg-warning-50 text-warning-900 dark:bg-warning-900/20 dark:text-warning-200'"
+            role="status"
+            data-testid="pos-client-overdue"
+          >
+            <Icon name="ph:warning-circle-bold" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Debe <strong>{{ formatCurrency(Number(overdueNotice.overdue)) }}</strong> vencido (la venta más atrasada, {{ overdueNotice.maxDaysOverdue }} días).
+              {{ overdueNotice.blocksCredit ? 'No se le puede cargar a crédito: esta venta se cobra completa.' : 'Buen momento para cobrarlo.' }}
+            </span>
+          </p>
+
           <!-- Receta de controlados: visible y corregible antes de cobrar. -->
           <button
             v-if="hasControlledItems && sales.prescription"
@@ -559,13 +603,30 @@ onMounted(async () => {
 
         <!-- Totales -->
         <div class="flex-1 flex flex-col justify-end p-4 sm:p-5 space-y-3 lg:min-h-0">
-          <div class="hidden xl:flex justify-center overflow-y-auto max-h-56 mb-2">
-            <ReceiptPreview
-              :sale="liveTicket"
-              :company="companyStore.company"
-              :template="companyStore.defaultTemplate"
-              compact
-            />
+          <!--
+            Vista previa del ticket: ocupa todo el alto libre del panel (antes
+            un recuadro fijo de 224 px lo cortaba). Si aun así no cabe, se
+            desplaza y «Ver ticket completo» lo abre a tamaño real.
+          -->
+          <div class="relative mb-2 hidden min-h-36 flex-1 flex-col overflow-hidden rounded-xl bg-gray-100 xl:flex dark:bg-gray-900/60" data-testid="pos-ticket-peek">
+            <div class="flex min-h-0 flex-1 justify-center overflow-y-auto px-2 pb-14 pt-3">
+              <ReceiptPreview
+                :sale="liveTicket"
+                :company="companyStore.company"
+                :template="companyStore.defaultTemplate"
+                compact
+              />
+            </div>
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-gray-100 to-transparent dark:from-gray-900" />
+            <button
+              type="button"
+              class="absolute inset-x-3 bottom-2 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white/95 py-1.5 text-xs font-semibold text-primary-700 shadow-sm transition-colors hover:bg-primary-50 dark:border-gray-600 dark:bg-gray-800/95 dark:text-primary-300 dark:hover:bg-gray-700"
+              data-testid="pos-ticket-expand"
+              @click="showTicketPeek = true"
+            >
+              <Icon name="ph:arrows-out-simple-bold" class="h-3.5 w-3.5" />
+              Ver ticket completo
+            </button>
           </div>
           <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400">
             <span>Artículos</span>
@@ -712,6 +773,34 @@ onMounted(async () => {
     />
 
     <!-- Comprobante -->
+    <!-- Ticket en curso a tamaño real (desde «Ver ticket completo»). -->
+    <div
+      v-if="showTicketPeek"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ticketPeekTitle"
+      @click.self="closeTicketPeek"
+    >
+      <div class="modal-panel sm:max-w-md">
+        <div class="modal-header">
+          <h2 id="ticketPeekTitle" class="text-lg font-semibold text-gray-900 dark:text-white">Así va el ticket</h2>
+          <button type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" aria-label="Cerrar" @click="closeTicketPeek">
+            <Icon name="ph:x-bold" class="h-5 w-5" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="flex justify-center rounded-xl bg-gray-100 px-3 pb-3 pt-4 dark:bg-gray-900">
+            <ReceiptPreview
+              :sale="liveTicket"
+              :company="companyStore.company"
+              :template="companyStore.defaultTemplate"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Hoja inferior en celular (botones siempre visibles en el pie); centrado en laptop. -->
     <div
       v-if="showReceipt && completedSale && completedTicket"

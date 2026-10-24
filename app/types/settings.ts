@@ -4,7 +4,7 @@
  * para dar retroalimentación inmediata, nunca para decidir.
  */
 
-export type SettingsNamespace = 'inventory' | 'cash' | 'discounts' | 'taxes' | 'remission' | 'pricing'
+export type SettingsNamespace = 'inventory' | 'cash' | 'discounts' | 'taxes' | 'remission' | 'pricing' | 'credit'
 
 export interface InventorySettings {
   expiryAlertDays: number
@@ -54,6 +54,23 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   requireReason: false,
   saveForClientByDefault: true,
   allowBelowCost: false,
+}
+
+/** Crédito y cobranza (ADR-0029). */
+export interface CreditSettings {
+  /** Días que se proponen para pagar si el cliente no tiene días propios (0 = no proponer). */
+  defaultCreditDays: number
+  /** Días antes de la fecha de pago en que una cuenta se marca "por vencer". */
+  dueSoonDays: number
+  warnOverdueAtPos: boolean
+  blockCreditWhenOverdue: boolean
+}
+
+export const DEFAULT_CREDIT_SETTINGS: CreditSettings = {
+  defaultCreditDays: 0,
+  dueSoonDays: 7,
+  warnOverdueAtPos: true,
+  blockCreditWhenOverdue: false,
 }
 
 export type TaxCategory = 'GENERAL' | 'ZERO' | 'EXEMPT'
@@ -131,6 +148,7 @@ export interface SettingsMap {
   taxes: TaxSettings
   remission: RemissionSettings
   pricing: PricingSettings
+  credit: CreditSettings
 }
 
 export interface SettingsSnapshot<N extends SettingsNamespace = SettingsNamespace> {

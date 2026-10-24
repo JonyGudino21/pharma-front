@@ -95,7 +95,11 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-4">
-              <div v-if="!isEditing">
+              <p v-if="forPurchase" class="flex gap-1.5 rounded-lg bg-primary-50 p-3 text-xs text-primary-800 dark:bg-primary-900/20 dark:text-primary-200" data-testid="product-form-purchase-note">
+                <Icon name="ph:truck-bold" class="mt-0.5 h-4 w-4 shrink-0" />
+                Las piezas entran al inventario cuando recibas esta compra, con el lote y la caducidad que captures en la partida.
+              </p>
+              <div v-else-if="!isEditing">
                 <label class="label-base text-success-600 dark:text-success-400">Stock Inicial Físico <span class="text-xs">(Generará movimiento)</span></label>
                 <input v-model.number="form.stock" type="number" min="0" step="1" class="input-base border-success-200 focus:ring-success-500" />
                 <!-- La caducidad es del LOTE, no del producto: sin piezas no hay lote
@@ -227,8 +231,20 @@ import type { TaxCategory } from '~/types/settings'
 import type { Product } from '~/stores/product'
 import { buildCreateProductPayload, buildUpdateProductPayload } from '~/utils/product-payload'
 
-const props = defineProps<{ productToEdit?: Product | null }>()
-const emit = defineEmits(['close'])
+const props = defineProps<{
+  productToEdit?: Product | null
+  /** Datos ya conocidos para el alta (p. ej. lo que se buscó en Compras). */
+  initial?: { name?: string; barcode?: string; cost?: number } | null
+  /**
+   * Alta desde una compra: sin inventario inicial (las piezas entran al
+   * recibir la compra, con su lote) y sin recargar el catálogo.
+   */
+  forPurchase?: boolean
+}>()
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'created', product: Product): void
+}>()
 
 const store = useProductStore()
 const categoryStore = useCategoryStore()
@@ -333,6 +349,9 @@ onMounted(async () => {
 
     form.categories = p.categories.map(c => c.category.id)
   } else {
+    if (props.initial?.name) form.name = props.initial.name
+    if (props.initial?.barcode) form.barcode = props.initial.barcode
+    if (props.initial?.cost && props.initial.cost > 0) form.cost = props.initial.cost
     // Alta: se propone el stock mínimo que definió gerencia.
     const cfg = settingsStore.valuesOf('inventory')
     if (cfg) form.minStock = cfg.defaultMinStock
@@ -368,8 +387,9 @@ async function handleSubmit() {
       await store.updateProduct(props.productToEdit.id, buildUpdateProductPayload(form, taxBaseline.value))
       toast.success('Producto actualizado exitosamente.')
     } else {
-      await store.createProduct(buildCreateProductPayload(form))
-      toast.success('Producto registrado exitosamente. SKU generado.')
+      const created = await store.createProduct(buildCreateProductPayload(form), { refreshList: !props.forPurchase })
+      toast.success(props.forPurchase ? `${created.name} dado de alta y agregado a la compra.` : 'Producto registrado exitosamente. SKU generado.')
+      emit('created', created)
     }
     emit('close')
   } catch (error: any) {

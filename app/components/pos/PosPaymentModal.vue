@@ -5,6 +5,8 @@ import type { Client } from '~/stores/client'
 import { useCurrency } from '~/composables/useCurrency'
 import { useToast } from '~/composables/useToast'
 import { alcanza, restar, sumar } from '~/utils/money'
+import { useReceivablesStore, type ClientCreditStatus } from '~/stores/receivables'
+import { fechaCorta, ymdEnDias } from '~/utils/credit-status'
 
 const props = defineProps<{
   client: Client | null
@@ -55,13 +57,39 @@ const sobrepagada = computed(() => totalDue.value < 0)
 /** Ya se pagó todo en un intento anterior: sólo falta cerrar la venta. */
 const pagoCubierto = computed(() => totalDue.value === 0 && sales.paidAmount > 0)
 
+// ─── Fecha de pago del crédito (opcional, ADR-0029) ───
+// Se propone con los días del cliente (o los de Configuración › Crédito) y se
+// puede cambiar o quitar. También dice si el cliente ya debe algo vencido.
+const receivables = useReceivablesStore()
+const creditStatus = ref<ClientCreditStatus | null>(null)
+const dueDate = ref('')
+const hoy = ymdEnDias(0)
+const PLAZOS = [7, 15, 30]
+const dueDateError = computed(() => (dueDate.value && dueDate.value < hoy ? 'La fecha de pago no puede ser anterior a hoy.' : ''))
+const creditoBloqueado = computed(() => !!creditStatus.value?.blocksCredit)
+const origenSugerencia = computed(() => {
+  const st = creditStatus.value
+  if (!st || st.suggestedDays <= 0) return ''
+  return st.creditDays != null ? `${st.suggestedDays} días del cliente` : `${st.suggestedDays} días (configuración)`
+})
+
+async function cargarEstadoCredito() {
+  if (!props.client?.hasCredit) return
+  const st = await receivables.fetchCreditStatus(props.client.id)
+  creditStatus.value = st
+  if (st && st.suggestedDays > 0 && !dueDate.value) dueDate.value = ymdEnDias(st.suggestedDays)
+}
+
 const canConfirm = computed(() => {
   if (isProcessing.value) return false
   if (sobrepagada.value) return false
   if (pagoCubierto.value) return true
   // A crédito sólo se carga lo que queda DESPUÉS del abono inicial (así lo
   // valida el servidor al cerrar): exigir el total bloqueaba ventas válidas.
-  if (onCredit.value) return alcanza(creditAvailable.value, montoACredito.value)
+  if (onCredit.value) {
+    if (creditoBloqueado.value || dueDateError.value) return false
+    return alcanza(creditAvailable.value, montoACredito.value)
+  }
   if (method.value === 'CASH') return alcanza(received.value ?? 0, totalDue.value)
   return true // tarjeta/transferencia: se asume monto exacto
 })
@@ -116,14 +144,18 @@ async function confirm() {
       if (!ok) return
     }
 
-    const completed = await sales.completeSale()
+    // Con crédito se manda siempre la decisión: la fecha o null (sin fecha).
+    const completed = await sales.completeSale(onCredit.value ? { dueDate: dueDate.value || null } : {})
     if (completed) emit('completed', completed)
   } finally {
     isProcessing.value = false
   }
 }
 
-onMounted(() => nextTick(() => cashInput.value?.focus()))
+onMounted(() => {
+  nextTick(() => cashInput.value?.focus())
+  void cargarEstadoCredito()
+})
 </script>
 
 <template>
@@ -257,6 +289,59 @@ onMounted(() => nextTick(() => cashInput.value?.focus()))
           <p v-if="!alcanza(creditAvailable, montoACredito)" class="mt-1 px-1 text-xs text-error-600 dark:text-error-400">
             El crédito disponible no alcanza. Aumenta el abono a por lo menos {{ formatCurrency(sumar(restar(montoACredito, creditAvailable), received ?? 0)) }}.
           </p>
+
+          <!-- Saldo vencido del cliente -->
+          <div
+            v-if="creditStatus && Number(creditStatus.overdue) > 0"
+            class="mt-3 flex gap-2 rounded-xl px-3 py-2.5 text-xs"
+            :class="creditoBloqueado ? 'bg-error-50 text-error-800 dark:bg-error-900/20 dark:text-error-200' : 'bg-warning-50 text-warning-900 dark:bg-warning-900/20 dark:text-warning-200'"
+            role="alert"
+            data-testid="pos-credit-overdue"
+          >
+            <Icon name="ph:warning-circle-bold" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Tiene <strong>{{ formatCurrency(Number(creditStatus.overdue)) }}</strong> vencido ({{ creditStatus.overdueCount }} {{ creditStatus.overdueCount === 1 ? 'venta' : 'ventas' }}, la más atrasada {{ creditStatus.maxDaysOverdue }} días).
+              <template v-if="creditoBloqueado"> La configuración no permite crédito nuevo: cobra esta venta completa.</template>
+            </span>
+          </div>
+
+          <!-- Fecha de pago: opcional -->
+          <div class="mt-4" data-testid="pos-credit-due">
+            <div class="mb-1.5 flex items-baseline justify-between gap-2">
+              <label for="posDueDate" class="text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de pago <span class="font-normal text-gray-400">(opcional)</span></label>
+              <span v-if="origenSugerencia" class="text-[11px] text-gray-500 dark:text-gray-400">Sugerida: {{ origenSugerencia }}</span>
+            </div>
+            <input
+              id="posDueDate"
+              v-model="dueDate"
+              type="date"
+              :min="hoy"
+              class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-base text-gray-900 outline-none focus:ring-2 focus:ring-warning-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+              :aria-invalid="!!dueDateError"
+              data-testid="pos-due-date"
+            />
+            <div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Plazos rápidos">
+              <button
+                v-for="d in PLAZOS"
+                :key="d"
+                type="button"
+                class="rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors"
+                :class="dueDate === ymdEnDias(d) ? 'border-warning-500 bg-warning-50 text-warning-800 dark:bg-warning-900/20 dark:text-warning-300' : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300'"
+                @click="dueDate = ymdEnDias(d)"
+              >{{ d }} días</button>
+              <button
+                type="button"
+                class="rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors"
+                :class="!dueDate ? 'border-gray-500 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100' : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300'"
+                data-testid="pos-due-none"
+                @click="dueDate = ''"
+              >Sin fecha</button>
+            </div>
+            <p v-if="dueDateError" class="mt-1 px-1 text-xs text-error-600 dark:text-error-400" role="alert">{{ dueDateError }}</p>
+            <p v-else class="mt-1.5 px-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ dueDate ? `Vence el ${fechaCorta(dueDate)}. En Cobranza se avisará antes de esa fecha.` : 'Sin fecha: en Cobranza se ordena por antigüedad de la venta.' }}
+            </p>
+          </div>
         </div>
 
         </template>

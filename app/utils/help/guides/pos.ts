@@ -34,7 +34,7 @@ export const pos: HelpGuide = {
           items: [
             '**Escanea** el código: el producto se agrega solo.',
             '**Varias piezas iguales**: escribe la cantidad y un asterisco, por ejemplo `3*`, y luego escanea. Máximo 999 por vez.',
-            '**Sin código**: pulsa `F3` o **Buscar**, escribe al menos 2 letras del nombre o del SKU y elige. Los que dicen «Sin stock» no se pueden elegir.',
+            '**Sin código**: pulsa `F3` o **Buscar**, escribe al menos 2 letras del nombre, del SKU o parte del código de barras y elige. Los que dicen «Sin stock» no se pueden elegir.',
             '**Cambiar cantidad**: usa los botones **+** y **−** de cada renglón. El bote de basura quita el producto.',
           ],
         },
@@ -43,7 +43,7 @@ export const pos: HelpGuide = {
           type: 'list',
           items: [
             '`F2` Cobrar.',
-            '`F3` Buscar un producto por nombre o SKU.',
+            '`F3` Buscar un producto por nombre, SKU o código de barras.',
             '`F4` Elegir cliente.',
             '`F9` Descartar la venta (pide confirmación).',
             '`Esc` Cerrar la ventana abierta y volver al escáner.',
@@ -143,6 +143,8 @@ export const pos: HelpGuide = {
         { type: 'tip', icon: 'ph:keyboard-bold', text: 'En «Efectivo recibido», `Enter` también cobra si lo recibido alcanza. No deja cobrar si te dieron menos del total.' },
         { type: 'warn', text: 'Con **Tarjeta** o **Transferencia** se registra el total exacto. Pulsa **Cobrar** sólo cuando la terminal o el banco ya confirmaron el pago.' },
         { type: 'p', text: '**A crédito** (sólo clientes con crédito autorizado): pulsa **Cargar a crédito**. Verás el crédito «Disponible». Si deja algo a cuenta, escríbelo en «Abono inicial (opcional)»: se registra como efectivo. A crédito sólo se carga lo que queda después del abono: la línea «Se carga a crédito» te dice cuánto, y si el disponible no alcanza te indica el abono mínimo.' },
+        { type: 'p', text: '**Fecha de pago (opcional)**: viene propuesta con los días de crédito del cliente. Cámbiala, toca **7 / 15 / 30 días** o pulsa **Sin fecha**. Con fecha, la venta aparece en **Cobranza** como «por vencer» antes de ese día y como vencida después.' },
+        { type: 'warn', text: 'Si el cliente ya debe algo vencido, aparece un aviso al elegirlo y al cargar a crédito. Si gerencia activó **No permitir crédito nuevo**, esa venta se tiene que cobrar completa.' },
         { type: 'tip', icon: 'ph:shield-check-bold', text: 'Si se cae la red a mitad del cobro y vuelves a pulsar **Cobrar**, el sistema reconoce que es el mismo pago: no se cobra dos veces.' },
       ],
     },
@@ -161,6 +163,7 @@ export const pos: HelpGuide = {
       title: 'Ticket, nota de remisión y PDF',
       icon: 'ph:receipt-bold',
       blocks: [
+        { type: 'p', text: 'Mientras capturas, a la derecha ves **cómo va el ticket** (marca «PREVIEW»). Si no cabe completo en tu pantalla, desplázalo o pulsa **Ver ticket completo**.' },
         { type: 'p', text: 'Al cobrar aparece «Venta cobrada» con su folio y el ticket en pantalla.' },
         {
           type: 'list',

@@ -219,7 +219,20 @@
                 </div>
               </td>
 
-              <td class="px-4 py-4 text-right">
+              <td class="px-4 py-4 text-right whitespace-nowrap">
+                <!-- Anulada: volver a vender sin abrir el detalle. -->
+                <button
+                  v-if="venta.flowStatus === 'CANCELLED' && authStore.can('canSell')"
+                  type="button"
+                  class="mr-1 inline-flex items-center justify-center rounded-lg bg-primary-50 p-2 text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-50 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50"
+                  title="Volver a vender: la arma en el punto de venta con los precios y existencias de hoy"
+                  :aria-label="`Volver a vender ${venta.invoiceNumber || '#' + venta.id}`"
+                  :disabled="pos.isBootstrapping"
+                  data-testid="sales-row-reorder"
+                  @click.stop="revender(venta)"
+                >
+                  <Icon name="ph:arrow-clockwise-bold" class="h-5 w-5" />
+                </button>
                 <NuxtLink
                   :to="`/sales/${venta.id}`"
                   class="inline-flex items-center justify-center p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
@@ -274,7 +287,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useSalesHistoryStore } from '~/stores/salesHistory'
-import type { Sale } from '~/stores/sales'
+import { useSalesStore, type Sale } from '~/stores/sales'
 import { useAuthStore } from '~/stores/auth'
 import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
@@ -290,6 +303,13 @@ const { formatCurrency } = useCurrency()
 const { formatDateTime } = useDate()
 
 const hayFiltros = computed(() => Object.values(store.filters).some((v) => v !== ''))
+
+/** Volver a vender una anulada: queda como carrito del punto de venta. */
+const pos = useSalesStore()
+async function revender(venta: { id: number; invoiceNumber?: string | null }) {
+  const r = await pos.reorderFrom(venta.id, venta.invoiceNumber || `#${venta.id}`)
+  if (r) await navigateTo('/pos')
+}
 
 const buscar = () => store.fetchSales(1)
 

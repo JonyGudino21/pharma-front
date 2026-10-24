@@ -90,7 +90,7 @@ function printTest() {
     <!-- Ranura y papel -->
     <div class="relative px-2 pb-8 pt-5 sm:px-4">
       <div class="mx-auto h-2 max-w-[92%] rounded-full bg-black/60 shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)]" aria-hidden="true" />
-      <div class="-mt-1 flex max-h-[62vh] justify-center overflow-auto overscroll-contain px-1 pt-1">
+      <div class="-mt-1 flex max-h-[62vh] justify-center overflow-y-auto overflow-x-hidden overscroll-contain px-1 pt-1 [container-type:inline-size]">
         <!-- :key reinicia la animación de salida del papel al cambiar el ancho -->
         <ThermalPreview v-if="modo === 'thermal'" :key="`t-${receipt.columns}`" :receipt="receipt" />
         <div v-else class="pt-3">
