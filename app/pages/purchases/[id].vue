@@ -14,6 +14,16 @@
           <span class="hidden sm:inline">•</span>
           <span class="inline-flex items-center"><Icon name="ph:calendar-blank-bold" class="mr-1" /> {{ formatDateTime(purchase.createdAt) }}</span>
         </p>
+        <!-- Fecha límite de pago al proveedor (ADR-0029). -->
+        <div v-if="!isCancelled" class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="purchase-due">
+          <span class="text-gray-500 dark:text-gray-400">Pagar a más tardar:</span>
+          <strong class="text-gray-900 dark:text-white">{{ purchase.dueDate ? fechaCorta(purchase.dueDate) : 'sin fecha' }}</strong>
+          <CreditStatusChip v-if="Number(purchase.balance) > 0 && purchase.dueDate" v-bind="situacionPago" />
+          <span v-else-if="Number(purchase.balance) <= 0" class="text-xs font-semibold text-success-600 dark:text-success-400">Pagada</span>
+          <button v-if="canManage && Number(purchase.balance) > 0" type="button" class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-900/30" data-testid="purchase-edit-due" @click="showDueModal = true">
+            <Icon name="ph:pencil-simple-bold" /> Cambiar
+          </button>
+        </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-2 sm:gap-3 sm:shrink-0">
@@ -176,6 +186,16 @@
     </div>
 
     <PaymentModal v-model="showPaymentModal" :purchase-id="purchase.id" :balance="purchase.balance" />
+    <DueDateModal
+      :open="showDueModal"
+      :folio="purchase.invoiceNumber"
+      :client-name="purchase.supplier?.name ?? ''"
+      :balance="String(purchase.balance)"
+      :current="purchase.dueDate ? purchase.dueDate.slice(0, 10) : null"
+      :saving="purchaseStore.isActionLoading"
+      @close="showDueModal = false"
+      @save="guardarFechaPago"
+    />
     <PurchaseItemModal v-model="showItemModal" :purchase-id="purchase.id" :item-to-edit="selectedItem" />
 
     <ConfirmModal
@@ -229,6 +249,9 @@ import { useToast } from '~/composables/useToast'
 import PaymentModal from '~/components/purchases/PaymentModal.vue'
 import PurchaseItemModal from '~/components/purchases/PurchaseItemModal.vue'
 import ConfirmModal from '~/components/shared/ConfirmModal.vue'
+import DueDateModal from '~/components/credit/DueDateModal.vue'
+import CreditStatusChip from '~/components/credit/CreditStatusChip.vue'
+import { estadoDe, fechaCorta, ymdEnDias } from '~/utils/credit-status'
 import { useAuthStore } from '~/stores/auth'
 
 // Ver el detalle basta con poder ver compras (el listado enlaza aquí para todo
@@ -260,6 +283,21 @@ onMounted(load)
 const isCancelled = computed(() => purchase.value?.status === 'CANCELLED')
 const isReceived = computed(() => purchase.value?.deliveryStatus === 'RECEIVED')
 const canEditItems = computed(() => canManage.value && !isCancelled.value && !isReceived.value)
+
+// Fecha límite de pago (ADR-0029)
+const showDueModal = ref(false)
+const hoyFarmacia = ymdEnDias(0)
+const situacionPago = computed(() => estadoDe(purchase.value?.dueDate ?? null, hoyFarmacia, 7))
+async function guardarFechaPago(dueDate: string | null) {
+  if (!purchase.value) return
+  try {
+    await purchaseStore.updatePurchase(purchase.value.id, { dueDate })
+    toast.success(dueDate ? `Fecha límite de pago: ${fechaCorta(dueDate)}.` : 'La compra quedó sin fecha de pago.')
+    showDueModal.value = false
+  } catch {
+    // El interceptor ya mostró el motivo.
+  }
+}
 
 // Estado de Modales
 const showPaymentModal = ref(false)

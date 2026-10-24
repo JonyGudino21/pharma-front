@@ -11,6 +11,7 @@ import { useUpdateHold } from '~/composables/useAppUpdate'
 import { useConnectivity } from '~/composables/useConnectivity'
 import PosCart from '~/components/pos/PosCart.vue'
 import PosReorderNotice from '~/components/pos/PosReorderNotice.vue'
+import { useReceivablesStore, type ClientCreditStatus } from '~/stores/receivables'
 import PosSearchModal from '~/components/pos/PosSearchModal.vue'
 import PosClientModal from '~/components/pos/PosClientModal.vue'
 import PosPaymentModal from '~/components/pos/PosPaymentModal.vue'
@@ -182,6 +183,18 @@ function closeTicketPeek() {
   showTicketPeek.value = false
   focusScanner()
 }
+
+// Saldo vencido del cliente elegido (ADR-0029): se consulta al elegirlo.
+const receivables = useReceivablesStore()
+const overdueNotice = ref<ClientCreditStatus | null>(null)
+watch(() => selectedClient.value?.id, async (id) => {
+  overdueNotice.value = null
+  if (!id || !selectedClient.value?.hasCredit) return
+  const st = await receivables.fetchCreditStatus(id)
+  // El cajero pudo cambiar de cliente mientras se consultaba.
+  if (selectedClient.value?.id !== id || !st) return
+  if (Number(st.overdue) > 0 && (st.warnAtPos || st.blocksCredit)) overdueNotice.value = st
+}, { immediate: true })
 
 const anyModalOpen = computed(() => showTicketPeek.value || !!priceTarget.value || confirmDiscard.value || showSearch.value || showClient.value || showPayment.value || showReceipt.value || showRemission.value || showPrescription.value || !!discountTarget.value)
 const busy = computed(() => isMutating.value || isBootstrapping.value)
@@ -548,6 +561,21 @@ onMounted(async () => {
             <Icon v-if="canChangeClient" name="ph:caret-right-bold" class="w-4 h-4 shrink-0 text-gray-400" />
             <Icon v-else name="ph:lock-simple-bold" class="w-4 h-4 shrink-0 text-gray-400" />
           </button>
+
+          <!-- Saldo vencido del cliente elegido (Configuración › Crédito). -->
+          <p
+            v-if="overdueNotice"
+            class="flex items-start gap-2 rounded-xl px-3 py-2 text-xs"
+            :class="overdueNotice.blocksCredit ? 'bg-error-50 text-error-800 dark:bg-error-900/20 dark:text-error-200' : 'bg-warning-50 text-warning-900 dark:bg-warning-900/20 dark:text-warning-200'"
+            role="status"
+            data-testid="pos-client-overdue"
+          >
+            <Icon name="ph:warning-circle-bold" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Debe <strong>{{ formatCurrency(Number(overdueNotice.overdue)) }}</strong> vencido (la venta más atrasada, {{ overdueNotice.maxDaysOverdue }} días).
+              {{ overdueNotice.blocksCredit ? 'No se le puede cargar a crédito: esta venta se cobra completa.' : 'Buen momento para cobrarlo.' }}
+            </span>
+          </p>
 
           <!-- Receta de controlados: visible y corregible antes de cobrar. -->
           <button

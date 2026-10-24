@@ -33,6 +33,7 @@ export const compras: HelpGuide = {
           items: [
             'Entra a **Compras** y pulsa **Nueva Orden**.',
             'En **Proveedor** elige a quién le compraste. Si no aparece, primero dalo de alta en **Proveedores**.',
+            'En **Fecha límite de pago** (opcional) queda propuesta la fecha con los días de crédito del proveedor. Cámbiala, toca 15 / 30 / 45 días o pulsa **Sin fecha**. En el detalle de la compra la puedes cambiar con **Cambiar**.',
             'En **Folio de Factura / Ticket** escribe el folio que trae su factura o ticket. Si el proveedor no te dio folio, toca el **folio sugerido** que aparece debajo (por ejemplo, «FAC-001-ALV-20261023») o deja el campo vacío: se guarda con ese mismo.',
             'En **Agregar producto** escanea el código de barras o escribe el nombre o el SKU. Con el lector, el producto se agrega solo; si escribes, elige de la lista. Arriba a la derecha puedes buscar sólo por **Nombre** o sólo por **Código**.',
             'En cada renglón ajusta **Cant.** y **Costo Unit.** (el costo que te cobró el proveedor). Captura **Lote** y **Caducidad** si los tienes.',

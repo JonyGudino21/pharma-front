@@ -374,7 +374,18 @@ const menuItems = computed(() => {
     // `canViewPurchases`: el farmacéutico veía el enlace, hacía clic y recibía
     // "Acceso denegado". Un menú que ofrece lo que no deja usar se siente roto.
     { name: 'Proveedores', path: '/suppliers', icon: 'ph:handshake-bold', show: authStore.can('canManageSuppliers') },
-    { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
+    // Con permiso de cobranza, Clientes se abre en Directorio y Cobranza.
+    authStore.can('canViewDebtors')
+      ? {
+          name: 'Clientes',
+          icon: 'ph:users-bold',
+          show: authStore.can('canViewClients'),
+          children: [
+            { name: 'Directorio', path: '/clients' },
+            { name: 'Cobranza', path: '/clients/debtors' },
+          ],
+        }
+      : { name: 'Clientes', path: '/clients', icon: 'ph:users-bold', show: authStore.can('canViewClients') },
     // Usuarios vive en Configuración (junto a Permisos); el acceso directo se
     // conserva porque es de las pantallas que más abre el administrador.
     { name: 'Usuarios', path: '/settings/users', icon: 'ph:shield-star-bold', show: authStore.can('canManageUsers') },

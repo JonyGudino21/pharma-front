@@ -143,6 +143,8 @@ export const pos: HelpGuide = {
         { type: 'tip', icon: 'ph:keyboard-bold', text: 'En «Efectivo recibido», `Enter` también cobra si lo recibido alcanza. No deja cobrar si te dieron menos del total.' },
         { type: 'warn', text: 'Con **Tarjeta** o **Transferencia** se registra el total exacto. Pulsa **Cobrar** sólo cuando la terminal o el banco ya confirmaron el pago.' },
         { type: 'p', text: '**A crédito** (sólo clientes con crédito autorizado): pulsa **Cargar a crédito**. Verás el crédito «Disponible». Si deja algo a cuenta, escríbelo en «Abono inicial (opcional)»: se registra como efectivo. A crédito sólo se carga lo que queda después del abono: la línea «Se carga a crédito» te dice cuánto, y si el disponible no alcanza te indica el abono mínimo.' },
+        { type: 'p', text: '**Fecha de pago (opcional)**: viene propuesta con los días de crédito del cliente. Cámbiala, toca **7 / 15 / 30 días** o pulsa **Sin fecha**. Con fecha, la venta aparece en **Cobranza** como «por vencer» antes de ese día y como vencida después.' },
+        { type: 'warn', text: 'Si el cliente ya debe algo vencido, aparece un aviso al elegirlo y al cargar a crédito. Si gerencia activó **No permitir crédito nuevo**, esa venta se tiene que cobrar completa.' },
         { type: 'tip', icon: 'ph:shield-check-bold', text: 'Si se cae la red a mitad del cobro y vuelves a pulsar **Cobrar**, el sistema reconoce que es el mismo pago: no se cobra dos veces.' },
       ],
     },

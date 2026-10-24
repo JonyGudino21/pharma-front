@@ -131,6 +131,14 @@
         </div>
       </div>
 
+      <!-- Cobrar y pagar (ADR-0029): no dependen del periodo elegido, son el saldo de hoy. -->
+      <h2 class="text-lg font-bold text-gray-900 dark:text-white mt-8 mb-1">Cobrar y pagar</h2>
+      <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Saldos de hoy: qué está vencido y qué vence pronto.</p>
+      <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+        <ReceivablesWidget />
+        <PayablesWidget />
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-6 sm:mt-8">
         <div class="min-w-0 bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           <h3 class="text-base font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">Ventas por Método de Pago</h3>
@@ -167,6 +175,8 @@ import { useCurrency } from '~/composables/useCurrency'
 import { useDate } from '~/composables/useDate'
 import { useColorMode } from '#imports'
 import { paymentMethodLabel } from '~/types/receipt'
+import ReceivablesWidget from '~/components/dashboard/ReceivablesWidget.vue'
+import PayablesWidget from '~/components/dashboard/PayablesWidget.vue'
 
 const analyticsStore = useAnalyticsStore()
 const authStore = useAuthStore()

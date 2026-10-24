@@ -94,3 +94,9 @@
 - **Folio:** opcional. Al elegir proveedor se pide `GET /purchase/suggest-folio` y se muestra como
   sugerencia (un clic lo usa); vacío → el servidor guarda el sugerido. Folio repetido del mismo
   proveedor → 409 con la compra existente.
+
+## Fecha límite de pago (v1.6, ADR-0029)
+
+- Alta: `suggestFolio` ahora devuelve también `creditDays` y `suggestedDueDate`; la fecha se propone
+  mientras el usuario no la toque y se envía siempre (`dueDate` o `null`).
+- Detalle: «Pagar a más tardar» con su situación y **Cambiar** (`DueDateModal` → `PATCH /purchase/:id`).

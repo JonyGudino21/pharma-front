@@ -6,6 +6,18 @@ etiquetan `vX.Y.Z` en `main`; el historial anterior a este archivo está en `git
 
 ## [Sin publicar]
 
+### Cobranza y días de crédito (23/10/2026, v1.6.0)
+
+- **Clientes › Cobranza** (antes Deudores, misma ruta): total por cobrar, **termómetro de
+  antigüedad** (`components/credit/AgingThermometer.vue`), pestañas Por cliente / Ventas por cobrar,
+  fecha de pago editable (`DueDateModal`). Entrada en el menú Clientes. ADR-0029.
+- **Panel:** `ReceivablesWidget` y `PayablesWidget` (Cobrar y pagar).
+- **Caja:** fecha de pago opcional al cargar a crédito y aviso de saldo vencido al elegir cliente.
+- **Compras:** fecha límite de pago (propuesta con los días del proveedor) y edición en el detalle.
+- **Cliente:** «Días para pagar» en Configurar crédito; fecha de pago y situación en el estado de cuenta.
+- **Configuración › Crédito** (`pages/settings/credit.vue`).
+- Ayuda: Clientes (cobranza, fecha de pago), Panel, Punto de venta, Compras, Proveedores, Configuración.
+
 ### Ventas y compras más rápidas (23/10/2026, v1.5.0)
 
 - **Compras · buscador nuevo** (`PurchaseProductPicker`): nombre, SKU y código de barras; modos

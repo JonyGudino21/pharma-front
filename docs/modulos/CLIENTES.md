@@ -74,3 +74,16 @@ Toast del interceptor; el estado de cuenta muestra error explícito con reintent
 - El POS pide el **cliente completo** (`/client/:id`) al recuperar un borrador: la venta sólo
   trae datos de facturación y sin `hasCredit`/`creditLimit`/`currentDebt` el crédito disponible
   se calculaba mal.
+
+## Cobranza y días de crédito (v1.6, ADR-0029)
+
+- `/clients/debtors` es ahora **Cobranza** (`canViewDebtors`). Datos: `useReceivablesStore().fetchReceivables()`
+  → `GET /client/receivables`. El servidor manda las ventas en orden de cobro; la pantalla sólo filtra
+  (situación, columna de antigüedad, cliente).
+- Componentes: `components/credit/AgingThermometer.vue` (barra segmentada; `compact` para el panel),
+  `CreditStatusChip.vue` («Vencida hace 12 días»…), `DueDateModal.vue` (cambiar o quitar la fecha →
+  `PATCH /client/receivables/:saleId/due-date`).
+- Textos y tonos en `utils/credit-status.ts` (con pruebas). La escala de color va de `success` a
+  `error-800`; "sin fecha" en gris.
+- `CreditConfigModal`: `creditDays` opcional (vacío = sin días propios).
+- Estado de cuenta (`/clients/:id`): columna **Fecha de pago** con la situación de cada venta con saldo.
